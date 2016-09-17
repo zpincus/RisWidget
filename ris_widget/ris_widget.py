@@ -386,7 +386,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
     @property
     def image(self):
-        """rw.image: A Convenience property exactly equivalent to rw.layer.image, and equivalent to 
+        """rw.image: A Convenience property exactly equivalent to rw.layer.image, and equivalent to
         rw.layer_stack[0].image with a minor difference: if len(rw.layer_stack) == 0, a query of rw.image
         returns None rather than raising an exception, and an assignment to it in this scenario is
         equivalent to rw.layer_stack.insert(0, Layer(v))."""
@@ -606,6 +606,16 @@ class RisWidget:
         global AUTO_CREATED_QAPPLICATION
         if Qt.QApplication.instance() is None:
             AUTO_CREATED_QAPPLICATION = Qt.QApplication(sys.argv)
+
+            # are we running in IPython? If so, turn on the GUI integration
+            try:
+                import IPython
+                ip = IPython.get_ipython() # only not None if IPython is currently running
+            except:
+                ip = None
+            if ip is not None:
+                ip.enable_gui('qt5')
+
         self.qt_object = self.QT_OBJECT_CLASS(
             app_prefs_name=self.APP_PREFS_NAME,
             app_prefs_version=self.APP_PREFS_VERSION,
