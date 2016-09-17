@@ -415,8 +415,15 @@ class LayerStackItem(ShaderItem):
                 min_max = self._normalize_for_gl(min_max, image)
                 tidxstr = str(tidx)
                 prog.setUniformValue('tex_'+tidxstr, tidx)
-                prog.setUniformValue('rescale_min_'+tidxstr, min_max[0])
-                prog.setUniformValue('rescale_range_'+tidxstr, min_max[1] - min_max[0])
+                rescale_min = min_max[0]
+                rescale_range = min_max[1] - min_max[0]
+                if rescale_range == 0:
+                    # make it so same-color images appear pure white if values
+                    # are > 0, and black otherwise.
+                    rescale_min = 0
+                    rescale_range = max(0, min_max[0])
+                prog.setUniformValue('rescale_min_'+tidxstr, rescale_min)
+                prog.setUniformValue('rescale_range_'+tidxstr, rescale_range)
                 prog.setUniformValue('gamma_'+tidxstr, layer.gamma)
                 prog.setUniformValue('tint_'+tidxstr, Qt.QVector4D(*layer.tint))
             self.set_blend(estack)
