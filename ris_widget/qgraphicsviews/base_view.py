@@ -48,7 +48,7 @@ class BaseView(Qt.QGraphicsView):
         self._background_color = (0.0, 0.0, 0.0)
         gl_widget = _ShaderViewGLViewport(self)
         # It seems necessary to retain this reference.  It is available via self.viewport() after
-        # the setViewport call completes, suggesting that PyQt keeps a reference to it, but this 
+        # the setViewport call completes, suggesting that PyQt keeps a reference to it, but this
         # reference is evidentally weak or perhaps just a pointer.
         self.gl_widget = gl_widget
         self.setViewport(gl_widget)
@@ -155,7 +155,7 @@ class BaseView(Qt.QGraphicsView):
             fbo = Qt.QOpenGLFramebufferObject(size, fbo_format)
             fbo.bind()
             estack.callback(fbo.release)
-            GL.glClearColor(*self._background_color)
+            GL.glClearColor(*self._background_color, 1.0)
             GL.glClearDepth(1)
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             glpd = Qt.QOpenGLPaintDevice(size)
@@ -203,7 +203,7 @@ class _ShaderViewGLViewport(Qt.QOpenGLWidget):
         if e.type() == 215:
             # QEvent::WindowChangeInternal, an enum value equal to 215, is used internally by Qt and is not exposed by
             # PyQt5 (there is no Qt.QEvent.WindowChangeInternal, but simply comparing against the value it would have
-            # works).  Upon receipt of a WindowChangeInternal event, QOpenGLWidget releases its C++ smart pointer 
+            # works).  Upon receipt of a WindowChangeInternal event, QOpenGLWidget releases its C++ smart pointer
             # reference to its context, causing the smart pointer's atomic reference counter to decrement.  If the count
             # has reached 0, the context is destroyed, and this is typically the case - but not always, and there is
             # no way to ensure that it will be in any particular instance (the atomic counter value could be incremented
@@ -211,7 +211,7 @@ class _ShaderViewGLViewport(Qt.QOpenGLWidget):
             # can't know if it ought to make the context current before releasing the context's smart pointer, although
             # doing so would enable cleanup of GL resources.  Furthermore, QContext's destructor can not make itself
             # current - doing so requires a QSurface, and QContext has no knowledge of any QSurface instances.
-            # 
+            #
             # So, to get around all this nonsense, we intercept the WindowChangeInternal event, make our context current,
             # emit the context_about_to_change signal to cause any cleanup that requires the old context to be current,
             # make no context current, and then, finally, we allow QOpenGLWidget to respond to the event.
