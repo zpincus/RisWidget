@@ -22,12 +22,16 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from abc import ABCMeta
 from collections.abc import MutableSequence
 from PyQt5 import Qt
 import textwrap
 
-class _QtAbcMeta(Qt.pyqtWrapperType, ABCMeta):
+class _QtAbcMeta(type(Qt.QObject), type(MutableSequence)):
+    # for SignalingList below to inherit from QObject and MutableSequence,
+    # it has to have a metaclass that is the superset of the metaclasses for
+    # QObject and MutableSequence. Using type above is the simplest way to grab
+    # these, even if the specific metaclass changes (as it does from time to
+    # time in pyQt.)
     pass
 
 class SignalingList(Qt.QObject, MutableSequence, metaclass=_QtAbcMeta):

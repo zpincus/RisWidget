@@ -468,7 +468,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
                 Qt.QMessageBox.information(self, self.windowTitle() + ' Snapshot Error', e)
             else:
                 if sys.platform == 'darwin':
-                    # With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
+                    # TODO: With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
                     # active, the OS X native modal file save dialog ends up being dismissed just as it appears.  This
                     # can be avoided by using Qt's own reasonably good save dialog.  This will probably eventually be
                     # fixed by the IPython developers, at which point this if clause may be deleted with the contents
@@ -491,7 +491,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
     def _on_save_layer_property_stack(self):
         if sys.platform == 'darwin':
-            # With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
+            # TODO: With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
             # active, the OS X native modal file save dialog ends up being dismissed just as it appears.  This
             # can be avoided by using Qt's own reasonably good save dialog.  This will probably eventually be
             # fixed by the IPython developers, at which point this if clause may be deleted with the contents
@@ -520,7 +520,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
     def _on_load_layer_property_stack(self):
         if sys.platform == 'darwin':
-            # With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
+            # TODO: With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
             # active, the OS X native modal file save dialog ends up being dismissed just as it appears.  This
             # can be avoided by using Qt's own reasonably good save dialog.  This will probably eventually be
             # fixed by the IPython developers, at which point this if clause may be deleted with the contents
