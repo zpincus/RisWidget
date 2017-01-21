@@ -396,6 +396,10 @@ class Flipbook(Qt.QWidget):
                 run_start_idx = idx
                 run_length = 1
         m.removeRows(run_start_idx, run_length)
+        # re-select the next page after the deleted ones, or the prev page if that's all that's left
+        pages_left = len(self.pages)
+        if pages_left > 0:
+            self.focused_page_idx = min(run_start_idx, pages_left-1)
 
     def merge_selected(self):
         """The contents of the currently selected pages (by ascending index order in .pages
