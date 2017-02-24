@@ -126,6 +126,8 @@ class _AsyncTextureUploadThread(Qt.QThread):
         super().__init__()
         self.texture_cache = texture_cache
         self.offscreen_surface = offscreen_surface
+        self.running = True
+        self.start()
 
     def run(self):
         gl_context = Qt.QOpenGLContext()
@@ -138,12 +140,13 @@ class _AsyncTextureUploadThread(Qt.QThread):
         OpenGL.GL.ARB.texture_float.glInitTextureFloatARB()
         PyGL.glPixelStorei(PyGL.GL_UNPACK_ALIGNMENT, 1)
         texture_cache = self.texture_cache
-        async_texture_bottle = texture_cache.work_queue.get()
         try:
-            while async_texture_bottle is not None:
+            while self.running:
+                async_texture_bottle = texture_cache.work_queue.get()
                 async_texture = async_texture_bottle.async_texture_wr()
                 if async_texture is not None:
-                    assert async_texture._state == AsyncTextureState.Uploading and async_texture.tex is None
+                    assert async_texture._state == AsyncTextureState.Uploading
+                    assert async_texture.tex is None
                     if Qt.QThread.currentThread() is not gl_context.thread():
                         warnings.warn(
                             '_AsyncTextureUploadThread somehow managed to have its gl_context migrate to another thread, which '
@@ -174,7 +177,6 @@ class _AsyncTextureUploadThread(Qt.QThread):
                         with async_texture.state_cv:
                             async_texture._state = AsyncTextureState.UploadFailed
                             async_texture.state_cv.notify_all()
-                async_texture_bottle = texture_cache.work_queue.get()
             self.texture_cache = None
         finally:
             gl_context.doneCurrent()
@@ -228,7 +230,6 @@ class _TextureCache(Qt.QObject):
             offscreen_surface.setFormat(glsf)
             offscreen_surface.create()
             upload_thread = _AsyncTextureUploadThread(self, offscreen_surface)
-            upload_thread.start()
             self.async_texture_upload_threads.append(upload_thread)
         Qt.QApplication.instance().aboutToQuit.connect(self.shut_down)
 
@@ -261,7 +262,10 @@ class _TextureCache(Qt.QObject):
 
     def upload(self, async_texture):
         # assert async_texture.bottle not in self.work_queue.queue
-        self.work_queue.put(async_texture.bottle)
+        if async_texture.bottle in self.work_queue.queue:
+            print('Double-add caught!')
+        else:
+            self.work_queue.put(async_texture.bottle)
 
     def apply_constraint(self):
         with self.lru_cache_lock:
@@ -363,7 +367,7 @@ class _TextureCache(Qt.QObject):
                 self.lru_cache.clear()
         # Gracefully stop all upload threads
         for thread in self.async_texture_upload_threads:
-            self.work_queue.put(None)
+            thread.running = False
         for thread in self.async_texture_upload_threads:
             thread.wait()
         self.async_texture_upload_threads = []
