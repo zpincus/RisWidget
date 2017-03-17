@@ -126,7 +126,6 @@ class _AsyncTextureUploadThread(Qt.QThread):
         super().__init__()
         self.texture_cache = texture_cache
         self.offscreen_surface = offscreen_surface
-        self.running = True
         self.start()
 
     def run(self):
@@ -141,8 +140,10 @@ class _AsyncTextureUploadThread(Qt.QThread):
         PyGL.glPixelStorei(PyGL.GL_UNPACK_ALIGNMENT, 1)
         texture_cache = self.texture_cache
         try:
-            while self.running:
+            while True:
                 async_texture_bottle = texture_cache.work_queue.get()
+                if async_texture_bottle is None:
+                    break
                 async_texture = async_texture_bottle.async_texture_wr()
                 if async_texture is not None:
                     assert async_texture._state == AsyncTextureState.Uploading
@@ -367,7 +368,7 @@ class _TextureCache(Qt.QObject):
                 self.lru_cache.clear()
         # Gracefully stop all upload threads
         for thread in self.async_texture_upload_threads:
-            thread.running = False
+            self.work_queue.put(None)
         for thread in self.async_texture_upload_threads:
             thread.wait()
         self.async_texture_upload_threads = []

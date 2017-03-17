@@ -28,6 +28,7 @@ sip.setdestroyonexit(True)
 import atexit
 from PyQt5 import Qt
 import sys
+
 from . import async_texture
 from .layer import Layer
 from .layer_stack import LayerList, LayerStack
@@ -42,6 +43,12 @@ from .qgraphicsviews.general_view import GeneralView
 from .qgraphicsscenes.histogram_scene import HistogramScene
 from .qgraphicsviews.histogram_view import HistogramView
 from .shared_resources import GL_QSURFACE_FORMAT, FREEIMAGE, query_gl_exts
+
+# the pyQt input hook starts and quits a QApplication over and over. This plays
+# badly with the RisWidget assumption that the aboutToQuit signal only happens
+# when RisWidget needs to be torn down. So we remove the input hook, and
+# rely on the (better) ipython method.
+Qt.pyqtRemoveInputHook()
 
 if sys.platform == 'darwin':
     class NonTransientScrollbarsStyle(Qt.QProxyStyle):
