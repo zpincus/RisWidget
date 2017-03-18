@@ -29,6 +29,7 @@ import atexit
 from PyQt5 import Qt
 import sys
 
+from . import shared_resources
 from . import async_texture
 from .layer import Layer
 from .layer_stack import LayerList, LayerStack
@@ -42,7 +43,6 @@ from .qgraphicsscenes.general_scene import GeneralScene
 from .qgraphicsviews.general_view import GeneralView
 from .qgraphicsscenes.histogram_scene import HistogramScene
 from .qgraphicsviews.histogram_view import HistogramView
-from .shared_resources import GL_QSURFACE_FORMAT, FREEIMAGE, query_gl_exts
 
 # the pyQt input hook starts and quits a QApplication over and over. This plays
 # badly with the RisWidget assumption that the aboutToQuit signal only happens
@@ -78,18 +78,22 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
     def __init__(
             self,
-            app_prefs_name,
-            app_prefs_version,
+            app_prefs_name=None,
+            app_prefs_version=0,
             window_title='RisWidget',
             parent=None,
             window_flags=Qt.Qt.WindowFlags(0),
-            msaa_sample_count=2,
-            swap_interval=1,
             layers=tuple()):
+
+        shared_resources.create_default_QSurfaceFormat()
+        shared_resources.create_QApplication()
+
         super().__init__(parent, window_flags)
         self.app_prefs_name = app_prefs_name
         self.app_prefs_version = app_prefs_version
         self._shown = False
+        # TODO: is below workaround still necessary?
+        self.resize(self.size()) # QMainWindow on Qt 5.8 doesn't remember user-set size between show/hide unless a resize is explicitly called.
         # TODO: look deeper into opengl buffer swapping order and such to see if we can become compatible with OS X auto-hiding scrollbars
         # rather than needing to disable them
         if sys.platform == 'darwin':
@@ -98,8 +102,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         if window_title is not None:
             self.setWindowTitle(window_title)
         self.setAcceptDrops(True)
-        query_gl_exts()
-        Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT(msaa_sample_count, swap_interval))
+        shared_resources.query_gl_exts()
         async_texture._TextureCache.init()
         self.layer_stack = LayerStack()
         self._init_scenes_and_views()
@@ -224,6 +227,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_table_dock_widget.setFeatures(
             Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
         self.addDockWidget(Qt.Qt.TopDockWidgetArea, self.layer_table_dock_widget)
+        self.layer_table_dock_widget.hide()
         self.fps_display_dock_widget = Qt.QDockWidget('FPS', self)
         self.fps_display = FPSDisplay()
         self.main_scene.layer_stack_item.painted.connect(self.fps_display.notify)
@@ -325,7 +329,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         m.addAction(self.layer_stack.histogram_alternate_column_shading_action)
 
     def showEvent(self, event):
-        if not self._shown:
+        if self.app_prefs_name and not self._shown:
             self._shown = True
             settings = Qt.QSettings("zplab", self.app_prefs_name)
             geometry = settings.value('main_window_geometry')
@@ -336,9 +340,10 @@ class RisWidgetQtObject(Qt.QMainWindow):
         super().showEvent(event)
 
     def closeEvent(self, event):
-        settings = Qt.QSettings('zplab', self.app_prefs_name)
-        settings.setValue('main_window_geometry', self.saveGeometry())
-        #settings.setValue('main_window_state', self.saveState(self.APP_PREFS_VERSION))
+        if self.app_prefs_name:
+            settings = Qt.QSettings('zplab', self.app_prefs_name)
+            settings.setValue('main_window_geometry', self.saveGeometry())
+            #settings.setValue('main_window_state', self.saveState(self.APP_PREFS_VERSION))
         super().closeEvent(event)
 
     @property
@@ -467,7 +472,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
             layer.auto_min_max_enabled = not layer.auto_min_max_enabled
 
     def _on_main_view_snapshot_action(self):
-        freeimage = FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self, is_read=False)
+        freeimage = shared_resources.FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self, is_read=False)
         if freeimage:
             try:
                 snapshot = self.main_view.snapshot()
@@ -573,8 +578,6 @@ class ProxyProperty(property):
     def __delete__(self, obj):
         self.proxied_property.fdel(getattr(obj, self.owner_name))
 
-AUTO_CREATED_QAPPLICATION = None
-
 class RisWidget:
     """RisWidget: A window for viewing images and image stacks from files and live data sources, containing
     an interactive histogram, list view of loaded images and image stacks, and an extensible graphics view.
@@ -600,37 +603,13 @@ class RisWidget:
     ]
     QT_OBJECT_CLASS = RisWidgetQtObject
 
-    def __init__(
-            self,
-            window_title='RisWidget',
-            parent=None,
-            window_flags=Qt.Qt.WindowFlags(0),
-            msaa_sample_count=2,
-            swap_interval=1,
-            show=True,
-            layers = tuple(),
-            **kw):
-        global AUTO_CREATED_QAPPLICATION
-        if Qt.QApplication.instance() is None:
-            AUTO_CREATED_QAPPLICATION = Qt.QApplication(sys.argv)
-
-            # are we running in IPython? If so, turn on the GUI integration
-            try:
-                import IPython
-                ip = IPython.get_ipython() # only not None if IPython is currently running
-            except:
-                ip = None
-            if ip is not None:
-                ip.enable_gui('qt5')
-
+    def __init__(self, window_title='RisWidget', parent=None, window_flags=Qt.Qt.WindowFlags(0), show=True, layers = tuple(), **kw):
         self.qt_object = self.QT_OBJECT_CLASS(
             app_prefs_name=self.APP_PREFS_NAME,
             app_prefs_version=self.APP_PREFS_VERSION,
             window_title=window_title,
             parent=parent,
             window_flags=window_flags,
-            msaa_sample_count=msaa_sample_count,
-            swap_interval=swap_interval,
             layers=layers,
             **kw)
         self.main_view_change_signal = self.qt_object.main_view_change_signal

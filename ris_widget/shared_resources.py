@@ -22,6 +22,7 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
+import sys
 from contextlib import ExitStack
 import numpy
 from pathlib import Path
@@ -254,28 +255,48 @@ def query_gl_exts():
     except:
         warnings.warn('An error occurred while querying OpenGL extension availability.')
 
-_GL_QSURFACE_FORMAT = None
+MSAA_SAMPLE_COUNT = 2
+SWAP_INTERVAL = 1
+GL_QSURFACE_FORMAT = None
+def create_default_QSurfaceFormat():
+    global GL_QSURFACE_FORMAT
+    if GL_QSURFACE_FORMAT is not None:
+        return
+    GL_QSURFACE_FORMAT = Qt.QSurfaceFormat()
+    GL_QSURFACE_FORMAT.setRenderableType(Qt.QSurfaceFormat.OpenGL)
+    GL_QSURFACE_FORMAT.setVersion(2, 1)
+    GL_QSURFACE_FORMAT.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
+    GL_QSURFACE_FORMAT.setSwapBehavior(Qt.QSurfaceFormat.DoubleBuffer)
+    GL_QSURFACE_FORMAT.setStereo(False)
+    GL_QSURFACE_FORMAT.setSwapInterval(SWAP_INTERVAL)
+    GL_QSURFACE_FORMAT.setSamples(MSAA_SAMPLE_COUNT)
+    if NV_PATH_RENDERING_AVAILABLE:
+        GL_QSURFACE_FORMAT.setStencilBufferSize(4)
+    GL_QSURFACE_FORMAT.setRedBufferSize(8)
+    GL_QSURFACE_FORMAT.setGreenBufferSize(8)
+    GL_QSURFACE_FORMAT.setBlueBufferSize(8)
+    GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
+    Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
 
-def GL_QSURFACE_FORMAT(msaa_sample_count=None, swap_interval=None):
-    global _GL_QSURFACE_FORMAT
-    if _GL_QSURFACE_FORMAT is None:
-        _GL_QSURFACE_FORMAT = Qt.QSurfaceFormat()
-        _GL_QSURFACE_FORMAT.setRenderableType(Qt.QSurfaceFormat.OpenGL)
-        _GL_QSURFACE_FORMAT.setVersion(2, 1)
-        _GL_QSURFACE_FORMAT.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
-        _GL_QSURFACE_FORMAT.setSwapBehavior(Qt.QSurfaceFormat.DoubleBuffer)
-        _GL_QSURFACE_FORMAT.setStereo(False)
-        if swap_interval is not None:
-            _GL_QSURFACE_FORMAT.setSwapInterval(swap_interval)
-        if msaa_sample_count is not None:
-            _GL_QSURFACE_FORMAT.setSamples(msaa_sample_count)
-        if NV_PATH_RENDERING_AVAILABLE:
-            _GL_QSURFACE_FORMAT.setStencilBufferSize(4)
-        _GL_QSURFACE_FORMAT.setRedBufferSize(8)
-        _GL_QSURFACE_FORMAT.setGreenBufferSize(8)
-        _GL_QSURFACE_FORMAT.setBlueBufferSize(8)
-        _GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
-    return _GL_QSURFACE_FORMAT
+
+QAPPLICATION = None
+def create_QApplication():
+    global QAPPLICATION
+    if QAPPLICATION is not None:
+        return
+    instance = Qt.QApplication.instance()
+    if instance is None:
+        QAPPLICATION = Qt.QApplication(sys.argv)
+    else:
+        QAPPLICATION = instance
+    # are we running in IPython? If so, turn on the GUI integration
+    try:
+        import IPython
+        ip = IPython.get_ipython() # only not None if IPython is currently running
+        if ip is not None:
+            ip.enable_gui('qt5')
+    except ModuleNotFoundError:
+        pass
 
 _freeimage = None
 
@@ -374,12 +395,12 @@ class _GlQuad:
         with ExitStack() as estack:
             if Qt.QOpenGLContext.currentContext() is None:
                 offscreen_surface = Qt.QOffscreenSurface()
-                offscreen_surface.setFormat(GL_QSURFACE_FORMAT())
+                offscreen_surface.setFormat(GL_QSURFACE_FORMAT)
                 offscreen_surface.create()
                 gl_context = Qt.QOpenGLContext()
                 if hasattr(Qt.QOpenGLContext, 'globalShareContext'):
                     gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
-                gl_context.setFormat(GL_QSURFACE_FORMAT())
+                gl_context.setFormat(GL_QSURFACE_FORMAT)
                 gl_context.create()
                 gl_context.makeCurrent(offscreen_surface)
                 estack.callback(gl_context.doneCurrent)

@@ -132,7 +132,7 @@ class _AsyncTextureUploadThread(Qt.QThread):
         gl_context = Qt.QOpenGLContext()
         if hasattr(Qt.QOpenGLContext, 'globalShareContext'):
             gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
-        gl_context.setFormat(shared_resources.GL_QSURFACE_FORMAT())
+        gl_context.setFormat(shared_resources.GL_QSURFACE_FORMAT)
         if not gl_context.create():
             raise RuntimeError('Failed to create OpenGL context for background texture upload thread.')
         gl_context.makeCurrent(self.offscreen_surface)
@@ -203,7 +203,7 @@ class _TextureCache(Qt.QObject):
 
     def __init__(self):
         super().__init__()
-        glsf = shared_resources.GL_QSURFACE_FORMAT()
+        glsf = shared_resources.GL_QSURFACE_FORMAT
         if shared_resources.NVX_GPU_MEMORY_INFO_AVAILABLE:
             self._apply_constraint = self._apply_constraint_NV
         else:

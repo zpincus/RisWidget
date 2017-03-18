@@ -27,8 +27,8 @@ import numpy
 import OpenGL
 import OpenGL.GL.ARB.texture_float
 from PyQt5 import Qt
-from ..shared_resources import QGL, GL_LOGGER, GL_QSURFACE_FORMAT
-from ..image import Image
+from .. import shared_resources
+from .. import image
 
 class BaseView(Qt.QGraphicsView):
     """Instances of BaseView and its subclasses have a .viewport_rect_item attribute, which is an instance of
@@ -52,7 +52,7 @@ class BaseView(Qt.QGraphicsView):
         # reference is evidentally weak or perhaps just a pointer.
         self.gl_widget = gl_widget
         self.setViewport(gl_widget)
-        if GL_QSURFACE_FORMAT().samples() > 0:
+        if shared_resources.GL_QSURFACE_FORMAT.samples() > 0:
             self.setRenderHint(Qt.QPainter.Antialiasing)
         self._update_viewport_rect_item()
 
@@ -96,7 +96,7 @@ class BaseView(Qt.QGraphicsView):
 
     def drawBackground(self, p, rect):
         p.beginNativePainting()
-        GL = QGL()
+        GL = shared_resources.QGL()
         GL.glClearColor(*self._background_color, 1.0)
         GL.glClearDepth(1)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
@@ -147,7 +147,7 @@ class BaseView(Qt.QGraphicsView):
                 estack.callback(self.scene().contextual_info_item.show)
             gl_widget.makeCurrent()
             estack.callback(gl_widget.doneCurrent)
-            GL = QGL()
+            GL = shared_resources.QGL()
             fbo_format = Qt.QOpenGLFramebufferObjectFormat()
             fbo_format.setInternalTextureFormat(GL.GL_RGBA8)
             fbo_format.setSamples(msaa_sample_count)
@@ -165,7 +165,7 @@ class BaseView(Qt.QGraphicsView):
             p.setRenderHints(Qt.QPainter.Antialiasing | Qt.QPainter.HighQualityAntialiasing)
             scene.render(p, Qt.QRectF(0,0,size.width(),size.height()), scene_rect)
             qimage = fbo.toImage()
-        return Image.from_qimage(qimage).data
+        return image.Image.from_qimage(qimage).data
 
 class _ShaderViewGLViewport(Qt.QOpenGLWidget):
     context_about_to_change = Qt.pyqtSignal(Qt.QOpenGLWidget)
@@ -173,7 +173,7 @@ class _ShaderViewGLViewport(Qt.QOpenGLWidget):
 
     def __init__(self, view):
         super().__init__()
-        self.setFormat(GL_QSURFACE_FORMAT())
+        self.setFormat(shared_resources.GL_QSURFACE_FORMAT)
         self.view = view
         self.makeCurrent()
         OpenGL.GL.ARB.texture_float.glInitTextureFloatARB()
@@ -188,7 +188,7 @@ class _ShaderViewGLViewport(Qt.QOpenGLWidget):
             return
         with ExitStack() as estack:
             self._check_current(estack)
-            self.logger = GL_LOGGER()
+            self.logger = shared_resources.GL_LOGGER()
 
     def stop_logging(self):
         if not hasattr(self, 'logger'):
