@@ -54,7 +54,7 @@ class GeneralView(BaseView):
         self._custom_zoom = 0
         self.zoom_to_fit_action = Qt.QAction('Zoom to Fit', self)
         self.zoom_to_fit_action.setCheckable(True)
-        self.zoom_to_fit_action.setChecked(False)
+        self.zoom_to_fit_action.setChecked(True)
         self._ignore_zoom_to_fit_action_toggle = False
         self.zoom_to_fit_action.toggled.connect(self.on_zoom_to_fit_action_toggled)
         self.zoom_one_to_one_action = Qt.QAction('1:1 Zoom', self)
@@ -207,6 +207,10 @@ class GeneralView(BaseView):
 
     def on_zoom_to_fit_action_toggled(self):
         if not self._ignore_zoom_to_fit_action_toggle:
+            if not self.zoom_to_fit:
+                # unchecking zoom to fit: return to 100%
+                self._zoom_preset_idx = self._ZOOM_ONE_TO_ONE_PRESET_IDX
+                self._custom_zoom = 0
             self._apply_zoom()
 
     @property

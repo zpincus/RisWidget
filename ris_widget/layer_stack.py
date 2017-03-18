@@ -103,7 +103,7 @@ class LayerStack(Qt.QObject):
         self.auto_min_max_master_on_enabled_action = Qt.QAction(self)
         self.auto_min_max_master_on_enabled_action.setText('Auto Min/Max Master On')
         self.auto_min_max_master_on_enabled_action.setCheckable(True)
-        self.auto_min_max_master_on_enabled_action.setChecked(False)
+        self.auto_min_max_master_on_enabled_action.setChecked(True)
         # From the Qt docs: The triggered signal is emitted when an action is activated by the user; for example, when the user clicks a menu option,
         # toolbar button, or presses an action's shortcut key combination, or when trigger() was called. Notably, it is not emitted when setChecked()
         # or toggle() is called.
