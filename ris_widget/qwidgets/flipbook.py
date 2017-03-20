@@ -134,9 +134,9 @@ class Flipbook(Qt.QWidget):
         l.addWidget(self.pages_view)
         self.pages_model = PagesModel(PageList(), self.pages_view)
         self.pages_model.handle_dropped_files = self._handle_dropped_files
-        self.pages_model.rowsInserted.connect(self._on_model_rows_inserted)
-        self.pages_model.rowsRemoved.connect(self._on_model_reset_or_rows_removed)
-        self.pages_model.modelReset.connect(self._on_model_reset_or_rows_removed)
+        self.pages_model.rowsInserted.connect(self._on_model_change)
+        self.pages_model.rowsRemoved.connect(self._on_model_change)
+        self.pages_model.modelReset.connect(self._on_model_change)
         self.pages_model.rowsInserted.connect(self._on_model_reset_or_rows_inserted_indirect, Qt.Qt.QueuedConnection)
         self.pages_model.modelReset.connect(self._on_model_reset_or_rows_inserted_indirect, Qt.Qt.QueuedConnection)
         self.pages_view.setModel(self.pages_model)
@@ -193,10 +193,11 @@ class Flipbook(Qt.QWidget):
         self.toggle_playing_action.setChecked(False)
         self.toggle_playing_action.setEnabled(False)
         self.toggle_playing_action.toggled.connect(self._on_toggle_play_action_toggled)
+        self.toggle_playing_action.changed.connect(self._on_toggle_play_action_changed)
         self.toggle_playing_button = Qt.QPushButton('\N{BLACK RIGHT-POINTING POINTER}')
         self.toggle_playing_button.setCheckable(True)
         self.toggle_playing_button.setEnabled(False)
-        self.toggle_playing_button.clicked.connect(self._on_toggle_play_button_toggled)
+        self.toggle_playing_button.clicked.connect(self.toggle_playing_action.toggle)
         playbox.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
         playbox.addWidget(self.toggle_playing_button)
         self.fps_editor = Qt.QLineEdit()
@@ -209,7 +210,8 @@ class Flipbook(Qt.QWidget):
         playbox.addWidget(Qt.QLabel('FPS'))
         playbox.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
         l.addLayout(playbox)
-        self.play_timer = Qt.QTimer()
+        self.playback_timer = Qt.QTimer()
+        self.playback_timer.timeout.connect(self.advance_frame)
         self.playback_fps = 50
 
         self._on_page_selection_changed()
@@ -571,20 +573,8 @@ class Flipbook(Qt.QWidget):
                 sm.currentIndex(),
                 Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
 
-    def _on_model_rows_inserted(self):
-        e = len(self.pages) >= 2
-        self.toggle_playing_action.setEnabled(e)
-        self.toggle_playing_button.setEnabled(e)
-
-    def _on_model_reset_or_rows_removed(self):
-        if len(self.pages) < 2:
-            a = self.toggle_playing_action
-            a.setChecked(False)
-            a.setEnabled(False)
-            self.toggle_playing_button.setEnabled(False)
-        else:
-            self.toggle_playing_action.setEnabled(True)
-            self.toggle_playing_button.setEnabled(True)
+    def _on_model_change(self):
+        self.toggle_playing_action.setEnabled(len(self.pages) >= 2)
 
     def _on_model_reset_or_rows_inserted_indirect(self):
         self.pages_view.resizeRowsToContents()
@@ -595,57 +585,45 @@ class Flipbook(Qt.QWidget):
 
     @property
     def playback_fps(self):
-        return 1000/self._play_interval_ms
+        return 1000/self.playback_timer.interval()
 
     @playback_fps.setter
     def playback_fps(self, v):
         if not 1 <= v <= 50:
             raise ValueError('FPS must be in range [1, 50]')
         self.fps_editor.setText(str(v))
-        self._play_interval_ms = (1/v)*1000
+        interval_ms = (1/v)*1000
+        self.playback_timer.setInterval(interval_ms)
 
     def _on_fps_editing_finished(self):
         self.playback_fps = int(self.fps_editor.text())
 
-    @property
-    def is_playing(self):
-        return self.toggle_playing_action.isEnabled() and self.toggle_playing_action.isChecked()
-
-    @is_playing.setter
-    def is_playing(self, v):
-        if self.toggle_playing_action.isEnabled():
-            self.toggle_playing_action.setChecked(v)
-
     def play(self):
-        if self.is_playing or len(self.pages) < 2:
-            return
-        self.is_playing = True
-        self.toggle_playing_button.setChecked(True)
-        self._on_play_advance_frame()
+        if self.toggle_playing_action.isEnabled():
+            self.toggle_playing_action.setChecked(True)
 
     def pause(self):
-        self.is_playing = False
-        self.toggle_playing_button.setChecked(False)
+        self.toggle_playing_action.setChecked(False)
 
-    def _on_toggle_play_button_toggled(self, v):
-        self.toggle_playing_action.setChecked(v)
+    def _on_toggle_play_action_changed(self):
+        e = self.toggle_playing_action.isEnabled()
+        self.toggle_playing_button.setEnabled(e)
+        if not e:
+            self.toggle_playing_action.setChecked(False)
+        self.fps_editor.setEnabled(e)
 
     def _on_toggle_play_action_toggled(self, v):
         self.toggle_playing_button.setChecked(v)
-        self._on_play_advance_frame()
+        if v:
+            self.playback_timer.start()
+        else:
+            self.playback_timer.stop()
 
-    def _on_play_advance_frame(self):
-        if not self.is_playing:
-            return
+    def advance_frame(self):
         page_count = len(self.pages)
         if page_count == 0:
             return
-        focused_page_idx = self.focused_page_idx
-        if focused_page_idx + 1 == page_count:
-            self.focused_page_idx = 0
-        else:
-            self.focused_page_idx = focused_page_idx + 1
-        self.play_timer.singleShot(self._play_interval_ms, self._on_play_advance_frame)
+        self.focused_page_idx = (self.focused_page_idx + 1) % page_count
 
 class PagesView(Qt.QTableView):
     def __init__(self, parent=None):

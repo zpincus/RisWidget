@@ -25,7 +25,6 @@
 import json
 from PyQt5 import Qt
 import numpy
-import textwrap
 from . import om
 from .image import Image
 from .layer import Layer
@@ -112,14 +111,10 @@ class LayerStack(Qt.QObject):
         # interaction, or because setChecked() was called.
         self.auto_min_max_master_on_enabled_action.toggled.connect(self._on_master_enable_auto_min_max_toggled)
         self.solo_layer_mode_action = Qt.QAction(self)
-        self.solo_layer_mode_action.setText('Solo Layer')
+        self.solo_layer_mode_action.setText('Solo Current Layer')
         self.solo_layer_mode_action.setCheckable(True)
         self.solo_layer_mode_action.setChecked(False)
-        self.solo_layer_mode_action.setToolTip(textwrap.dedent("""\
-            In "Solo Layer" mode, a layer's .visible property does not control whether that
-            layer is visible in the main view.  Instead, the layer represented by the row currently
-            selected in the layer table is treated as if the value of its .visible property were
-            True and all others as if theirs were false."""))
+        self.solo_layer_mode_action.setToolTip('Show only the currently selected layer')
         self.histogram_alternate_column_shading_action = Qt.QAction(self)
         self.histogram_alternate_column_shading_action.setText('Alternate Histogram Bin Shading')
         self.histogram_alternate_column_shading_action.setCheckable(True)
