@@ -97,7 +97,7 @@ class LayerStackItem(ShaderItem):
         self.layer_stack = layer_stack
         layer_stack.layers_replaced.connect(self._on_layerlist_replaced)
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
-        layer_stack.examine_layer_mode_action.toggled.connect(self.update)
+        layer_stack.solo_layer_mode_action.toggled.connect(self.update)
         self._layer_instance_counts = {}
 
     def type(self):

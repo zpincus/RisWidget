@@ -242,7 +242,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
             parent=parent)
         self.layer_stack = layer_stack
         layer_stack.layers_replaced.connect(self._on_layers_replaced)
-        layer_stack.examine_layer_mode_action.toggled.connect(self._on_examine_layer_mode_toggled)
+        layer_stack.solo_layer_mode_action.toggled.connect(self._on_examine_layer_mode_toggled)
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
         self._focused_row = -1
         if blend_function_choice_to_value_mapping_pairs is None:
@@ -332,7 +332,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
     def _getd_visible(self, midx, role):
         if role == Qt.Qt.CheckStateRole:
             is_checked = self.get_cell(midx.row(), midx.column())
-            if self.layer_stack.examine_layer_mode_action.isChecked():
+            if self.layer_stack.solo_layer_mode_action.isChecked():
                 if self._focused_row == midx.row():
                     if is_checked:
                         r = Qt.Qt.Checked
@@ -409,7 +409,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
         if role == Qt.Qt.CheckStateRole:
             if isinstance(value, Qt.QVariant):
                 value = value.value()
-            if value == Qt.Qt.Checked and self.layer_stack.examine_layer_mode_action.isChecked() and self._focused_row != midx.row():
+            if value == Qt.Qt.Checked and self.layer_stack.solo_layer_mode_action.isChecked() and self._focused_row != midx.row():
                 # checkbox_delegate is telling us that, as a result of being hit, we should to check a visibility checkbox
                 # that is shown as partially checked.  However, it is shown as partially checked because it is actually checked,
                 # but the effect of its checkedness is being supressed because we are in "examine layer" mode and the layer

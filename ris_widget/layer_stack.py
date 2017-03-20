@@ -101,7 +101,7 @@ class LayerStack(Qt.QObject):
         self.image_name_in_contextual_info_action.setCheckable(True)
         self.image_name_in_contextual_info_action.setChecked(False)
         self.auto_min_max_master_on_enabled_action = Qt.QAction(self)
-        self.auto_min_max_master_on_enabled_action.setText('Auto Min/Max Master On')
+        self.auto_min_max_master_on_enabled_action.setText('Auto Min/Max')
         self.auto_min_max_master_on_enabled_action.setCheckable(True)
         self.auto_min_max_master_on_enabled_action.setChecked(True)
         # From the Qt docs: The triggered signal is emitted when an action is activated by the user; for example, when the user clicks a menu option,
@@ -111,12 +111,12 @@ class LayerStack(Qt.QObject):
         # From the Qt docs: The toggled signal is emitted whenever a checkable action changes its isChecked() status. This can be the result of a user
         # interaction, or because setChecked() was called.
         self.auto_min_max_master_on_enabled_action.toggled.connect(self._on_master_enable_auto_min_max_toggled)
-        self.examine_layer_mode_action = Qt.QAction(self)
-        self.examine_layer_mode_action.setText('Examine Current Layer')
-        self.examine_layer_mode_action.setCheckable(True)
-        self.examine_layer_mode_action.setChecked(False)
-        self.examine_layer_mode_action.setToolTip(textwrap.dedent("""\
-            In "Examine Layer Mode", a layer's .visible property does not control whether that
+        self.solo_layer_mode_action = Qt.QAction(self)
+        self.solo_layer_mode_action.setText('Solo Layer')
+        self.solo_layer_mode_action.setCheckable(True)
+        self.solo_layer_mode_action.setChecked(False)
+        self.solo_layer_mode_action.setToolTip(textwrap.dedent("""\
+            In "Solo Layer" mode, a layer's .visible property does not control whether that
             layer is visible in the main view.  Instead, the layer represented by the row currently
             selected in the layer table is treated as if the value of its .visible property were
             True and all others as if theirs were false."""))
@@ -248,11 +248,11 @@ class LayerStack(Qt.QObject):
 
     @property
     def examine_layer_mode_enabled(self):
-        return self.examine_layer_mode_action.isChecked()
+        return self.solo_layer_mode_action.isChecked()
 
     @examine_layer_mode_enabled.setter
     def examine_layer_mode_enabled(self, v):
-        self.examine_layer_mode_action.setChecked(v)
+        self.solo_layer_mode_action.setChecked(v)
 
     @property
     def histogram_alternate_column_shading_enabled(self):

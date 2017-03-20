@@ -79,7 +79,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def __init__(
             self,
             app_prefs_name=None,
-            app_prefs_version=0,
             window_title='RisWidget',
             parent=None,
             window_flags=Qt.Qt.WindowFlags(0),
@@ -90,7 +89,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
         super().__init__(parent, window_flags)
         self.app_prefs_name = app_prefs_name
-        self.app_prefs_version = app_prefs_version
         self._shown = False
         # TODO: is below workaround still necessary?
         self.resize(self.size()) # QMainWindow on Qt 5.8 doesn't remember user-set size between show/hide unless a resize is explicitly called.
@@ -172,8 +170,8 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.main_view.zoom_to_fit_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.main_view.zoom_one_to_one_action.setShortcut(Qt.Qt.Key_1)
         self.main_view.zoom_one_to_one_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.layer_stack.examine_layer_mode_action.setShortcut(Qt.Qt.Key_E)
-        self.layer_stack.examine_layer_mode_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        self.layer_stack.solo_layer_mode_action.setShortcut(Qt.Qt.Key_Space)
+        self.layer_stack.solo_layer_mode_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.layer_stack.auto_min_max_master_on_enabled_action.setShortcut(Qt.Qt.Key_F)
         self.layer_stack.auto_min_max_master_on_enabled_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.main_view_snapshot_action = Qt.QAction(self)
@@ -292,16 +290,13 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.main_view_toolbar.addAction(self.layer_stack_reset_curr_min_max_action)
         self.main_view_toolbar.addAction(self.layer_stack_reset_curr_gamma_action)
         self.main_view_toolbar.addAction(self.layer_stack.auto_min_max_master_on_enabled_action)
-        self.main_view_toolbar.addAction(self.layer_stack.examine_layer_mode_action)
+        self.main_view_toolbar.addAction(self.layer_stack.solo_layer_mode_action)
         self.main_view_toolbar.addAction(self.main_view_snapshot_action)
-        self.main_view_toolbar.addAction(self.flipbook.consolidate_selected_action)
-        self.main_view_toolbar.addAction(self.flipbook.delete_selected_action)
         self.dock_widget_visibility_toolbar = self.addToolBar('Dock Widget Visibility')
         self.dock_widget_visibility_toolbar.addAction(self.layer_table_dock_widget.toggleViewAction())
         self.dock_widget_visibility_toolbar.addAction(self.layer_stack_painter_dock_widget.toggleViewAction())
         self.dock_widget_visibility_toolbar.addAction(self.histogram_dock_widget.toggleViewAction())
         self.dock_widget_visibility_toolbar.addAction(self.flipbook_dock_widget.toggleViewAction())
-        self.dock_widget_visibility_toolbar.addAction(self.fps_display_dock_widget.toggleViewAction())
 
     def _init_menus(self):
         mb = self.menuBar()
@@ -322,11 +317,14 @@ class RisWidgetQtObject(Qt.QMainWindow):
         m.addAction(self.layer_stack_reset_curr_min_max_action)
         m.addAction(self.layer_stack_reset_curr_gamma_action)
         m.addAction(self.layer_stack.auto_min_max_master_on_enabled_action)
-        m.addAction(self.layer_stack.examine_layer_mode_action)
+        m.addAction(self.layer_stack.solo_layer_mode_action)
         m.addSeparator()
         m.addAction(self.layer_stack.layer_name_in_contextual_info_action)
         m.addAction(self.layer_stack.image_name_in_contextual_info_action)
         m.addAction(self.layer_stack.histogram_alternate_column_shading_action)
+        m.addSeparator()
+        m.addAction(self.fps_display_dock_widget.toggleViewAction())
+
 
     def showEvent(self, event):
         if self.app_prefs_name and not self._shown:
@@ -590,7 +588,6 @@ class RisWidget:
     * main_view_mouse_movement_signal(view_coordinate, scene_coordinate)
     * main_view_right_click_signal(view_coordinate, scene_coordinate)"""
     APP_PREFS_NAME = "RisWidget"
-    APP_PREFS_VERSION = 1
     COPY_REFS = [
         'flipbook',
         'main_scene',
@@ -603,10 +600,9 @@ class RisWidget:
     ]
     QT_OBJECT_CLASS = RisWidgetQtObject
 
-    def __init__(self, window_title='RisWidget', parent=None, window_flags=Qt.Qt.WindowFlags(0), show=True, layers = tuple(), **kw):
+    def __init__(self, window_title='RisWidget', parent=None, window_flags=Qt.Qt.WindowFlags(0), show=True, layers=tuple(), **kw):
         self.qt_object = self.QT_OBJECT_CLASS(
             app_prefs_name=self.APP_PREFS_NAME,
-            app_prefs_version=self.APP_PREFS_VERSION,
             window_title=window_title,
             parent=parent,
             window_flags=window_flags,

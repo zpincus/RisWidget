@@ -31,6 +31,7 @@ from ..image import Image
 from ..shared_resources import FREEIMAGE
 from .default_table import DefaultTable
 from . import progress_thread_pool
+from . import shared
 
 class ImageList(om.UniformSignalingList):
     def take_input_element(self, obj):
@@ -119,7 +120,6 @@ class Flipbook(Qt.QWidget):
 
     page_focus_changed = Qt.pyqtSignal(object)
     page_selection_changed = Qt.pyqtSignal(object)
-    _play_advance_frame = Qt.pyqtSignal()
 
     def __init__(self, layer_stack, parent=None):
         super().__init__(parent)
@@ -132,23 +132,6 @@ class Flipbook(Qt.QWidget):
         self.pages_groupbox.setLayout(l)
         self.pages_view = PagesView()
         l.addWidget(self.pages_view)
-        ll = Qt.QHBoxLayout()
-        self.toggle_playing_action = Qt.QAction(self)
-        self.toggle_playing_action.setText('Play')
-        self.toggle_playing_action.setShortcut(Qt.Qt.Key_P)
-        self.toggle_playing_action.setCheckable(True)
-        self.toggle_playing_action.setChecked(False)
-        self.toggle_playing_action.setEnabled(False)
-        self.toggle_playing_action.toggled.connect(self._on_toggle_play_action_toggled)
-        self.toggle_playing_button = Qt.QPushButton('\N{BLACK RIGHT-POINTING POINTER}')
-        self.toggle_playing_button.setCheckable(True)
-        self.toggle_playing_button.setEnabled(False)
-        self.toggle_playing_button.clicked.connect(self._on_toggle_play_button_toggled)
-        self._play_advance_frame.connect(self._on_play_advance_frame, Qt.Qt.QueuedConnection)
-        ll.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
-        ll.addWidget(self.toggle_playing_button)
-        ll.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
-        l.addLayout(ll)
         self.pages_model = PagesModel(PageList(), self.pages_view)
         self.pages_model.handle_dropped_files = self._handle_dropped_files
         self.pages_model.rowsInserted.connect(self._on_model_rows_inserted)
@@ -187,13 +170,48 @@ class Flipbook(Qt.QWidget):
         self.delete_selected_action.setShortcutContext(Qt.Qt.WidgetShortcut)
         self.delete_selected_action.triggered.connect(self.delete_selected)
         self.pages_view.addAction(self.delete_selected_action)
-        self.consolidate_selected_action = Qt.QAction(self)
-        self.consolidate_selected_action.setText('Consolidate pages')
-        self.consolidate_selected_action.setToolTip('Consolidate selected main flipbook pages (combine them into one page)')
-        self.consolidate_selected_action.setShortcut(Qt.Qt.Key_Return)
-        self.consolidate_selected_action.setShortcutContext(Qt.Qt.WidgetWithChildrenShortcut)
-        self.consolidate_selected_action.triggered.connect(self.merge_selected)
-        self.addAction(self.consolidate_selected_action)
+        self.merge_selected_action = Qt.QAction(self)
+        self.merge_selected_action.setText('Merge pages')
+        self.merge_selected_action.setToolTip('Merge selected main flipbook pages (combine them into one page)')
+        self.merge_selected_action.setShortcut(Qt.Qt.Key_Return)
+        self.merge_selected_action.setShortcutContext(Qt.Qt.WidgetWithChildrenShortcut)
+        self.merge_selected_action.triggered.connect(self.merge_selected)
+        self.addAction(self.merge_selected_action)
+
+        mergebox = Qt.QHBoxLayout()
+        self.merge_button = shared.ActionButton(self.merge_selected_action)
+        mergebox.addWidget(self.merge_button)
+        self.delete_button = shared.ActionButton(self.delete_selected_action)
+        mergebox.addWidget(self.delete_button)
+        l.addLayout(mergebox)
+
+        playbox = Qt.QHBoxLayout()
+        self.toggle_playing_action = Qt.QAction(self)
+        self.toggle_playing_action.setText('Play')
+        self.toggle_playing_action.setShortcut(Qt.Qt.Key_P)
+        self.toggle_playing_action.setCheckable(True)
+        self.toggle_playing_action.setChecked(False)
+        self.toggle_playing_action.setEnabled(False)
+        self.toggle_playing_action.toggled.connect(self._on_toggle_play_action_toggled)
+        self.toggle_playing_button = Qt.QPushButton('\N{BLACK RIGHT-POINTING POINTER}')
+        self.toggle_playing_button.setCheckable(True)
+        self.toggle_playing_button.setEnabled(False)
+        self.toggle_playing_button.clicked.connect(self._on_toggle_play_button_toggled)
+        playbox.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
+        playbox.addWidget(self.toggle_playing_button)
+        self.fps_editor = Qt.QLineEdit()
+        self.fps_editor.setValidator(Qt.QIntValidator(1, 50, parent=self))
+        self.fps_editor.editingFinished.connect(self._on_fps_editing_finished)
+        self.fps_editor.setFixedWidth(30)
+        self.fps_editor.setAlignment(Qt.Qt.AlignCenter)
+
+        playbox.addWidget(self.fps_editor)
+        playbox.addWidget(Qt.QLabel('FPS'))
+        playbox.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
+        l.addLayout(playbox)
+        self.play_timer = Qt.QTimer()
+        self.playback_fps = 50
+
         self._on_page_selection_changed()
         self.freeimage = FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self)
         self.apply()
@@ -371,7 +389,7 @@ class Flipbook(Qt.QWidget):
 
     def contextMenuEvent(self, event):
         menu = Qt.QMenu(self)
-        menu.addAction(self.consolidate_selected_action)
+        menu.addAction(self.merge_selected_action)
         menu.addAction(self.delete_selected_action)
         menu.exec(event.globalPos())
 
@@ -422,7 +440,7 @@ class Flipbook(Qt.QWidget):
     def _on_page_selection_changed(self, newly_selected_midxs=None, newly_deselected_midxs=None):
         midxs = self.pages_view.selectionModel().selectedRows()
         self.delete_selected_action.setEnabled(len(midxs) >= 1)
-        self.consolidate_selected_action.setEnabled(len(midxs) >= 2)
+        self.merge_selected_action.setEnabled(len(midxs) >= 2)
         self.page_selection_changed.emit(self)
 
     def _on_pages_replaced(self, idxs, replaced_pages, pages):
@@ -576,6 +594,20 @@ class Flipbook(Qt.QWidget):
         self.page_content_view.resizeRowsToContents()
 
     @property
+    def playback_fps(self):
+        return 1000/self._play_interval_ms
+
+    @playback_fps.setter
+    def playback_fps(self, v):
+        if not 1 <= v <= 50:
+            raise ValueError('FPS must be in range [1, 50]')
+        self.fps_editor.setText(str(v))
+        self._play_interval_ms = (1/v)*1000
+
+    def _on_fps_editing_finished(self):
+        self.playback_fps = int(self.fps_editor.text())
+
+    @property
     def is_playing(self):
         return self.toggle_playing_action.isEnabled() and self.toggle_playing_action.isChecked()
 
@@ -613,7 +645,7 @@ class Flipbook(Qt.QWidget):
             self.focused_page_idx = 0
         else:
             self.focused_page_idx = focused_page_idx + 1
-        self._play_advance_frame.emit()
+        self.play_timer.singleShot(self._play_interval_ms, self._on_play_advance_frame)
 
 class PagesView(Qt.QTableView):
     def __init__(self, parent=None):
