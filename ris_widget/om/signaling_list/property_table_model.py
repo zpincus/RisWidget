@@ -44,7 +44,7 @@ class PropertyTableModel(Qt.QAbstractTableModel):
     the x, y, and z property values of a SignalingList's elements:
 
     from PyQt5 import Qt
-    from ris_widget import om
+    from ris_widget.om import qt_property
 
     class PosTableWidget(Qt.QWidget):
         def __init__(self, parent=None):
@@ -93,45 +93,31 @@ class PropertyTableModel(Qt.QAbstractTableModel):
     class PosTableModel(om.signaling_list.DragDropModelBehavior, om.signaling_list.PropertyTableModel):
         pass
 
-    class Pos(Qt.QObject):
+    def float_or_none(v):
+        if v is not None:
+            return float(v)
+        else:
+            return None
+
+    class Pos(qt_property.QtPropertyOwner):
         changed = Qt.pyqtSignal(object)
 
         def __init__(self, x=None, y=None, z=None, parent=None):
             super().__init__(parent)
-            for property in self.properties:
-                property.instantiate(self)
             self.x, self.y, self.z = x, y, z
 
-        properties = []
+        x = qt_property.Property(
+            default_value=None,
+            coerce_arg_fn=float_or_none)
 
-        def component_default_value_callback(self):
-            pass
+        y = qt_property.Property(
+            default_value=None,
+            coerce_arg_fn=float_or_none)
 
-        def take_component_arg_callback(self, v):
-            if v is not None:
-                return float(v)
-
-        x = om.Property(
-            properties,
-            "x",
-            default_value_callback=component_default_value_callback,
-            take_arg_callback=take_component_arg_callback)
-
-        y = om.Property(
-            properties,
-            "y",
-            default_value_callback=component_default_value_callback,
-            take_arg_callback=take_component_arg_callback)
-
-        z = om.Property(
-            properties,
-            "z",
-            default_value_callback=component_default_value_callback,
-            take_arg_callback=take_component_arg_callback)
-
-        for property in properties:
-            exec(property.changed_signal_name + ' = Qt.pyqtSignal(object)')
-        del property"""
+        z = qt_property.Property(
+            default_value=None,
+            coerce_arg_fn=float_or_none)
+"""
 
     def __init__(self, property_names, signaling_list=None, parent=None):
         super().__init__(parent)

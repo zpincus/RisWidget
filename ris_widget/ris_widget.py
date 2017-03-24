@@ -38,7 +38,6 @@ from .qwidgets.flipbook import Flipbook
 from .qwidgets.fps_display import FPSDisplay
 from .qwidgets.layer_table import InvertingProxyModel, LayerTableModel, LayerTableView
 from .qwidgets.layer_stack_painter import LayerStackPainter
-from .qwidgets.point_list_picker_table import PointListPickerTable
 from .qgraphicsscenes.general_scene import GeneralScene
 from .qgraphicsviews.general_view import GeneralView
 from .qgraphicsscenes.histogram_scene import HistogramScene
@@ -174,12 +173,11 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_stack.solo_layer_mode_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.layer_stack.auto_min_max_master_on_enabled_action.setShortcut(Qt.Qt.Key_F)
         self.layer_stack.auto_min_max_master_on_enabled_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.main_view_snapshot_action = Qt.QAction(self)
-        self.main_view_snapshot_action.setText('Main View Snapshot')
-        self.main_view_snapshot_action.setShortcut(Qt.Qt.Key_S)
-        self.main_view_snapshot_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.main_view_snapshot_action.setToolTip('Take snapshot and show save image dialog.')
-        self.main_view_snapshot_action.triggered.connect(self._on_main_view_snapshot_action)
+        self.snapshot_action = Qt.QAction(self)
+        self.snapshot_action.setText('Snapshot')
+        self.snapshot_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        self.snapshot_action.setToolTip('Save snapshot of displayed image(s).')
+        self.snapshot_action.triggered.connect(self._on_snapshot_action)
 
     @staticmethod
     def _format_zoom(zoom):
@@ -291,7 +289,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.main_view_toolbar.addAction(self.layer_stack_reset_curr_gamma_action)
         self.main_view_toolbar.addAction(self.layer_stack.auto_min_max_master_on_enabled_action)
         self.main_view_toolbar.addAction(self.layer_stack.solo_layer_mode_action)
-        self.main_view_toolbar.addAction(self.main_view_snapshot_action)
+        self.main_view_toolbar.addAction(self.snapshot_action)
         self.dock_widget_visibility_toolbar = self.addToolBar('Dock Widget Visibility')
         self.dock_widget_visibility_toolbar.addAction(self.layer_table_dock_widget.toggleViewAction())
         self.dock_widget_visibility_toolbar.addAction(self.layer_stack_painter_dock_widget.toggleViewAction())
@@ -469,7 +467,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         if layer is not None:
             layer.auto_min_max_enabled = not layer.auto_min_max_enabled
 
-    def _on_main_view_snapshot_action(self):
+    def _on_snapshot_action(self):
         freeimage = shared_resources.FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self, is_read=False)
         if freeimage:
             try:

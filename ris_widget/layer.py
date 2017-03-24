@@ -26,9 +26,59 @@ from PyQt5 import Qt
 import textwrap
 import warnings
 from .image import Image
-from . import om
+from .om import qt_property
 
-class Layer(Qt.QObject):
+
+SHADER_PROP_HELP = """The GLSL fragment shader used to render an image within a layer stack is created
+by filling in the $-values from the following template (somewhat simplified) with the corresponding
+attributes of the layer. A template for layer in the stack is filled in and the
+final shader is the the concatenation of all the templates.
+
+NB: In case of error, calling del on the layer attribute causes it to revert to the default value.
+
+    // Simplified GLSL shader code:
+    // Below repeated for each layer
+    uniform sampler2D tex;
+
+    vec4 color_transform(vec4 in_, vec4 tint, float rescale_min, float rescale_range, float gamma_scalar)
+    {
+        vec4 out_;
+        out_.a = in_.a;
+        vec3 gamma = vec3(gamma_scalar, gamma_scalar, gamma_scalar);
+        ${transform_section}
+        // default value for transform_section:
+        // out_.rgb = pow(clamp((in_.rgb - rescale_min) / (rescale_range), 0.0f, 1.0f), gamma); out_.rgba *= tint;
+        return clamp(out_, 0, 1);
+    }
+
+    s = texture2D(tex, tex_coord);
+    s = color_transform(
+        ${getcolor_expression}, // default getcolor_expression for a grayscale image is: vec4(s.rrr, 1.0f)
+        ${tint}, // [0,1] normalized RGBA component values that scale results of getcolor_expression
+        rescale_min, // [0,1] scaled version of layer.min
+        rescale_range, // [0,1] scaled version of layer.max - layer.min
+        ${gamma});
+    sca = s.rgb * s.a;
+    ${Layer.BLEND_FUNCTIONS[${blend_function}]}
+    da = clamp(da, 0, 1);
+    dca = clamp(dca, 0, 1);
+
+    // end per-layer repeat
+
+    gl_FragColor = vec4(dca / da, da * layer_stack_item_opacity);"""
+
+def coerce_to_str(v):
+    return '' if v is None else str(v)
+
+def coerce_to_tint(v):
+    v = tuple(map(float, v))
+    if len(v) not in (3,4) or not all(map(lambda v_: 0 <= v_ <= 1, v)):
+        raise ValueError('The iteraterable assigned to tint must represent 3 or 4 real numbers in the interval [0, 1].')
+    if len(v) == 3:
+        v += (1.0,)
+    return v
+
+class Layer(qt_property.QtPropertyOwner):
     """Image's properties are all either computed from that ndarray, provide views into that ndarray's data (in the case of .data
     and .data_T), or, in the special cases of .is_twelve_bit for uint16 images and .imposed_float_range for floating-point images,
     represent unenforced constraints limiting the domain of valid values that are expected to be assumed by elements of the ndarray.
@@ -84,7 +134,7 @@ class Layer(Qt.QObject):
     # A change to any mutable property, including .image, potentially impacts layer presentation.  For convenience, .changed is emitted whenever
     # any mutable-property-changed signal is emitted, including as a result of assigning to .image.name, calling .image.set(..), or calling
     # .image.refresh().  NB: .image_changed is the more specific signal emitted in addition to .changed for modifications to .image.
-    # 
+    #
     # For example, this single call supports extensibility by subclassing:
     # image_instance.changed.connect(something.refresh)
     # And that single call replaces the following set of calls, which is not even necessarily complete if Image is subclassed:
@@ -103,18 +153,16 @@ class Layer(Qt.QObject):
     # In the __init__ function of any Image subclass that adds presentation-affecting properties
     # and associated change notification signals, do not forget to connect the subclass's change signals to changed.
     changed = Qt.pyqtSignal(object)
-    name_changed = Qt.pyqtSignal(object)
+    # name_changed = Qt.pyqtSignal(object)
     image_changed = Qt.pyqtSignal(object)
     opacity_changed = Qt.pyqtSignal(object)
 
     def __init__(self, image=None, name=None, parent=None):
-        super().__init__(parent)
         self._retain_auto_min_max_enabled_on_min_max_change = False
         self._image = None
-        for property in self.properties:
-            property.instantiate(self)
-        self.objectNameChanged.connect(self._on_objectNameChanged)
-        self.name_changed.connect(self.changed)
+        super().__init__(parent)
+        # self.objectNameChanged.connect(self._on_objectNameChanged)
+        # self.name_changed.connect(self.changed)
         self.image_changed.connect(self.changed)
         if name:
             self.setObjectName(name)
@@ -137,7 +185,7 @@ class Layer(Qt.QObject):
         return ret
 
     def get_savable_properties_dict(self):
-        ret = {prop.name : prop.__get__(self) for prop in self.properties if not prop.is_default(self)}
+        ret = {name : prop.__get__(self) for name, prop in self._properties.items() if not prop.is_default(self)}
         ret['name'] = self.name
         return ret
 
@@ -165,8 +213,7 @@ class Layer(Qt.QObject):
 
     def _on_image_data_changed(self, image):
         assert image is self.image
-        for property in self.properties:
-            property.update_default(self)
+        self._update_property_defaults()
         self._auto_min_max_values = None
         if image is not None:
             if self.auto_min_max_enabled:
@@ -178,15 +225,6 @@ class Layer(Qt.QObject):
                 if self.max > r[1]:
                     self.max = r[1]
         self.image_changed.emit(self)
-
-#   def copy_property_values_from(self, source):
-#       for property in self.properties:
-#           property.copy_instance_value(source, self)
-#       sname = source.name
-#       if sname:
-#           self.name = sname + ' dupe'
-#       else:
-#           self.name = 'dupe'
 
     def generate_contextual_info_for_pos(self, x, y, idx=None, include_layer_name=True, include_image_name=True):
         image = self.image
@@ -232,147 +270,124 @@ class Layer(Qt.QObject):
         finally:
             self._retain_auto_min_max_enabled_on_min_max_change = False
 
-    properties = []
-
-    visible = om.Property(
-        properties, 'visible',
-        doc = textwrap.dedent(
-            """\
-            Generally, a non-visible image is not visible in the "main view" but does remain visible in specialized views,
-            such as the histogram view and image stack table widget.
-
-            In more detail:
-            If an Layer's visible property is False, that Layer does not contribute to mixed output.  For example,
-            any single pixel in an LayerStackItem rendering may represent the result of blending a number of Layers,
-            whereas only one Layer at a time may be associated with a HistogramItem; no HistogramItem pixel in the
-            rendering of a HistogramItem is a function of more than one Layer.  Therefore, a non-visible Layer that is part
-            of a SignalingList that is associated with an LayerStackItem will not be visible in the output of that
-            LayerStackItem's render function, although the histogram of the Layer will still be visible in the output
-            of the render function of a HistogramItem associated with the Layer."""),
-        default_value_callback = lambda layer: True,
-        take_arg_callback = lambda layer, v: bool(v))
+    visible = qt_property.Property(
+        default_value=True,
+        coerce_arg_fn=bool)
 
     def _auto_min_max_enabled_post_set(self, v):
         if v and self.image is not None:
             self.do_auto_min_max()
-    auto_min_max_enabled = om.Property(
-        properties, 'auto_min_max_enabled',
-        default_value_callback = lambda image: False,
-        take_arg_callback = lambda image, v: bool(v),
-        post_set_callback = _auto_min_max_enabled_post_set)
 
-    def _min_max_default(self, is_max):
-        image = self.image
-        if image is None:
-            return 65535.0 if is_max else 0.0
+    auto_min_max_enabled = qt_property.Property(
+        default_value=False,
+        coerce_arg_fn=bool,
+        post_set_callback=_auto_min_max_enabled_post_set)
+
+    def _min_default(self):
+        if self.image is None:
+            return 0.0
         else:
-            return self._histogram_min_max_default(is_max)
+            return self._histogram_min_default()
+
+    def _max_default(self):
+        if self.image is None:
+            return 65535.0
+        else:
+            return self._histogram_max_default()
+
     def _min_max_pre_set(self, v):
-        image = self.image
-        if image is not None:
-            r = image.range
+        if self.image is not None:
+            r = self.image.range
             if not r[0] <= v <= r[1]:
                 warnings.warn('min/max values for this image must be in the closed interval [{}, {}].'.format(*r))
                 return False
-    def _min_max_post_set(self, v, is_max):
-        if is_max:
-            if v < self.min:
-                self.min = v
-        else:
-            if v > self.max:
-                self.max = v
+
+    def _min_post_set(self, v):
+        if v > self.max:
+            self.max = v
         if not self._retain_auto_min_max_enabled_on_min_max_change:
             self.auto_min_max_enabled = False
-    min = om.Property(
-        properties, 'min',
-        default_value_callback = lambda layer, f=_min_max_default: f(layer, False),
-        take_arg_callback = lambda layer, v: float(v),
-        pre_set_callback = _min_max_pre_set,
-        post_set_callback = lambda layer, v, f=_min_max_post_set: f(layer, v, False))
-    max = om.Property(
-        properties, 'max',
-        default_value_callback = lambda layer, f=_min_max_default: f(layer, True),
-        take_arg_callback = lambda layer, v: float(v),
-        pre_set_callback = _min_max_pre_set,
-        post_set_callback = lambda layer, v, f=_min_max_post_set: f(layer, v, True))
+
+    def _max_post_set(self, v):
+        if v < self.min:
+            self.min = v
+        if not self._retain_auto_min_max_enabled_on_min_max_change:
+            self.auto_min_max_enabled = False
+
+    min = qt_property.Property(
+        default_value=_min_default,
+        coerce_arg_fn=float,
+        pre_set_callback=_min_max_pre_set,
+        post_set_callback =_min_post_set)
+
+    max = qt_property.Property(
+        default_value=_max_default,
+        coerce_arg_fn=float,
+        pre_set_callback=_min_max_pre_set,
+        post_set_callback=_max_post_set)
 
     def _gamma_pre_set(self, v):
         r = self.GAMMA_RANGE
         if not r[0] <= v <= r[1]:
             warnings.warn('gamma value must be in the closed interval [{}, {}].'.format(*r))
             return False
-    gamma = om.Property(
-        properties, 'gamma',
-        default_value_callback = lambda layer: 1.0,
-        take_arg_callback = lambda layer, v: float(v),
-        pre_set_callback = _gamma_pre_set)
 
-    def _histogram_min_max_default(self, is_max):
-        image = self.image
-        if image is None:
-            return 65535.0 if is_max else 0.0
+    gamma = qt_property.Property(
+        default_value=1.0,
+        coerce_arg_fn=float,
+        pre_set_callback=_gamma_pre_set)
+
+    def _histogram_min_default(self):
+        if self.image is None:
+            return 0.0
         else:
-            return float(image.range[int(is_max)])
-    def _histogram_min_max_pre_set(self, v, is_max):
+            return float(self.image.range[0])
+
+    def _histogram_max_default(self):
+        if self.image is None:
+            return 65535.0
+        else:
+            return float(self.image.range[1])
+
+    def _histogram_min_pre_set(self, v):
         r = (0, 65535.0) if self.image is None else self.image.range
         if not r[0] <= v <= r[1]:
-            warnings.warn('histogram_min/max value must be in the closed interval [{}, {}].'.format(r[0], r[1]))
+            warnings.warn('histogram_min value must be in [{}, {}].'.format(r[0], r[1]))
             return False
-        if is_max:
-            if v <= self.histogram_min:
-                warnings.warn('histogram_max must be greater than histogram_min.')
-                return False
-        else:
-            if v >= self.histogram_max:
-                warnings.warn('histogram_min must be less than histogram_max.')
-                return False
-    def _histogram_min_max_post_set(self, v, is_max):
+        if v >= self.histogram_max:
+            warnings.warn('histogram_min must be less than histogram_max.')
+            return False
+
+    def _histogram_max_pre_set(self, v):
+        r = (0, 65535.0) if self.image is None else self.image.range
+        if not r[0] <= v <= r[1]:
+            warnings.warn('histogram_max value must be in [{}, {}].'.format(r[0], r[1]))
+            return False
+        if v <= self.histogram_min:
+            warnings.warn('histogram_max must be greater than histogram_min.')
+            return False
+
+    def _histogram_min_max_post_set(self, v):
         if self.min < self.histogram_min:
             self.min = self.histogram_min
         if self.max > self.histogram_max:
             self.max = self.histogram_max
-    histogram_min = om.Property(
-        properties, 'histogram_min',
-        default_value_callback = lambda layer, f=_histogram_min_max_default: f(layer, False),
-        take_arg_callback = lambda layer, v: float(v),
-        pre_set_callback = lambda layer, v, f=_histogram_min_max_pre_set: f(layer, v, False),
-        post_set_callback = lambda layer, v, f=_histogram_min_max_post_set: f(layer, v, False))
-    histogram_max = om.Property(
-        properties, 'histogram_max',
-        default_value_callback = lambda layer, f=_histogram_min_max_default: f(layer, True),
-        take_arg_callback = lambda layer, v: float(v),
-        pre_set_callback=lambda layer, v, f=_histogram_min_max_pre_set: f(layer, v, True),
-        post_set_callback = lambda layer, v, f=_histogram_min_max_post_set: f(layer, v, True))
 
-    trilinear_filtering_enabled = om.Property(
-        properties, 'trilinear_filtering_enabled',
-        default_value_callback = lambda layer: True,
-        take_arg_callback = lambda layer, v: bool(v))
+    histogram_min = qt_property.Property(
+        default_value=_histogram_min_default,
+        coerce_arg_fn=float,
+        pre_set_callback=_histogram_min_pre_set,
+        post_set_callback=_histogram_min_max_post_set)
 
-    # TODO: finish updating SHAD_PROP_HELP
-    SHAD_PROP_HELP = textwrap.dedent("""\
-        The GLSL fragment shader used to render an LayerStackItem is generated by iterating through LayerStackItem.layer_stack,
-        replacing the ${values} in the following template with with those of the Layer (or
-        LayerStackItem.BLEND_FUNCTIONS[Image.blend_function] in the case of ${blend_function}) at each iteration and
-        appending the resulting text to a string.  The accumulated string is the GLSL fragment shader's source code.
+    histogram_max = qt_property.Property(
+        default_value=_histogram_max_default,
+        coerce_arg_fn=float,
+        pre_set_callback=_histogram_max_pre_set,
+        post_set_callback=_histogram_min_max_post_set)
 
-            // image_stack[${idx}]
-            s = texture2D(tex_${idx}, tex_coord);
-            ${getcolor_channel_mapping_expression};
-            s = ${getcolor_expression};
-            sa = clamp(s.a, 0, 1) * global_alpha_${idx};
-            sc = min_max_gamma_transform(s.rgb, rescale_min_${idx}, rescale_range_${idx}, gamma_${idx});
-            ${extra_transformation_expression}; // extra_transformation_expression
-            sca = sc * sa;
-            ${blend_function}
-            da = clamp(da, 0, 1);
-            dca = clamp(dca, 0, 1);
-
-        So, the value stored in a Layer's .getcolor_expression property replaces ${getcolor_expression}.  Supplying
-        None or an empty string would create a GLSL syntax error that must be rectified before a LayerStackItem
-        containing the Layer in question can be successfully rendered (unless the Layer's .visible property is False,
-        or the Layer's .image property is None). In order to revert .getcolor_expression to something appropriate
-        for the Layer's image.type, simply del .getcolor_expression so that it reverts to default.""")
+    trilinear_filtering_enabled = qt_property.Property(
+        default_value=True,
+        coerce_arg_fn=bool)
 
     def _getcolor_expression_default(self):
         image = self.image
@@ -380,31 +395,37 @@ class Layer(Qt.QObject):
             return ''
         else:
             return self.IMAGE_TYPE_TO_GETCOLOR_EXPRESSION[image.type]
-    getcolor_expression = om.Property(
-        properties, 'getcolor_expression',
-        default_value_callback = _getcolor_expression_default,
-        take_arg_callback = lambda layer, v: '' if v is None else str(v),
-        doc = SHAD_PROP_HELP)
 
-    def _tint_take_arg(self, v):
-        v = tuple(map(float, v))
-        if len(v) not in (3,4) or not all(map(lambda v_: 0 <= v_ <= 1, v)):
-            raise ValueError('The iteraterable assigned to .tint must represent 3 or 4 real numbers in the interval [0, 1].')
-        if len(v) == 3:
-            v += (1.0,)
-        return v
-    def _tint_preset(self, v):
+    getcolor_expression = qt_property.Property(
+        default_value=_getcolor_expression_default,
+        coerce_arg_fn=coerce_to_str,
+        doc=SHADER_PROP_HELP)
+
+    def _tint_pre_set(self, v):
         if self.tint[3] != v:
             self.opacity_changed.emit(self)
-    tint = om.Property(
-        properties, 'tint',
-        default_value_callback = lambda layer: (1.0, 1.0, 1.0, 1.0),
-        take_arg_callback = _tint_take_arg,
-        pre_set_callback = _tint_preset,
-        doc = textwrap.dedent("""\
-            .tint: This property is used by the default .transform_section, and with that default, has
-            the following meaning: .tint contains 0-1 normalized RGBA component values by which the results
-            of applying .getcolor_expression are scaled."""))
+
+    tint = qt_property.Property(
+        default_value=(1.0, 1.0, 1.0, 1.0),
+        coerce_arg_fn=coerce_to_tint,
+        pre_set_callback=_tint_pre_set,
+        doc = SHADER_PROP_HELP)
+
+    transform_section = qt_property.Property(
+        default_value=DEFAULT_TRANSFORM_SECTION,
+        coerce_arg_fn=coerce_to_str,
+        doc=SHADER_PROP_HELP)
+
+    def _blend_function_pre_set(self, v):
+        if v not in self.BLEND_FUNCTIONS:
+            raise ValueError('The string assigned to blend_function must be one of:\n' + '\n'.join("'" + s + "'" for s in sorted(self.BLEND_FUNCTIONS.keys())))
+
+    blend_function = qt_property.Property(
+        default_value='screen',
+        coerce_arg_fn=str,
+        pre_set_callback=_blend_function_pre_set,
+        doc=SHADER_PROP_HELP + '\n\nSupported blend_functions:\n    ' + '\n    '.join("'" + s + "'" for s in sorted(BLEND_FUNCTIONS.keys())))
+
 
     @property
     def opacity(self):
@@ -414,39 +435,21 @@ class Layer(Qt.QObject):
     def opacity(self, v):
         v = float(v)
         if not 0 <= v <= 1:
-            raise ValueError('The value assigned to .tint must be a real number in the interval [0, 1].')
+            raise ValueError('The value assigned to opacity must be a real number in the interval [0, 1].')
         t = list(self.tint)
         t[3] = v
         self.tint = t #NB: tint takes care of emitting opacity_changed
 
-    transform_section = om.Property(
-        properties, 'transform_section',
-        default_value_callback = lambda layer: layer.DEFAULT_TRANSFORM_SECTION,
-        take_arg_callback = lambda layer, v: '' if v is None else str(v))
-
-    def _blend_function_pre_set(self, v):
-        if v not in self.BLEND_FUNCTIONS:
-            raise ValueError('The string assigned to blend_function must be one of:\n' + '\n'.join("'" + s + "'" for s in sorted(self.BLEND_FUNCTIONS.keys())))
-    blend_function = om.Property(
-        properties, 'blend_function',
-        default_value_callback = lambda layer: 'screen',
-        take_arg_callback = lambda layer, v: str(v),
-        pre_set_callback = _blend_function_pre_set,
-        doc = SHAD_PROP_HELP + '\n\nSupported blend_functions:\n\n    ' + '\n    '.join("'" + s + "'" for s in sorted(BLEND_FUNCTIONS.keys())))
-
-    for property in properties:
-        exec(property.changed_signal_name + ' = Qt.pyqtSignal(object)')
-    del property
-    del SHAD_PROP_HELP
-
     # NB: This a property, not a Property.  There is already a change signal, setter, and a getter for objectName, which
     # we proxy/use.
-    name_changed = Qt.pyqtSignal(object)
-    def _on_objectNameChanged(self):
-        self.name_changed.emit(self)
-    name = property(
-        Qt.QObject.objectName,
-        lambda self, name: self.setObjectName('' if name is None else name),
-        doc='Property proxy for QObject::objectName Qt property, which is directly accessible via the objectName getter and '
-            'setObjectName setter, with change notification signal objectNameChanged.  The proxied change signal, which conforms '
-            'to the requirements of ris_widget.om.signaling_list.PropertyTableModel, is name_changed.')
+    # name_changed = Qt.pyqtSignal(object)
+    # def _on_objectNameChanged(self):
+    #     self.name_changed.emit(self)
+    # name = property(
+    #     Qt.QObject.objectName,
+    #     lambda self, name: self.setObjectName('' if name is None else name),
+    #     doc='Property proxy for QObject::objectName Qt property, which is directly accessible via the objectName getter and '
+    #         'setObjectName setter, with change notification signal objectNameChanged.  The proxied change signal, which conforms '
+    #         'to the requirements of ris_widget.om.signaling_list.PropertyTableModel, is name_changed.')
+
+
