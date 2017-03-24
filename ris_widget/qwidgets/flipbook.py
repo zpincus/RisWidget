@@ -709,8 +709,6 @@ class PagesModel(PagesModelDragDropBehavior, om.signaling_list.PropertyTableMode
             self.listeners[image_list] = ImageListListener(image_list, self)
 
     def _remove_listeners(self, image_lists):
-        print(image_lists)
-        print(self.listeners)
         for image_list in image_lists:
             listener = self.listeners.pop(image_list)
             listener.remove()
