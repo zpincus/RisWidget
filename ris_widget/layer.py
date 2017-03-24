@@ -106,14 +106,8 @@ class Layer(qt_property.QtPropertyOwner):
     DEFAULT_TRANSFORM_SECTION = 'out_.rgb = pow(clamp((in_.rgb - rescale_min) / (rescale_range), 0.0f, 1.0f), gamma); out_.rgba *= tint;'
     # Blend functions adapted from http://dev.w3.org/SVG/modules/compositing/master/
     BLEND_FUNCTIONS = {
-        'src' :      ('dca = sca;',
-                      'da = s.a;'),
-        'src-over' : ('dca = sca + dca * (1.0f - s.a);',
+        'normal'   : ('dca = sca + dca * (1.0f - s.a);', # AKA src-over
                       'da = s.a + da - s.a * da;'),
-        'dst-over' : ('dca = dca + sca * (1.0f - da);',
-                      'da = s.a + da - s.a * da;'),
-        'plus'     : ('dca += sca;',
-                      'da += s.a;'),
         'multiply' : ('dca = sca * dca + sca * (1.0f - da) + dca * (1.0f - s.a);',
                       'da = s.a + da - s.a * da;'),
         'screen'   : ('dca = sca + dca - sca * dca;',
@@ -126,8 +120,15 @@ class Layer(qt_property.QtPropertyOwner):
                       '             (sca[i] + sca[i]) * dca[i] + sca[i] * ida + dca[i] * isa :',
                       '             sca[i] * oda + dca[i] * osa - (dca[i] + dca[i]) * sca[i] - sada;}',
                       'da = s.a + da - sada;'),
-        'difference':('dca = (sca * da + dca * s.a - (sca + sca) * dca) + sca * (1.0f - da) + dca * (1.0f - s.a);',
-                      'da = s.a + da - s.a * da;')}
+        # 'src' :      ('dca = sca;',
+        #               'da = s.a;'),
+        # 'dst-over' : ('dca = dca + sca * (1.0f - da);',
+        #               'da = s.a + da - s.a * da;'),
+        # 'plus'     : ('dca += sca;',
+        #               'da += s.a;'),
+        # 'difference':('dca = (sca * da + dca * s.a - (sca + sca) * dca) + sca * (1.0f - da) + dca * (1.0f - s.a);',
+        #               'da = s.a + da - s.a * da;')
+    }
     for k, v in BLEND_FUNCTIONS.items():
         BLEND_FUNCTIONS[k] = '    // blending function name: {}\n    '.format(k) + '\n    '.join(v)
     del k, v
@@ -153,27 +154,20 @@ class Layer(qt_property.QtPropertyOwner):
     # In the __init__ function of any Image subclass that adds presentation-affecting properties
     # and associated change notification signals, do not forget to connect the subclass's change signals to changed.
     changed = Qt.pyqtSignal(object)
-    # name_changed = Qt.pyqtSignal(object)
     image_changed = Qt.pyqtSignal(object)
     opacity_changed = Qt.pyqtSignal(object)
 
-    def __init__(self, image=None, name=None, parent=None):
+    def __init__(self, image=None, parent=None):
         self._retain_auto_min_max_enabled_on_min_max_change = False
         self._image = None
         super().__init__(parent)
-        # self.objectNameChanged.connect(self._on_objectNameChanged)
-        # self.name_changed.connect(self.changed)
         self.image_changed.connect(self.changed)
-        if name:
-            self.setObjectName(name)
         self.image = image
 
     def __repr__(self):
-        name = self.name
         image = self.image
         return '{}; {}{}, image={}>'.format(
             super().__repr__()[:-1],
-            'with name "{}"'.format(name) if name else 'unnamed',
             ', visible=False' if not self.visible else '',
             'None' if image is None else image.__repr__())
 
@@ -186,7 +180,6 @@ class Layer(qt_property.QtPropertyOwner):
 
     def get_savable_properties_dict(self):
         ret = {name : prop.__get__(self) for name, prop in self._properties.items() if not prop.is_default(self)}
-        ret['name'] = self.name
         return ret
 
     @property
@@ -226,21 +219,17 @@ class Layer(qt_property.QtPropertyOwner):
                     self.max = r[1]
         self.image_changed.emit(self)
 
-    def generate_contextual_info_for_pos(self, x, y, idx=None, include_layer_name=True, include_image_name=True):
+    def generate_contextual_info_for_pos(self, x, y, idx=None):
         image = self.image
         if image is None:
             image_text = 'None'
         else:
-            image_text = image.generate_contextual_info_for_pos(x, y, include_image_name)
+            image_text = image.generate_contextual_info_for_pos(x, y)
             if image_text is None:
                 return
         ts = []
         if idx is not None:
             ts.append('{: 3}'.format(idx))
-        if include_layer_name:
-            layer_name = self.name
-            if layer_name:
-                ts.append('"' + layer_name + '"')
         t = ' '.join(ts)
         if t:
             t += ': '

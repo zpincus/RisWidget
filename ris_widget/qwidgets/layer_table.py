@@ -233,7 +233,6 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
     def __init__(
             self,
             layer_stack,
-            blend_function_choice_to_value_mapping_pairs=None,
             parent=None
         ):
         super().__init__(
@@ -245,28 +244,12 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
         layer_stack.solo_layer_mode_action.toggled.connect(self._on_examine_layer_mode_toggled)
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
         self._focused_row = -1
-        if blend_function_choice_to_value_mapping_pairs is None:
-            blend_function_choice_to_value_mapping_pairs = [
-                ('screen', 'screen'),
-                ('src-over (normal)', 'src-over')]
-        else:
-            blend_function_choice_to_value_mapping_pairs = list(blend_function_choice_to_value_mapping_pairs)
 
         # Tack less commonly used / advanced blend function names onto list of dropdown choices without duplicating
         # entries for values that have verbose choice names
-        adv_blend_functions = set(Layer.BLEND_FUNCTIONS.keys())
-        adv_blend_functions -= set(v for c, v in blend_function_choice_to_value_mapping_pairs)
-        blend_function_choice_to_value_mapping_pairs += [(v + ' (advanced)', v) for v in sorted(adv_blend_functions)]
-
-        self.blend_function_choices = tuple(c for c, v in blend_function_choice_to_value_mapping_pairs)
-        self.blend_function_choice_to_value = dict(blend_function_choice_to_value_mapping_pairs)
-        self.blend_function_value_to_choice = {v:c for c, v in blend_function_choice_to_value_mapping_pairs}
-        assert \
-            len(self.blend_function_choices) == \
-            len(self.blend_function_choice_to_value) == \
-            len(self.blend_function_value_to_choice),\
-            'Duplicate or unmatched (value, the 2nd pair component, does not appear in LayerClass.BLEND_FUNCTIONS) '\
-            'entry in blend_function_choice_to_value_mapping_pairs.'
+        self.blend_function_choices = ['normal', 'screen']
+        other_blends = set(Layer.BLEND_FUNCTIONS.keys()) - set(self.blend_function_choices)
+        self.blend_function_choices += sorted(other_blends)
 
         self._special_data_getters = {
             'visible' : self._getd_visible,
@@ -278,17 +261,19 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
             'histogram_min' : self._getd__defaultable_property,
             'histogram_max' : self._getd__defaultable_property,
             'image.size' : self._getd_image_size,
-            'image.dtype' : self._getd_image_dtype}
+            'image.dtype' : self._getd_image_dtype
+        }
         self._special_flag_getters = {
             'visible' : self._getf__always_checkable,
             'auto_min_max_enabled' : self._getf__always_checkable,
             'image.dtype' : self._getf__never_editable,
             'image.type' : self._getf__never_editable,
-            'image.size' : self._getf__never_editable}
+            'image.size' : self._getf__never_editable
+        }
         self._special_data_setters = {
             'visible' : self._setd_visible,
-            'auto_min_max_enabled' : self._setd__checkable,
-            'blend_function' : self._setd_blend_function}
+            'auto_min_max_enabled' : self._setd__checkable
+        }
 
     # flags #
 
@@ -365,12 +350,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
         if role == CHOICES_QITEMDATA_ROLE:
             return Qt.QVariant(self.blend_function_choices)
         elif role == Qt.Qt.DisplayRole:
-            v = self.signaling_list[midx.row()].blend_function
-            try:
-                c = self.blend_function_value_to_choice[v]
-                return Qt.QVariant(c)
-            except KeyError:
-                Qt.qDebug('No choice for blend function "{}".'.format(v))
+            return Qt.QVariant(self.signaling_list[midx.row()].blend_function)
 
     def _getd_image_size(self, midx, role):
         if role == Qt.Qt.DisplayRole:
@@ -420,18 +400,6 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
                 # property.
                 value = Qt.Qt.Unchecked
             return self.set_cell(midx.row(), midx.column(), value)
-        return False
-
-    def _setd_blend_function(self, midx, c, role):
-        if role == Qt.Qt.EditRole:
-            if isinstance(c, Qt.QVariant):
-                c = c.value()
-            try:
-                v = self.blend_function_choice_to_value[c]
-                self.signaling_list[midx.row()].blend_function = v
-                return True
-            except KeyError:
-                Qt.qDebug('No blend function for choice "{}".'.format(c))
         return False
 
     def setData(self, midx, value, role=Qt.Qt.EditRole):

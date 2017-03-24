@@ -27,9 +27,14 @@ from PyQt5 import Qt
 from string import Template
 from ..shared_resources import QGL, NoGLContextIsCurrentError
 
-class ShaderItemMixin:
-    def __init__(self):
+class ShaderItem(Qt.QGraphicsObject):
+    def __init__(self, parent=None):
+        Qt.QGraphicsObject.__init__(self, parent)
         self.progs = {}
+        self.setAcceptHoverEvents(True)
+
+    def type(self):
+        raise NotImplementedError()
 
     def build_shader_prog(self, desc, vert_fn, frag_fn, **frag_template_mapping):
         source_dpath = Path(__file__).parent.parent / 'shaders'
@@ -57,7 +62,7 @@ class ShaderItemMixin:
     def set_blend(self, estack):
         """set_blend(estack) sets OpenGL blending mode to the most commonly required state and appends
         callbacks to estack that eventually return OpenGL blending to the state preceeding the call
-        to set_blend.  Specifically, fragment shader RGB output is source-over alpha blended into the 
+        to set_blend.  Specifically, fragment shader RGB output is source-over alpha blended into the
         framebuffer, whereas the alpha channel is max(shader_alpha, framebuffer_alpha)."""
         # Blend ShaderItem fragment shader output with framebuffer as usual for RGB channels, blendedRGB = ShaderRGB * ShaderAlpha + BufferRGB * (1 - ShaderAlpha).
         # However, do not blend ShaderAlpha into BlendedAlpha.  Instead, BlendedAlpha = max(ShaderAlpha, BufferAlpha).  We can count on BufferAlpha always being saturated,
@@ -81,15 +86,6 @@ class ShaderItemMixin:
         if bes != desired_bes:
             GL.glBlendEquationSeparate(*desired_bes)
             estack.callback(lambda: GL.glBlendEquationSeparate(*bes))
-
-class ShaderItem(ShaderItemMixin, Qt.QGraphicsObject):
-    def __init__(self, parent_item=None):
-        Qt.QGraphicsObject.__init__(self, parent_item)
-        ShaderItemMixin.__init__(self)
-        self.setAcceptHoverEvents(True)
-
-    def type(self):
-        raise NotImplementedError()
 
 class ShaderTexture:
     """QOpenGLTexture does not support support GL_LUMINANCE*_EXT, etc, as specified by GL_EXT_texture_integer,

@@ -91,14 +91,6 @@ class LayerStack(Qt.QObject):
         self._layer_instance_counts = {}
         self._imposed_image_mask = None
         self._ignore_layer_image_mask_change = False
-        self.layer_name_in_contextual_info_action = Qt.QAction(self)
-        self.layer_name_in_contextual_info_action.setText('Include Layer.name in Contextual Info')
-        self.layer_name_in_contextual_info_action.setCheckable(True)
-        self.layer_name_in_contextual_info_action.setChecked(False)
-        self.image_name_in_contextual_info_action = Qt.QAction(self)
-        self.image_name_in_contextual_info_action.setText('Include Image.name in Contextual Info')
-        self.image_name_in_contextual_info_action.setCheckable(True)
-        self.image_name_in_contextual_info_action.setChecked(False)
         self.auto_min_max_all_action = Qt.QAction(self)
         self.auto_min_max_all_action.setText('Auto Min/Max')
         self.auto_min_max_all_action.setCheckable(True)
@@ -115,10 +107,6 @@ class LayerStack(Qt.QObject):
         self.solo_layer_mode_action.setCheckable(True)
         self.solo_layer_mode_action.setChecked(False)
         self.solo_layer_mode_action.setToolTip('Show only the currently selected layer')
-        self.histogram_alternate_column_shading_action = Qt.QAction(self)
-        self.histogram_alternate_column_shading_action.setText('Alternate Histogram Bin Shading')
-        self.histogram_alternate_column_shading_action.setCheckable(True)
-        self.histogram_alternate_column_shading_action.setChecked(False)
 
     @property
     def layers(self):
@@ -226,36 +214,12 @@ class LayerStack(Qt.QObject):
             sm.select(sm.currentIndex(), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
 
     @property
-    def layer_name_in_contextual_info_enabled(self):
-        return self.layer_name_in_contextual_info_action.isChecked()
-
-    @layer_name_in_contextual_info_enabled.setter
-    def layer_name_in_contextual_info_enabled(self, v):
-        self.layer_name_in_contextual_info_action.setChecked(v)
-
-    @property
-    def image_name_in_contextual_info_enabled(self):
-        return self.image_name_in_contextual_info_action.isChecked()
-
-    @image_name_in_contextual_info_enabled.setter
-    def image_name_in_contextual_info_enabled(self, v):
-        self.image_name_in_contextual_info_action.setChecked(v)
-
-    @property
     def examine_layer_mode_enabled(self):
         return self.solo_layer_mode_action.isChecked()
 
     @examine_layer_mode_enabled.setter
     def examine_layer_mode_enabled(self, v):
         self.solo_layer_mode_action.setChecked(v)
-
-    @property
-    def histogram_alternate_column_shading_enabled(self):
-        return self.histogram_alternate_column_shading_action.isChecked()
-
-    @histogram_alternate_column_shading_enabled.setter
-    def histogram_alternate_column_shading_enabled(self, v):
-        self.histogram_alternate_column_shading_action.setChecked(v)
 
     @property
     def auto_min_max_all(self):

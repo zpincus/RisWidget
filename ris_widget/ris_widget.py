@@ -308,10 +308,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         m.addAction(self.layer_stack.auto_min_max_all_action)
         m.addAction(self.layer_stack.solo_layer_mode_action)
         m.addSeparator()
-        m.addAction(self.layer_stack.layer_name_in_contextual_info_action)
-        m.addAction(self.layer_stack.image_name_in_contextual_info_action)
-        m.addAction(self.layer_stack.histogram_alternate_column_shading_action)
-        m.addSeparator()
         m.addAction(self.fps_display_dock_widget.toggleViewAction())
 
 
@@ -320,17 +316,14 @@ class RisWidgetQtObject(Qt.QMainWindow):
             self._shown = True
             settings = Qt.QSettings("zplab", self.app_prefs_name)
             geometry = settings.value('main_window_geometry')
-            #state = settings.value('main_window_state')
-            if None not in (geometry,):# state):
+            if geometry is not None:
                 self.restoreGeometry(geometry)
-                #self.restoreState(state, self.APP_PREFS_VERSION)
         super().showEvent(event)
 
     def closeEvent(self, event):
         if self.app_prefs_name:
             settings = Qt.QSettings('zplab', self.app_prefs_name)
             settings.setValue('main_window_geometry', self.saveGeometry())
-            #settings.setValue('main_window_state', self.saveState(self.APP_PREFS_VERSION))
         super().closeEvent(event)
 
     @property

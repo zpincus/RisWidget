@@ -40,7 +40,6 @@ class HistogramItem(ShaderItem):
         self.layer_stack = layer_stack
         self.contextual_info = ContextualInfo(self)
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
-        layer_stack.histogram_alternate_column_shading_action.toggled.connect(self.update)
         self.layer = None
         self._layer_data_serial = 0
         self._bounding_rect = Qt.QRectF(0, 0, 1, 1)
@@ -116,10 +115,7 @@ class HistogramItem(ShaderItem):
                 qpainter.beginNativePainting()
                 estack.callback(qpainter.endNativePainting)
                 GL = QGL()
-                histogram_alternate_column_shading_enabled = (
-                    self.layer_stack.histogram_alternate_column_shading_enabled
-                    and widget_size.width() >= bin_count)
-                desired_shader_type = ('G', histogram_alternate_column_shading_enabled)
+                desired_shader_type = 'G'
                 if desired_shader_type in self.progs:
                     prog = self.progs[desired_shader_type]
                     if not GL.glIsProgram(prog.programId()):
@@ -127,14 +123,10 @@ class HistogramItem(ShaderItem):
                         # the process of being floated or docked.
                         return
                 else:
-                    fs_fn = (
-                        'histogram_item_fragment_shader__alternate_column_colored.glsl'
-                        if histogram_alternate_column_shading_enabled else
-                        'histogram_item_fragment_shader.glsl')
                     prog = self.build_shader_prog(
                         desired_shader_type,
                         'planar_quad_vertex_shader.glsl',
-                        fs_fn)
+                        'histogram_item_fragment_shader.glsl')
                 desired_tex_width = image.histogram.shape[-1]
                 tex = self._tex
                 if tex is not None:
@@ -207,8 +199,6 @@ class HistogramItem(ShaderItem):
                 prog.setUniformValue('inv_max_transformed_bin_val', inv_max_transformed_bin_val)
                 prog.setUniformValue('gamma_gamma', self.gamma_gamma)
                 prog.setUniformValue('opacity', self.opacity())
-                if histogram_alternate_column_shading_enabled:
-                    prog.setUniformValue('bin_count', int(histogram.shape[-1]))
                 self.set_blend(estack)
                 GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
                 GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 4)
@@ -242,16 +232,16 @@ class HistogramItem(ShaderItem):
                         bin_count = round(bin_count)
                     bin = bin_idx_offset + int(pos.x() * bin_count)
                     if image.dtype == numpy.float32:
-                        mst = '[{},{}{} '.format(h_r[0] + bin * bin_width, h_r[0] + (bin + 1) * bin_width, ']' if bin == bin_count - 1 else ')')
+                        bin_text = '[{:.8g},{:.8g}{}'.format(h_r[0] + bin * bin_width, h_r[0] + (bin + 1) * bin_width, ']' if bin == bin_count - 1 else ')')
                     else:
                         l, r = math.ceil((bin_idx_offset + bin) * bin_width), math.floor((bin_idx_offset + bin + 1) * bin_width)
-                        mst = '{} '.format(l) if image.dtype == numpy.uint8 else '[{},{}] '.format(l, r)
-                    vt = '(' + ' '.join((c + ':{}' for c in image.type)) + ')'
+                        bin_text = '{}'.format(l) if image.dtype == numpy.uint8 else '[{},{}]'.format(l, r)
+                    val_text =  ','.join('{}' for c in image.type)
                     if image.num_channels > 1:
-                        vt = vt.format(*histogram[..., bin])
+                        val_text = val_text.format(*histogram[..., bin])
                     else:
-                        vt = vt.format(histogram[bin])
-                    text = vt + mst
+                        val_text = val_text.format(histogram[bin])
+                    text = bin_text + ': ' + val_text
         self.contextual_info.value = text
 
     def _on_layer_image_changed(self):

@@ -31,6 +31,12 @@ from ..contextual_info import ContextualInfo
 from ..shared_resources import GL_QUAD, QGL, UNIQUE_QGRAPHICSITEM_TYPE
 from .shader_item import ShaderItem
 
+
+SRC_BLEND = '''    // blending function name: src
+    dca = sca;
+    da = s.a;
+'''
+
 class LayerStackItem(ShaderItem):
     """The layer_stack attribute of LayerStackItem is an SignalingList, a container with a list interface, containing a sequence
     of Layer instances (or instances of subclasses of Layer or some duck-type compatible thing).  In terms of composition ordering,
@@ -293,9 +299,7 @@ class LayerStackItem(ShaderItem):
         ci = layer.generate_contextual_info_for_pos(
             ipos.x(),
             ipos.y(),
-            idx if len(self.layer_stack.layers) > 1 else None,
-            self.layer_stack.layer_name_in_contextual_info_enabled,
-            self.layer_stack.image_name_in_contextual_info_enabled)
+            idx if len(self.layer_stack.layers) > 1 else None)
         if ci is not None:
             cis.append(ci)
         image = layer.image
@@ -309,18 +313,13 @@ class LayerStackItem(ShaderItem):
             # even number in any case where an overlay coordinate component should be odd.
             image = layer.image
             if image is None:
-                ci = layer.generate_contextual_info_for_pos(
-                    None, None, idx,
-                    self.layer_stack.layer_name_in_contextual_info_enabled,
-                    self.layer_stack.image_name_in_contextual_info_enabled)
+                ci = layer.generate_contextual_info_for_pos(None, None, idx)
             else:
                 imagesize = image.size
                 ci = layer.generate_contextual_info_for_pos(
                     int(fpos.x() * imagesize.width() / image0size.width()),
                     int(fpos.y() * imagesize.height() / image0size.height()),
-                    idx,
-                    self.layer_stack.layer_name_in_contextual_info_enabled,
-                    self.layer_stack.image_name_in_contextual_info_enabled)
+                    idx)
             if ci is not None:
                 cis.append(ci)
         self.contextual_info.value = '\n'.join(reversed(cis))
@@ -333,7 +332,7 @@ class LayerStackItem(ShaderItem):
             if not visible_idxs:
                 return
             prog_desc = tuple((layer.getcolor_expression,
-                               'src' if tidx==0 else layer.blend_function,
+                               layer.blend_function if tidx > 0 else 'src',
                                layer.transform_section)
                               for tidx, layer in ((tidx, self.layer_stack.layers[idx]) for tidx, idx in enumerate(visible_idxs)))
             if prog_desc in self.progs:
@@ -350,7 +349,7 @@ class LayerStackItem(ShaderItem):
                                     idx=idx,
                                     tidx=tidx,
                                     getcolor_expression=layer.getcolor_expression,
-                                    blend_function=layer.BLEND_FUNCTIONS['src' if tidx==0 else layer.blend_function])
+                                    blend_function=layer.BLEND_FUNCTIONS[layer.blend_function] if tidx > 0 else SRC_BLEND)
                             ) for idx, tidx, layer in
                                 (
                                     (idx, tidx, self.layer_stack.layers[idx]) for tidx, idx in enumerate(visible_idxs)

@@ -372,7 +372,7 @@ class Flipbook(Qt.QWidget):
         new_pages = []
         page_futures = []
         for task_page in task_pages:
-            future = self.thread_pool.submit(self._read_page_task, task_page, on_error=self._on_task_error, on_error_args=task_page)
+            future = self.thread_pool.submit(self._read_page_task, task_page, on_error=self._on_task_error, on_error_args=(task_page,))
             task_page.page.on_removal = future.cancel
             new_pages.append(task_page.page)
             page_futures.append(future)
@@ -709,6 +709,8 @@ class PagesModel(PagesModelDragDropBehavior, om.signaling_list.PropertyTableMode
             self.listeners[image_list] = ImageListListener(image_list, self)
 
     def _remove_listeners(self, image_lists):
+        print(image_lists)
+        print(self.listeners)
         for image_list in image_lists:
             listener = self.listeners.pop(image_list)
             listener.remove()

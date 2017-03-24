@@ -342,31 +342,19 @@ class Image(Qt.QObject):
 
     set.__doc__ = textwrap.dedent(set.__doc__) + '\n' + textwrap.dedent(__init__.__doc__)
 
-    def generate_contextual_info_for_pos(self, x, y, include_image_name=True):
+    def generate_contextual_info_for_pos(self, x, y):
         sz = self.size
-        component_format_str = '{}' if self.dtype == numpy.float32 else '{}'
+        component_format_str = '{}' if self.dtype != numpy.float32 else '{:.8g}'
         if 0 <= x < sz.width() and 0 <= y < sz.height():
-            type_ = self.type
-            num_channels = self.num_channels
-            mst = ''
-            if include_image_name:
-                name = self.name
-                if name:
-                    mst += '"' + name + '" '
-            mst+= 'x:{} y:{} '.format(x, y)
-            mask = self._mask
-            if mask is None:
-                masked = ''
+            # if self.name:
+            #     mst = '"' + self.name + '" '
+            pos_text = '({}, {}): '.format(x, y)
+            val_text = ','.join(component_format_str for c in self.type)
+            if self.num_channels == 1:
+                val_text = val_text.format(self.data[x, y])
             else:
-                mx = int(x * mask.shape[0] / self._data.shape[0])
-                my = int(y * mask.shape[1] / self._data.shape[1])
-                masked = 'MASKED ' if mask[mx,my] == 0 else ''
-            vt = '(' + masked + ' '.join((c + ':' + component_format_str for c in self.type)) + ')'
-            if num_channels == 1:
-                vt = vt.format(self.data[x, y])
-            else:
-                vt = vt.format(*self.data[x, y])
-            return mst+vt
+                val_text = val_text.format(*self.data[x, y])
+            return pos_text + val_text
 
     name = property(
         Qt.QObject.objectName,
