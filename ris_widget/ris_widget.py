@@ -227,7 +227,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
     def _init_flipbook(self):
         self.flipbook = fb = Flipbook(self.layer_stack, self)
-        self.flipbook_dock_widget = Qt.QDockWidget('Main Flipbook', self)
+        self.flipbook_dock_widget = Qt.QDockWidget('Flipbook', self)
         self.flipbook_dock_widget.setWidget(fb)
         self.flipbook_dock_widget.setAllowedAreas(Qt.Qt.RightDockWidgetArea | Qt.Qt.LeftDockWidgetArea)
         self.flipbook_dock_widget.setFeatures(Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
@@ -242,7 +242,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.dropEvent = self.flipbook.pages_view.dropEvent
 
     def _init_layer_stack_painter(self):
-        self.layer_stack_painter_dock_widget = Qt.QDockWidget('Layer Stack Painter', self)
+        self.layer_stack_painter_dock_widget = Qt.QDockWidget('Painter', self)
         self.layer_stack_painter_dock_widget.setAllowedAreas(Qt.Qt.RightDockWidgetArea | Qt.Qt.LeftDockWidgetArea)
         self.layer_stack_painter_dock_widget.setFeatures(
             Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)

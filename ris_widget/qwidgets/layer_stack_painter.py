@@ -215,7 +215,7 @@ class LayerStackPainter(Qt.QWidget):
 
     def __init__(self, layer_stack_item, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Layer Stack Painter')
+        self.setWindowTitle('Layer Painter')
         self.painter_item = self.PAINTER_ITEM_TYPE(layer_stack_item)
         self.layer_stack = layer_stack_item.layer_stack
         widget_layout = Qt.QVBoxLayout()
