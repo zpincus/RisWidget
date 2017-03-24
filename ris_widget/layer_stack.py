@@ -99,17 +99,17 @@ class LayerStack(Qt.QObject):
         self.image_name_in_contextual_info_action.setText('Include Image.name in Contextual Info')
         self.image_name_in_contextual_info_action.setCheckable(True)
         self.image_name_in_contextual_info_action.setChecked(False)
-        self.auto_min_max_master_on_enabled_action = Qt.QAction(self)
-        self.auto_min_max_master_on_enabled_action.setText('Auto Min/Max')
-        self.auto_min_max_master_on_enabled_action.setCheckable(True)
-        self.auto_min_max_master_on_enabled_action.setChecked(True)
+        self.auto_min_max_all_action = Qt.QAction(self)
+        self.auto_min_max_all_action.setText('Auto Min/Max')
+        self.auto_min_max_all_action.setCheckable(True)
+        self.auto_min_max_all_action.setChecked(True)
         # From the Qt docs: The triggered signal is emitted when an action is activated by the user; for example, when the user clicks a menu option,
         # toolbar button, or presses an action's shortcut key combination, or when trigger() was called. Notably, it is not emitted when setChecked()
         # or toggle() is called.
-        self.auto_min_max_master_on_enabled_action.triggered.connect(self._on_master_enable_auto_min_max_triggered)
+        self.auto_min_max_all_action.triggered.connect(self._on_master_enable_auto_min_max_triggered)
         # From the Qt docs: The toggled signal is emitted whenever a checkable action changes its isChecked() status. This can be the result of a user
         # interaction, or because setChecked() was called.
-        self.auto_min_max_master_on_enabled_action.toggled.connect(self._on_master_enable_auto_min_max_toggled)
+        self.auto_min_max_all_action.toggled.connect(self._on_master_enable_auto_min_max_toggled)
         self.solo_layer_mode_action = Qt.QAction(self)
         self.solo_layer_mode_action.setText('Solo Current Layer')
         self.solo_layer_mode_action.setCheckable(True)
@@ -258,12 +258,12 @@ class LayerStack(Qt.QObject):
         self.histogram_alternate_column_shading_action.setChecked(v)
 
     @property
-    def auto_min_max_master_on_enabled(self):
-        return self.auto_min_max_master_on_enabled_action.isChecked()
+    def auto_min_max_all(self):
+        return self.auto_min_max_all_action.isChecked()
 
-    @auto_min_max_master_on_enabled.setter
-    def auto_min_max_master_on_enabled(self, v):
-        self.auto_min_max_master_on_enabled_action.setChecked(v)
+    @auto_min_max_all.setter
+    def auto_min_max_all(self, v):
+        self.auto_min_max_all_action.setChecked(v)
 
     @property
     def imposed_image_mask(self):
@@ -297,7 +297,7 @@ class LayerStack(Qt.QObject):
     def _attach_layers(self, layers):
         self._ignore_layer_image_mask_change = True
         try:
-            auto_min_max_master_on_enabled = self.auto_min_max_master_on_enabled
+            auto_min_max_all = self.auto_min_max_all
             for layer in layers:
                 instance_count = self._layer_instance_counts.get(layer, 0) + 1
                 image = layer.image
@@ -306,7 +306,7 @@ class LayerStack(Qt.QObject):
                 assert instance_count > 0
                 self._layer_instance_counts[layer] = instance_count
                 if instance_count == 1:
-                    if auto_min_max_master_on_enabled:
+                    if auto_min_max_all:
                         layer.auto_min_max_enabled = True
                     layer.auto_min_max_enabled_changed.connect(self._on_layer_auto_min_max_enabled_changed)
                     layer.image_changed.connect(self._on_layer_image_changed)
@@ -386,8 +386,8 @@ class LayerStack(Qt.QObject):
                 layer.auto_min_max_enabled = True
 
     def _on_layer_auto_min_max_enabled_changed(self, layer):
-        if self.auto_min_max_master_on_enabled and not layer.auto_min_max_enabled:
-            self.auto_min_max_master_on_enabled = False
+        if self.auto_min_max_all and not layer.auto_min_max_enabled:
+            self.auto_min_max_all = False
 
     def _on_layer_image_changed(self, layer):
         if not self._ignore_layer_image_mask_change:
