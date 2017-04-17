@@ -127,10 +127,11 @@ def histogram(image, range=None, image_bits=None, mask_radius=None):
     hist_func(*args)
     min, max = mn[0], mx[0]
     # for float images, min and max may be outside of the range. Trim if so.
-    if min < range[0]:
-        min = range[0]
-    if max > range[1]:
-        max = range[1]
+    if range is not None and image.dtype == numpy.float32:
+        if min < range[0]:
+            min = range[0]
+        if max > range[1]:
+            max = range[1]
     return min, max, hist
 
 

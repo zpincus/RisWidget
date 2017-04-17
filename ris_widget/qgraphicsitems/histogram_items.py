@@ -103,12 +103,12 @@ class HistogramItem(ShaderItem):
             image = layer.image
             layer = self.layer
             widget_size = widget.size()
-            histogram = image.histogram
+            histogram = layer.histogram
             h_r = layer.histogram_min, layer.histogram_max
             h_w = h_r[1] - h_r[0]
             r = image.range
             w = r[1] - r[0]
-            bin_width = w / histogram.shape[-1]
+            bin_width = w / len(histogram.shape)
             bin_count = h_w / bin_width
             bin_idx_offset = int((h_r[0] - r[0]) / bin_width)
             with ExitStack() as estack:
@@ -127,7 +127,7 @@ class HistogramItem(ShaderItem):
                         desired_shader_type,
                         'planar_quad_vertex_shader.glsl',
                         'histogram_item_fragment_shader.glsl')
-                desired_tex_width = image.histogram.shape[-1]
+                desired_tex_width = len(histogram)
                 tex = self._tex
                 if tex is not None:
                     if tex.width() != desired_tex_width:
@@ -213,7 +213,7 @@ class HistogramItem(ShaderItem):
             if layer is not None:
                 image = layer.image
                 if image is not None:
-                    histogram = image.histogram
+                    histogram = layer.histogram
                     h_r = layer.histogram_min, layer.histogram_max
                     h_w = h_r[1] - h_r[0]
                     r = image.range

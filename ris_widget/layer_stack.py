@@ -236,16 +236,14 @@ class LayerStack(Qt.QObject):
     def _attach_layers(self, layers):
         for layer in layers:
             if layer in self._layers:
-                raise ValueError('a layer may appear in the layer stack only one time.')
+                print('a layer may appear in the layer stack only one time.')
             if self.auto_min_max_all:
                 layer.auto_min_max_enabled = True
             layer.auto_min_max_enabled_changed.connect(self._on_layer_auto_min_max_enabled_changed)
-            layer.image_changed.connect(self._on_layer_image_changed)
 
     def _detach_layers(self, layers):
         for layer in layers:
             layer.auto_min_max_enabled_changed.disconnect(self._on_layer_auto_min_max_enabled_changed)
-            layer.image_changed.disconnect(self._on_layer_image_changed)
 
     def _on_inserted_into_layers(self, idx, layers):
         self._attach_layers(layers)

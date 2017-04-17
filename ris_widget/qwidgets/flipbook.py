@@ -354,7 +354,7 @@ class Flipbook(Qt.QWidget):
             if e.error:
                 e.task_page.page.name += ' (ERROR)'
             else:
-                e.task_page.page.extend(Image(im, name=im_name, mask=self.layer_stack.imposed_image_mask, immediate_texture_upload=False) for
+                e.task_page.page.extend(Image(im, name=im_name, immediate_texture_upload=False) for
                                         (im, im_name) in zip(e.task_page.ims, e.task_page.im_names))
             return True
         return super().event(e)
@@ -752,12 +752,13 @@ class PageContentModel(om.signaling_list.DragDropModelBehavior, om.signaling_lis
         return False
 
     def handle_dropped_files(self, fpaths, dst_row, dst_column, dst_parent):
+        raise RuntimeError()
         freeimage = FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=None)
         if freeimage is None:
             return False
         images = ImageList()
         for fpath in fpaths:
             fpath_str = str(fpath)
-            images.append(Image(freeimage.read(fpath_str), name=fpath_str, mask=self.layer_stack.imposed_image_mask, immediate_texture_upload=False))
+            images.append(Image(freeimage.read(fpath_str), name=fpath_str, immediate_texture_upload=False))
         self.signaling_list[dst_row:dst_row] = images
         return True

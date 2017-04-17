@@ -27,6 +27,7 @@ import textwrap
 import warnings
 from .image import Image
 from .om import qt_property
+from . import histogram
 
 
 SHADER_PROP_HELP = """The GLSL fragment shader used to render an image within a layer stack is created
@@ -199,6 +200,7 @@ class Layer(qt_property.QtPropertyOwner):
                         self._image.data_changed.disconnect(self._on_image_data_changed)
                     self._image = None
                     raise e
+                self.image_min, self.image_max, self.histogram = histogram.histogram(v.data)
             if self._image is not None:
                 self._image.data_changed.disconnect(self._on_image_data_changed)
             self._image = v
@@ -241,14 +243,15 @@ class Layer(qt_property.QtPropertyOwner):
         if image is None:
             self._auto_min_max_values = 0.0, 1.0
         else:
-            extremae = image.extremae
-            if image.has_alpha_channel:
-                self._auto_min_max_values = extremae[:-1, 0].min(), extremae[:-1, 1].max()
-            elif image.num_channels > 1:
-                self._auto_min_max_values = extremae[:, 0].min(), extremae[:, 1].max()
-            else:
-                self._auto_min_max_values = extremae
-            self._auto_min_max_values = max(self._auto_min_max_values[0], self.histogram_min), min(self._auto_min_max_values[1], self.histogram_max)
+            # extremae = image.extremae
+            # if image.has_alpha_channel:
+            #     self._auto_min_max_values = extremae[:-1, 0].min(), extremae[:-1, 1].max()
+            # elif image.num_channels > 1:
+            #     self._auto_min_max_values = extremae[:, 0].min(), extremae[:, 1].max()
+            # else:
+            #     self._auto_min_max_values = extremae
+            # self._auto_min_max_values = max(self._auto_min_max_values[0], self.histogram_min), min(self._auto_min_max_values[1], self.histogram_max)
+            self._auto_min_max_values = max(self.image_min, self.histogram_min), min(self.image_max, self.histogram_max)
 
     def do_auto_min_max(self):
         if self._auto_min_max_values is None:
