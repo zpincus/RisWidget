@@ -82,15 +82,12 @@ class LayerStack(Qt.QObject):
     selection_model_replaced = Qt.pyqtSignal(Qt.QObject, object, object)
     layer_focus_changed = Qt.pyqtSignal(Qt.QObject, object, object)
 
-    def __init__(self, layers=None, selection_model=None, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self._layers = None
-        self.layers = layers
+        self._layers = LayerList()
+        self._connect_layerlist_signals()
         self._selection_model = None
-        self.selection_model = selection_model
-        self._layer_instance_counts = {}
-        self._imposed_image_mask = None
-        self._ignore_layer_image_mask_change = False
+        self._vignette_radius = None
         self.auto_min_max_all_action = Qt.QAction(self)
         self.auto_min_max_all_action.setText('Auto Min/Max')
         self.auto_min_max_all_action.setCheckable(True)
@@ -117,33 +114,33 @@ class LayerStack(Qt.QObject):
         v_o = self._layers
         if v is v_o:
             return
-        if not (v is None or isinstance(v, LayerList)):
+        if not isinstance(v, LayerList):
             v = LayerList(v)
-        if v_o is not None:
-            v_o.inserted.disconnect(self._on_inserted_into_layers)
-            v_o.removed.disconnect(self._on_removed_from_layers)
-            v_o.replaced.disconnect(self._on_replaced_in_layers)
-            v_o.inserted.disconnect(self._delayed_on_inserted_into_layers)
-            v_o.removed.disconnect(self._delayed_on_removed_from_layers)
-            self._detach_layers(v_o)
+        v_o.inserted.disconnect(self._on_inserted_into_layers)
+        v_o.removed.disconnect(self._on_removed_from_layers)
+        v_o.replaced.disconnect(self._on_replaced_in_layers)
+        v_o.inserted.disconnect(self._delayed_on_inserted_into_layers)
+        v_o.removed.disconnect(self._delayed_on_removed_from_layers)
+        self._detach_layers(v_o)
         self._layers = v
-        if v is not None:
-            v.inserted.connect(self._on_inserted_into_layers)
-            v.removed.connect(self._on_removed_from_layers)
-            v.replaced.connect(self._on_replaced_in_layers)
-            # Must be QueuedConnection in order to avoid race condition where self._on_inserted_into_layers may be called before any associated model's
-            # "inserted" handler, which would cause ensure_layer_focused, if layers was empty before insertion, to attempt to focus row 0 before associated
-            # models are even aware that a row has been inserted.
-            v.inserted.connect(self._delayed_on_inserted_into_layers, Qt.Qt.QueuedConnection)
-            v.removed.connect(self._delayed_on_removed_from_layers, Qt.Qt.QueuedConnection)
-            self._attach_layers(v)
+        self._connect_layerlist_signals()
+        self._attach_layers(v)
         self.layers_replaced.emit(self, v_o, v)
         if v:
             self.ensure_layer_focused()
 
+    def _connect_layerlist_signals(self):
+        self._layers.inserted.connect(self._on_inserted_into_layers)
+        self._layers.removed.connect(self._on_removed_from_layers)
+        self._layers.replaced.connect(self._on_replaced_in_layers)
+        # Must be QueuedConnection in order to avoid race condition where self._on_inserted_into_layers may be called before any associated model's
+        # "inserted" handler, which would cause ensure_layer_focused, if layers was empty before insertion, to attempt to focus row 0 before associated
+        # models are even aware that a row has been inserted.
+        self._layers.inserted.connect(self._delayed_on_inserted_into_layers, Qt.Qt.QueuedConnection)
+        self._layers.removed.connect(self._delayed_on_removed_from_layers, Qt.Qt.QueuedConnection)
+
+
     def get_layers(self):
-        if self._layers is None:
-            self.layers = LayerList()
         return self._layers
 
     @property
@@ -158,8 +155,7 @@ class LayerStack(Qt.QObject):
             return
         if v_o is not None:
             v_o.currentRowChanged.disconnect(self._on_current_row_changed)
-        if v is not None:
-            v.currentRowChanged.connect(self._on_current_row_changed)
+        v.currentRowChanged.connect(self._on_current_row_changed)
         self._selection_model = v
         self.selection_model_replaced.emit(self, v_o, v)
 
@@ -183,10 +179,9 @@ class LayerStack(Qt.QObject):
     @property
     def focused_layer(self):
         """Note: L.focused_layer = Layer() is equivalent to L.layers[L.focused_layer_idx] = Layer()."""
-        if self._layers is not None:
-            idx = self.focused_layer_idx
-            if idx is not None:
-                return self._layers[idx]
+        idx = self.focused_layer_idx
+        if idx is not None:
+            return self._layers[idx]
 
     @focused_layer.setter
     def focused_layer(self, v):
@@ -199,8 +194,7 @@ class LayerStack(Qt.QObject):
         """If we have both a layer list & selection model and no Layer is selected & .layers is not empty:
            If there is a "current" layer, IE highlighted but not selected, select it.
            If there is no "current" layer, make .layer_stack[0] current and select it."""
-        ls = self._layers
-        if not ls:
+        if len(self._layers) == 0:
             return
         sm = self._selection_model
         if sm is None:
@@ -230,63 +224,28 @@ class LayerStack(Qt.QObject):
         self.auto_min_max_all_action.setChecked(v)
 
     @property
-    def imposed_image_mask(self):
-        return self._imposed_image_mask
+    def vignette_radius(self):
+        return self._vignette_radius
 
-    @imposed_image_mask.setter
-    def imposed_image_mask(self, v):
-        if v is not self._imposed_image_mask:
-            if v is not None:
-                v = numpy.asarray(v)
-                if v.ndim != 2:
-                    raise ValueError('imposed_image_mask must be None or a 2D iterable.')
-                if v.dtype != bool:
-                    v = v.astype(bool)
-                desired_strides = 1, v.shape[0]
-                if desired_strides != v.strides:
-                    _mask = v
-                    v = numpy.ndarray(v.shape, strides=desired_strides, dtype=v.dtype)
-                    v.flat = _mask.flat
-            self._imposed_image_mask = v
-            if self._layers:
-                self._ignore_layer_image_mask_change = True
-                try:
-                    for layer in self._layers:
-                        image = layer.image
-                        if image and (v is not None or image.mask is not None):
-                            image.set(mask=v)
-                finally:
-                    self._ignore_layer_image_mask_change = False
+    @vignette_radius.setter
+    def vignette_radius(self, v):
+        if v != self._vignette_radius:
+            for layer in self._layers:
+                layer.vignette_radius = v
 
     def _attach_layers(self, layers):
-        self._ignore_layer_image_mask_change = True
-        try:
-            auto_min_max_all = self.auto_min_max_all
-            for layer in layers:
-                instance_count = self._layer_instance_counts.get(layer, 0) + 1
-                image = layer.image
-                if image and (self._imposed_image_mask is not None or image.mask is not None):
-                    image.set(mask=self._imposed_image_mask)
-                assert instance_count > 0
-                self._layer_instance_counts[layer] = instance_count
-                if instance_count == 1:
-                    if auto_min_max_all:
-                        layer.auto_min_max_enabled = True
-                    layer.auto_min_max_enabled_changed.connect(self._on_layer_auto_min_max_enabled_changed)
-                    layer.image_changed.connect(self._on_layer_image_changed)
-        finally:
-            self._ignore_layer_image_mask_change = False
+        for layer in layers:
+            if layer in self._layers:
+                raise ValueError('a layer may appear in the layer stack only one time.')
+            if self.auto_min_max_all:
+                layer.auto_min_max_enabled = True
+            layer.auto_min_max_enabled_changed.connect(self._on_layer_auto_min_max_enabled_changed)
+            layer.image_changed.connect(self._on_layer_image_changed)
 
     def _detach_layers(self, layers):
         for layer in layers:
-            instance_count = self._layer_instance_counts[layer] - 1
-            assert instance_count >= 0
-            if instance_count == 0:
-                layer.auto_min_max_enabled_changed.disconnect(self._on_layer_auto_min_max_enabled_changed)
-                layer.image_changed.disconnect(self._on_layer_image_changed)
-                del self._layer_instance_counts[layer]
-            else:
-                self._layer_instance_counts[layer] = instance_count
+            layer.auto_min_max_enabled_changed.disconnect(self._on_layer_auto_min_max_enabled_changed)
+            layer.image_changed.disconnect(self._on_layer_image_changed)
 
     def _on_inserted_into_layers(self, idx, layers):
         self._attach_layers(layers)
@@ -353,12 +312,3 @@ class LayerStack(Qt.QObject):
         if self.auto_min_max_all and not layer.auto_min_max_enabled:
             self.auto_min_max_all = False
 
-    def _on_layer_image_changed(self, layer):
-        if not self._ignore_layer_image_mask_change:
-            image = layer.image
-            if image and (self._imposed_image_mask is not None or image.mask is not None):
-                self._ignore_layer_image_mask_change = True
-                try:
-                    image.set(mask=self._imposed_image_mask)
-                finally:
-                    self._ignore_layer_image_mask_change = False
