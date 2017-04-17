@@ -166,9 +166,9 @@ class Layer(qt_property.QtPropertyOwner):
 
     def __repr__(self):
         image = self.image
-        return '{}; {}{}, image={}>'.format(
+        return '{}; {}image={}>'.format(
             super().__repr__()[:-1],
-            ', visible=False' if not self.visible else '',
+            'visible=False, ' if not self.visible else '',
             'None' if image is None else image.__repr__())
 
     @classmethod

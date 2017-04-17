@@ -207,8 +207,10 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_table_view = LayerTableView(self.layer_table_model)
         self.layer_table_view.setModel(self.layer_table_model_inverter)
         self.layer_table_model.setParent(self.layer_table_view)
-        self.layer_table_selection_model = self.layer_table_view.selectionModel()
-        self.layer_stack.selection_model = self.layer_table_selection_model
+        self.layer_table_model.rowsInserted.connect(self._update_layer_stack_visibility)
+        self.layer_table_model.rowsRemoved.connect(self._update_layer_stack_visibility)
+        self.layer_table_model.modelReset.connect(self._update_layer_stack_visibility)
+        self.layer_stack.selection_model = self.layer_table_view.selectionModel()
         self.layer_table_dock_widget.setWidget(self.layer_table_view)
         self.layer_table_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
         self.layer_table_dock_widget.setFeatures(
@@ -396,19 +398,23 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def mask(self, v):
         self.layer_stack.imposed_image_mask = v
 
-    def _on_flipbook_pages_inserted(self, parent, first_idx, last_idx):
-        self._update_flipbook_visibility()
-
-    def _on_flipbook_pages_removed(self, parent, first_idx, last_idx):
-        self._update_flipbook_visibility()
-
-    def _on_flipbook_pages_list_replaced(self):
-        self._update_flipbook_visibility()
-
     def _update_flipbook_visibility(self):
-        fb_is_visible = self.flipbook_dock_widget.isVisible()
-        if (len(self.flipbook.pages) > 0) != fb_is_visible:
-            self.flipbook_dock_widget.hide() if fb_is_visible else self.flipbook_dock_widget.show()
+        visible = self.flipbook_dock_widget.isVisible()
+        has_pages = len(self.flipbook.pages) > 0
+        if has_pages and not visible:
+            self.flipbook_dock_widget.show()
+        elif not has_pages and visible:
+            self.flipbook_dock_widget.hide()
+
+    def _update_layer_stack_visibility(self):
+        visible = self.layer_table_dock_widget.isVisible()
+        multilayer = len(self.layers) > 1
+        if multilayer and not visible:
+            self.layer_table_dock_widget.show()
+        # don't autohide...
+        # elif not multilayer and visible:
+        #     self.layer_table_dock_widget.hide()
+
 
     def _main_view_zoom_changed(self, zoom_preset_idx, custom_zoom):
         assert zoom_preset_idx == -1 and custom_zoom != 0 or zoom_preset_idx != -1 and custom_zoom == 0, \

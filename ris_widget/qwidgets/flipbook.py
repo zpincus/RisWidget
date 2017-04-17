@@ -732,7 +732,15 @@ class PagesModel(PagesModelDragDropBehavior, om.signaling_list.PropertyTableMode
     def _on_model_reset(self):
         self._add_listeners(self.signaling_list)
 
-class PageContentModelDragDropBehavior(om.signaling_list.DragDropModelBehavior):
+class PageContentModel(om.signaling_list.DragDropModelBehavior, om.signaling_list.PropertyTableModel):
+    PROPERTIES = (
+        'name',
+        )
+
+    def __init__(self, layer_stack, parent=None):
+        super().__init__(self.PROPERTIES, layer_stack.layers, parent)
+        self.layer_stack = layer_stack
+
     def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
         return isinstance(src_model, PageContentModel)
 
@@ -753,12 +761,3 @@ class PageContentModelDragDropBehavior(om.signaling_list.DragDropModelBehavior):
             images.append(Image(freeimage.read(fpath_str), name=fpath_str, mask=self.layer_stack.imposed_image_mask, immediate_texture_upload=False))
         self.signaling_list[dst_row:dst_row] = images
         return True
-
-class PageContentModel(PageContentModelDragDropBehavior, om.signaling_list.PropertyTableModel):
-    PROPERTIES = (
-        'name',
-        )
-
-    def __init__(self, layer_stack, parent=None):
-        super().__init__(self.PROPERTIES, layer_stack.layers, parent)
-        self.layer_stack = layer_stack
