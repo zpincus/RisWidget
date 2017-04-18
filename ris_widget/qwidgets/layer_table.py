@@ -163,7 +163,7 @@ class LayerTableDragDropBehavior(om.signaling_list.DragDropModelBehavior):
         image = Image.from_qimage(qimage=qimage, name=name)
         if image is not None:
             layer = Layer(image=image)
-            self.layer_stack.get_layers()[dst_row:dst_row] = [layer]
+            self.layer_stack.layers[dst_row:dst_row] = [layer]
             return True
         return False
 
@@ -181,17 +181,17 @@ class LayerTableDragDropBehavior(om.signaling_list.DragDropModelBehavior):
             else:
                 fpath_str = str(fpath)
                 layers.append(Layer(Image(freeimage.read(fpath_str), name=fpath_str)))
-        self.layer_stack.get_layers()[dst_row:dst_row] = layers
+        self.layer_stack.layers[dst_row:dst_row] = layers
         return True
 
     def handle_dropped_text(self, txt, dst_row, dst_column, dst_parent):
         dropped_layers = LayerList.from_json(txt)
         if dropped_layers:
-            self.layer_stack.get_layers()[dst_row:dst_row] = dropped_layers
+            self.layer_stack.layers[dst_row:dst_row] = dropped_layers
 
     def mimeData(self, midxs):
         mime_data = super().mimeData(midxs)
-        mime_data.setText(self.layer_stack.get_layers().to_json())
+        mime_data.setText(self.layer_stack.layers.to_json())
         return mime_data
 
 class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePropertyTableModel):

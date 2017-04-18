@@ -100,11 +100,12 @@ class LayerStackItem(ShaderItem):
         super().__init__(parent_item)
         self._bounding_rect = Qt.QRectF(self.DEFAULT_BOUNDING_RECT)
         self.contextual_info = ContextualInfo(self)
+        self._layer_instance_counts = {}
         self.layer_stack = layer_stack
+        self._connect_layers(layer_stack.layers)
         layer_stack.layers_replaced.connect(self._on_layerlist_replaced)
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
         layer_stack.solo_layer_mode_action.toggled.connect(self.update)
-        self._layer_instance_counts = {}
 
     def type(self):
         return LayerStackItem.QGRAPHICSITEM_TYPE
@@ -114,27 +115,28 @@ class LayerStackItem(ShaderItem):
 
     def _on_layerlist_replaced(self, layer_stack, old_layers, layers):
         old_sz = None
-        if old_layers is not None:
-            if old_layers and old_layers[0].image is not None:
-                old_sz = old_layers[0].image.size
-            self._detach_layers(old_layers)
-            old_layers.inserted.disconnect(self._on_layers_inserted)
-            old_layers.removed.disconnect(self._on_layers_removed)
-            old_layers.replaced.disconnect(self._on_layers_replaced)
+        if old_layers and old_layers[0].image is not None:
+            old_sz = old_layers[0].image.size
+        self._detach_layers(old_layers)
+        old_layers.inserted.disconnect(self._on_layers_inserted)
+        old_layers.removed.disconnect(self._on_layers_removed)
+        old_layers.replaced.disconnect(self._on_layers_replaced)
         new_sz = None
-        if layers is not None:
-            if layers and layers[0].image is not None:
-                new_sz = layers[0].image.size
-            layers.inserted.connect(self._on_layers_inserted)
-            layers.removed.connect(self._on_layers_removed)
-            layers.replaced.connect(self._on_layers_replaced)
-            self._attach_layers(layers)
+        if layers and layers[0].image is not None:
+            new_sz = layers[0].image.size
+        self._connect_layers(layers)
         if new_sz != old_sz:
             self.prepareGeometryChange()
             self._bounding_rect = self.DEFAULT_BOUNDING_RECT if new_sz is None else Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_sz))
             self.bounding_rect_changed.emit()
         self.update()
         self._update_contextual_info()
+
+    def _connect_layers(self, layers):
+        layers.inserted.connect(self._on_layers_inserted)
+        layers.removed.connect(self._on_layers_removed)
+        layers.replaced.connect(self._on_layers_replaced)
+        self._attach_layers(layers)
 
     def _attach_layers(self, layers):
         layer_stack = self.layer_stack

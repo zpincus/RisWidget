@@ -191,7 +191,7 @@ class Image(Qt.QObject):
                 histogram = ndimage_statistics.histogram(self._data, 1024, self._range, self._mask)
             else:
                 histogram = self.histogram
-            self.stats_future = ndimage_statistics.bundle_float_stats_into_future(histogram, extremae)
+            self.stats_future = None #ndimage_statistics.bundle_float_stats_into_future(histogram, extremae)
         else:
             if data_changed or mask_changed or is_twelve_bit_changed:
                 data = self._data
@@ -204,12 +204,12 @@ class Image(Qt.QObject):
                         Image.NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self.dtype.type],
                         immediate_texture_upload,
                         self.name)
-                self.stats_future = ndimage_statistics.statistics(
-                    data.astype(numpy.uint8) if self.dtype == bool else data, # TODO: fix ndimage_statistics so that bool => uint8 conversion is not required
-                    self.is_twelve_bit,
-                    self.mask,
-                    return_future=True,
-                    use_open_mp=use_open_mp)
+                self.stats_future = None #ndimage_statistics.statistics(
+                #     data.astype(numpy.uint8) if self.dtype == bool else data, # TODO: fix ndimage_statistics so that bool => uint8 conversion is not required
+                #     self.is_twelve_bit,
+                #     self.mask,
+                #     return_future=True,
+                #     use_open_mp=use_open_mp)
         if data_changed or mask_changed or is_twelve_bit_changed or imposed_float_range_changed:
             self.data_changed.emit(self)
         if mask_changed:

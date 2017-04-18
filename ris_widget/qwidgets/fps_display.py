@@ -30,7 +30,7 @@ class FPSDisplay(Qt.QWidget):
     """A widget displaying interval since last .notify call and 1 / the interval since last .notify call.
     FPSDisplay collects data and refreshes only when visible, reducing the cost of having it constructed
     and hidden with a signal attached to .notify."""
-    def __init__(self, rate_str='Framerate', rate_suffix_str='fps', interval_str='Interval', parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         l = Qt.QGridLayout()
         self.setLayout(l)
@@ -47,33 +47,19 @@ class FPSDisplay(Qt.QWidget):
         l.addWidget(self.sample_count_label, r, 0, Qt.Qt.AlignRight)
         l.addWidget(self.sample_count_spinbox, r, 1)
         r += 1
-        self.rate_label = Qt.QLabel(rate_str + ': ')
+        self.rate_label = Qt.QLabel('Framerate: ')
         self.rate_field = Qt.QLabel()
-        self.rate_suffix_label = Qt.QLabel(rate_suffix_str)
+        self.rate_suffix_label = Qt.QLabel('fps')
         l.addWidget(self.rate_label, r, 0, Qt.Qt.AlignRight)
         l.addWidget(self.rate_field, r, 1, Qt.Qt.AlignRight)
         l.addWidget(self.rate_suffix_label, r, 2, Qt.Qt.AlignLeft)
         r += 1
-        self.interval_label = Qt.QLabel(interval_str + ': ')
+        self.interval_label = Qt.QLabel('Interval: ')
         self.interval_field = Qt.QLabel()
         self.interval_suffix_label = Qt.QLabel()
         l.addWidget(self.interval_label, r, 0, Qt.Qt.AlignRight)
         l.addWidget(self.interval_field, r, 1, Qt.Qt.AlignRight)
         l.addWidget(self.interval_suffix_label, r, 2, Qt.Qt.AlignLeft)
-        r += 1
-        self.rate_stddev_label = Qt.QLabel(rate_str + ' \N{GREEK SMALL LETTER SIGMA}: ')
-        self.rate_stddev_field = Qt.QLabel()
-        self.rate_stddev_suffix_label = Qt.QLabel(rate_suffix_str)
-        l.addWidget(self.rate_stddev_label, r, 0, Qt.Qt.AlignRight)
-        l.addWidget(self.rate_stddev_field, r, 1, Qt.Qt.AlignRight)
-        l.addWidget(self.rate_stddev_suffix_label, r, 2, Qt.Qt.AlignLeft)
-        r += 1
-        self.interval_stddev_label = Qt.QLabel(interval_str + ' \N{GREEK SMALL LETTER SIGMA}: ')
-        self.interval_stddev_field = Qt.QLabel()
-        self.interval_stddev_suffix_label = Qt.QLabel()
-        l.addWidget(self.interval_stddev_label, r, 0, Qt.Qt.AlignRight)
-        l.addWidget(self.interval_stddev_field, r, 1, Qt.Qt.AlignRight)
-        l.addWidget(self.interval_stddev_suffix_label, r, 2, Qt.Qt.AlignLeft)
         r += 1
         l.addItem(
             Qt.QSpacerItem(
@@ -85,14 +71,6 @@ class FPSDisplay(Qt.QWidget):
         l.setColumnStretch(0, 0)
         l.setColumnStretch(1, 1)
         l.setColumnStretch(2, 0)
-        self.stddev_widgets = (
-            self.rate_stddev_label,
-            self.rate_stddev_field,
-            self.rate_stddev_suffix_label,
-            self.interval_stddev_label,
-            self.interval_stddev_field,
-            self.interval_stddev_suffix_label
-        )
         self.sample_count = 20
 
     @property
@@ -108,9 +86,6 @@ class FPSDisplay(Qt.QWidget):
             self.fpss = numpy.empty((self._sample_count - 1,), dtype=numpy.float64)
             self.sample_count_spinbox.setValue(self.sample_count)
             self.clear()
-            show_stddev = v >= 3
-            for stddev_widget in self.stddev_widgets:
-                stddev_widget.setVisible(show_stddev)
 
     def notify(self, end_interval=False):
         if not self.isVisible():
@@ -141,35 +116,19 @@ class FPSDisplay(Qt.QWidget):
         if self.acquired_sample_count < 2:
             self.rate_field.setText('')
             self.interval_field.setText('')
-            self.rate_stddev_field.setText('')
-            self.interval_stddev_field.setText('')
         else:
             end = min(self._sample_count, self.acquired_sample_count - 1)
             intervals = self.intervals[:end]
             interval = intervals.mean()
             fpss = self.fpss[:end]
             fps = fpss.mean()
-            self.rate_field.setText('{:f}'.format(fps))
+            self.rate_field.setText('{:.2f}'.format(fps))
             if interval > 1:
-                self.interval_field.setText('{:f}'.format(interval))
+                self.interval_field.setText('{:.2f}'.format(interval))
                 self.interval_suffix_label.setText('s')
             else:
-                self.interval_field.setText('{:f}'.format(interval * 1000))
+                self.interval_field.setText('{:.2f}'.format(interval * 1000))
                 self.interval_suffix_label.setText('ms')
-            if self._sample_count >= 3:
-                if self.acquired_sample_count < 3:
-                    self.rate_stddev_field.setText('')
-                    self.interval_stddev_field.setText('')
-                else:
-                    fps_stddev = fpss.std()
-                    interval_stddev = intervals.std()
-                    self.rate_stddev_field.setText('{:f}'.format(fps_stddev))
-                    if interval_stddev > 1:
-                        self.interval_stddev_field.setText('{:f}'.format(interval_stddev))
-                        self.interval_stddev_suffix_label.setText('s')
-                    else:
-                        self.interval_stddev_field.setText('{:f}'.format(interval_stddev * 1000))
-                        self.interval_stddev_suffix_label.setText('ms')
 
     def _on_sample_count_spinbox_value_changed(self, sample_count):
         self.sample_count = sample_count

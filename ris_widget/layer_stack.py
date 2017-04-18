@@ -56,7 +56,10 @@ class LayerList(om.UniformSignalingList):
     def take_input_element(self, obj):
         if isinstance(obj, (numpy.ndarray, Image)):
             obj = Layer(obj)
-        elif not isinstance(obj, Layer):
+        elif isinstance(obj, Layer):
+            if obj in self:
+                raise ValueError('A given layer can only be in the layer stack once.')
+        else:
             raise TypeError("All inputs must be numpy.ndarray, Image, or Layer")
         return obj
 
@@ -85,9 +88,9 @@ class LayerStack(Qt.QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._layers = LayerList()
-        self._connect_layerlist_signals()
+        self._connect_layers()
         self._selection_model = None
-        self._vignette_radius = None
+        self._layer_instance_counts = {}
         self.auto_min_max_all_action = Qt.QAction(self)
         self.auto_min_max_all_action.setText('Auto Min/Max')
         self.auto_min_max_all_action.setCheckable(True)
@@ -116,32 +119,30 @@ class LayerStack(Qt.QObject):
             return
         if not isinstance(v, LayerList):
             v = LayerList(v)
-        v_o.inserted.disconnect(self._on_inserted_into_layers)
-        v_o.removed.disconnect(self._on_removed_from_layers)
+        v_o.inserting.disconnect(self._on_inserting_into_layers)
+        v_o.removing.disconnect(self._on_removing_from_layers)
+        v_o.replacing.disconnect(self._on_replacing_in_layers)
         v_o.replaced.disconnect(self._on_replaced_in_layers)
         v_o.inserted.disconnect(self._delayed_on_inserted_into_layers)
         v_o.removed.disconnect(self._delayed_on_removed_from_layers)
         self._detach_layers(v_o)
-        self._layers = v
-        self._connect_layerlist_signals()
         self._attach_layers(v)
+        self._layers = v
+        self._connect_layers()
         self.layers_replaced.emit(self, v_o, v)
         if v:
             self.ensure_layer_focused()
 
-    def _connect_layerlist_signals(self):
-        self._layers.inserted.connect(self._on_inserted_into_layers)
-        self._layers.removed.connect(self._on_removed_from_layers)
+    def _connect_layers(self):
+        self._layers.inserting.connect(self._on_inserting_into_layers)
+        self._layers.removing.connect(self._on_removing_from_layers)
+        self._layers.replacing.connect(self._on_replacing_in_layers)
         self._layers.replaced.connect(self._on_replaced_in_layers)
-        # Must be QueuedConnection in order to avoid race condition where self._on_inserted_into_layers may be called before any associated model's
-        # "inserted" handler, which would cause ensure_layer_focused, if layers was empty before insertion, to attempt to focus row 0 before associated
-        # models are even aware that a row has been inserted.
+        # Must be QueuedConnection in order to avoid race condition where self._on_inserting_into_layers may be called before any associated model's
+        # "inserting" handler, which would cause ensure_layer_focused, if layers was empty before insertion, to attempt to focus row 0 before associated
+        # models are even aware that a row has been inserting.
         self._layers.inserted.connect(self._delayed_on_inserted_into_layers, Qt.Qt.QueuedConnection)
         self._layers.removed.connect(self._delayed_on_removed_from_layers, Qt.Qt.QueuedConnection)
-
-
-    def get_layers(self):
-        return self._layers
 
     @property
     def selection_model(self):
@@ -155,7 +156,8 @@ class LayerStack(Qt.QObject):
             return
         if v_o is not None:
             v_o.currentRowChanged.disconnect(self._on_current_row_changed)
-        v.currentRowChanged.connect(self._on_current_row_changed)
+        if v is not None:
+            v.currentRowChanged.connect(self._on_current_row_changed)
         self._selection_model = v
         self.selection_model_replaced.emit(self, v_o, v)
 
@@ -179,9 +181,10 @@ class LayerStack(Qt.QObject):
     @property
     def focused_layer(self):
         """Note: L.focused_layer = Layer() is equivalent to L.layers[L.focused_layer_idx] = Layer()."""
-        idx = self.focused_layer_idx
-        if idx is not None:
-            return self._layers[idx]
+        if self._layers is not None:
+            idx = self.focused_layer_idx
+            if idx is not None:
+                return self._layers[idx]
 
     @focused_layer.setter
     def focused_layer(self, v):
@@ -194,7 +197,8 @@ class LayerStack(Qt.QObject):
         """If we have both a layer list & selection model and no Layer is selected & .layers is not empty:
            If there is a "current" layer, IE highlighted but not selected, select it.
            If there is no "current" layer, make .layer_stack[0] current and select it."""
-        if len(self._layers) == 0:
+        ls = self._layers
+        if not ls:
             return
         sm = self._selection_model
         if sm is None:
@@ -223,45 +227,36 @@ class LayerStack(Qt.QObject):
     def auto_min_max_all(self, v):
         self.auto_min_max_all_action.setChecked(v)
 
-    @property
-    def vignette_radius(self):
-        return self._vignette_radius
-
-    @vignette_radius.setter
-    def vignette_radius(self, v):
-        if v != self._vignette_radius:
-            for layer in self._layers:
-                layer.vignette_radius = v
-
     def _attach_layers(self, layers):
+        auto_min_max_all = self.auto_min_max_all
         for layer in layers:
-            if layer in self._layers:
-                print('a layer may appear in the layer stack only one time.')
-            if self.auto_min_max_all:
+            if auto_min_max_all:
                 layer.auto_min_max_enabled = True
+            # can connect without worrying that it's already connected because LayerList guarantees
+            # that a given layer can only be in the lost
             layer.auto_min_max_enabled_changed.connect(self._on_layer_auto_min_max_enabled_changed)
 
     def _detach_layers(self, layers):
         for layer in layers:
             layer.auto_min_max_enabled_changed.disconnect(self._on_layer_auto_min_max_enabled_changed)
 
-    def _on_inserted_into_layers(self, idx, layers):
+    def _on_inserting_into_layers(self, idx, layers):
         self._attach_layers(layers)
 
-    def _on_removed_from_layers(self, idxs, layers):
+    def _on_removing_from_layers(self, idxs, layers):
         self._detach_layers(layers)
+
+    def _on_replacing_in_layers(self, idxs, replaced_layers, layers):
+        self._detach_layers(replaced_layers)
+        self._attach_layers(layers)
 
     def _on_replaced_in_layers(self, idxs, replaced_layers, layers):
         # Note: the selection model may be associated with a proxy model, in which case this method's idxs argument is in terms of the proxy.  Therefore,
         # we can't use self.focused_layer_idx (if the selection model is attached to a proxy, self.focused_layer_idx is in terms of the proxied model,
         # not the proxy).
-        #       self.ensure_layer_focused()
-        self._detach_layers(replaced_layers)
-        self._attach_layers(layers)
-        sm = self._selection_model
-        if sm is None:
+        if self._selection_model is None:
             return
-        focused_midx = sm.currentIndex()
+        focused_midx = self._selection_model.currentIndex()
         if focused_midx is None:
             return
         focused_row = focused_midx.row()

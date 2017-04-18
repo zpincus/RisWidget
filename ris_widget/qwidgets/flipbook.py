@@ -198,7 +198,7 @@ class Flipbook(Qt.QWidget):
         playbox.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
         playbox.addWidget(self.toggle_playing_button)
         self.fps_editor = Qt.QLineEdit()
-        self.fps_editor.setValidator(Qt.QIntValidator(1, 50, parent=self))
+        self.fps_editor.setValidator(Qt.QIntValidator(1, 99, parent=self))
         self.fps_editor.editingFinished.connect(self._on_fps_editing_finished)
         self.fps_editor.setFixedWidth(30)
         self.fps_editor.setAlignment(Qt.Qt.AlignCenter)

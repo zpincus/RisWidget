@@ -53,7 +53,6 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         layer_stack_item.layer_stack.layers_replaced.connect(self._on_layers_replaced)
         layer_stack_item.layer_stack.layer_focus_changed.connect(self._on_layer_changed)
         self.layer_stack = layer_stack_item.layer_stack
-        self.layers = None
         self._target_layer_idx = None
         self.target_layer = None
         self.target_image = None
@@ -61,7 +60,7 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         self.target_image_shape = None
         self.target_image_range = None
         self.target_image_type = None
-        self._on_layers_replaced(self.layer_stack, None, layer_stack_item.layer_stack.layers)
+        self._connect_layers(self.layer_stack.layers)
         self._on_layer_stack_item_bounding_rect_changed()
         self.brush = None
         self.alternate_brush = None
@@ -115,16 +114,17 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         self._boundingRect = self.layer_stack_item.boundingRect()
 
     def _on_layers_replaced(self, layer_stack, old_layers, layers):
-        assert layer_stack is self.layer_stack and (self.layers is None or self.layers is old_layers)
-        if old_layers is not None:
-            old_layers.inserted.disconnect(self._on_layer_changed)
-            old_layers.removed.disconnect(self._on_layer_changed)
-            old_layers.replaced.disconnect(self._on_layer_changed)
+        assert layer_stack is self.layer_stack and self.layers is old_layers
+        old_layers.inserted.disconnect(self._on_layer_changed)
+        old_layers.removed.disconnect(self._on_layer_changed)
+        old_layers.replaced.disconnect(self._on_layer_changed)
+        self._connect_layers(layers)
+
+    def _connect_layers(self, layers):
         self.layers = layers
-        if layers is not None:
-            layers.inserted.connect(self._on_layer_changed)
-            layers.removed.connect(self._on_layer_changed)
-            layers.replaced.connect(self._on_layer_changed)
+        layers.inserted.connect(self._on_layer_changed)
+        layers.removed.connect(self._on_layer_changed)
+        layers.replaced.connect(self._on_layer_changed)
         self._on_layer_changed()
 
     def _on_layer_changed(self):

@@ -108,7 +108,7 @@ class HistogramItem(ShaderItem):
             h_w = h_r[1] - h_r[0]
             r = image.range
             w = r[1] - r[0]
-            bin_width = w / len(histogram.shape)
+            bin_width = w / len(histogram)
             bin_count = h_w / bin_width
             bin_idx_offset = int((h_r[0] - r[0]) / bin_width)
             with ExitStack() as estack:

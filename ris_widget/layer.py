@@ -200,7 +200,6 @@ class Layer(qt_property.QtPropertyOwner):
                         self._image.data_changed.disconnect(self._on_image_data_changed)
                     self._image = None
                     raise e
-                self.image_min, self.image_max, self.histogram = histogram.histogram(v.data)
             if self._image is not None:
                 self._image.data_changed.disconnect(self._on_image_data_changed)
             self._image = v
@@ -211,6 +210,7 @@ class Layer(qt_property.QtPropertyOwner):
         self._update_property_defaults()
         self._auto_min_max_values = None
         if image is not None:
+            self.image_min, self.image_max, self.histogram = histogram.histogram(image.data)
             if self.auto_min_max_enabled:
                 self.do_auto_min_max()
             else:
