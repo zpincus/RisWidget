@@ -57,7 +57,7 @@ class LayerList(om.UniformSignalingList):
         if isinstance(obj, (numpy.ndarray, Image)):
             obj = Layer(obj)
         elif isinstance(obj, Layer):
-            if obj in self:
+            if hasattr(self, '_list') and obj in self._list:
                 raise ValueError('A given layer can only be in the layer stack once.')
         else:
             raise TypeError("All inputs must be numpy.ndarray, Image, or Layer")

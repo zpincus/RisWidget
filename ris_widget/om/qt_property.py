@@ -34,10 +34,6 @@ def _equals(a, b):
 class Property(property):
     """A convenience class for making properties that have a default value and a change Qt-signal.
 
-    Before use, an instance of the class that owns the property must call instantiate(self) to
-    set up the property for use. Further, if the class has a .changed attribute that is a Qt
-    signal, instantiate() connects the changed signal created for that property with the instance's changed signal.
-
     NB: Property is derived from "property" for the sole reason that IPython's question-mark magic is special-cased for
     properties.  Deriving from property causes Property to receive the same treatment, providing useful output for
     something.prop? in IPython (where prop is a Property instance)."""
