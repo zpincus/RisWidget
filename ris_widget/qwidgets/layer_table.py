@@ -58,8 +58,9 @@ class LayerTableView(Qt.QTableView):
         self.setItemDelegateForColumn(layer_table_model.property_columns['tint'], self.tint_delegate)
         self.opacity_delegate = SliderDelegate(0.0, 1.0, self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['opacity'], self.opacity_delegate)
+        # TODO: is the below useful?
         self.dead_cell_special_selection_highlight_delegate = SpecialSelectionHighlightDelegate(self)
-        for pn in ('image.dtype', 'image.type', 'image.size', 'image.name'):
+        for pn in ('dtype', 'type', 'size'):
             self.setItemDelegateForColumn(layer_table_model.property_columns[pn], self.dead_cell_special_selection_highlight_delegate)
         self.setSelectionBehavior(Qt.QAbstractItemView.SelectRows)
         self.setSelectionMode(Qt.QAbstractItemView.ExtendedSelection)
@@ -74,10 +75,10 @@ class LayerTableView(Qt.QTableView):
         # so we make it 50% wider to be safe
         col = layer_table_model.property_columns['blend_function']
         self.horizontalHeader().resizeSection(col, self.horizontalHeader().sectionSize(col) * 1.5)
-        # The text 'image.size' is typically somewhat shorter than '2160x2560', so we widen that column
+        # The text 'size' is typically somewhat shorter than '2160x2560', so we widen that column
         # by an arbitrary fudge factor...
-        col = layer_table_model.property_columns['image.size']
-        self.horizontalHeader().resizeSection(col, self.horizontalHeader().sectionSize(col) * 1.5)
+        col = layer_table_model.property_columns['size']
+        self.horizontalHeader().resizeSection(col, self.horizontalHeader().sectionSize(col) * 2)
         # Making the opacity column exactly 100 pixels wide gives 1:1 mapping between horizontal
         # position within the column and opacity slider integer % values
         col = layer_table_model.property_columns['opacity']
@@ -160,7 +161,7 @@ class LayerTableDragDropBehavior(om.signaling_list.DragDropModelBehavior):
         return bool(LayerList.from_json(txt))
 
     def handle_dropped_qimage(self, qimage, name, dst_row, dst_column, dst_parent):
-        image = Image.from_qimage(qimage=qimage, name=name)
+        image = Image.from_qimage(qimage)
         if image is not None:
             layer = Layer(image=image)
             self.layer_stack.layers[dst_row:dst_row] = [layer]
@@ -194,24 +195,7 @@ class LayerTableDragDropBehavior(om.signaling_list.DragDropModelBehavior):
         mime_data.setText(self.layer_stack.layers.to_json())
         return mime_data
 
-class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePropertyTableModel):
-    # LayerTableModel accesses PROPERTIES strictly via self.PROPERTIES and never via LayerTableModel.PROPERTIES,
-    # meaning that subclasses may safely add or remove columns by overridding PROPERTIES.  For example, adding a column for
-    # a sublcassed Images having an "image_quality" property:
-    #
-    # class LayerStackTableModel_ImageQuality(LayerTableModel):
-    #     PROPERTIES = ImageStackTableModel.PROPERTIES + ('image.image_quality',)
-    #
-    # And that's it, provided image_quality is always a plain string and should not be editable.  Making it editable
-    # would require adding an entry to self._special_flag_getters.  Alternative .flags may be overridden to activate the
-    # Qt.Qt.ItemIsEditable flag, as in this example:
-    #
-    # class LayerStackTableModel_ImageQuality(LayerTableModel):
-    #     PROPERTIES = ImageStackTableModel.PROPERTIES + ('image.image_quality',)
-    #     def flags(self, midx):
-    #         if midx.column() == self.property_columns['image.image_quality']:
-    #             return Qt.Qt.ItemIsEnabled | Qt.Qt.ItemIsSelectable | Qt.Qt.ItemNeverHasChildren | Qt.Qt.ItemIsEditable
-    #         return super().flags(midx)
+class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTableModel):
 
     PROPERTIES = [
         'visible',
@@ -221,13 +205,12 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
         'opacity',
         # 'getcolor_expression',
         # 'transform_section',
-        # 'name',
         'histogram_min',
         'histogram_max',
-        'image.dtype',
-        'image.type',
-        'image.size',
-        'image.name'
+        'dtype',
+        'type',
+        'size',
+        'name'
     ]
 
     def __init__(
@@ -235,10 +218,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
             layer_stack,
             parent=None
         ):
-        super().__init__(
-            property_names=self.PROPERTIES,
-            signaling_list=None if layer_stack is None else layer_stack.layers,
-            parent=parent)
+        super().__init__(property_names=self.PROPERTIES, signaling_list=layer_stack.layers, parent=parent)
         self.layer_stack = layer_stack
         layer_stack.layers_replaced.connect(self._on_layers_replaced)
         layer_stack.solo_layer_mode_action.toggled.connect(self._on_examine_layer_mode_toggled)
@@ -260,15 +240,15 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
             'transform_section' : self._getd__defaultable_property,
             'histogram_min' : self._getd__defaultable_property,
             'histogram_max' : self._getd__defaultable_property,
-            'image.size' : self._getd_image_size,
-            'image.dtype' : self._getd_image_dtype
+            'size' : self._getd_size,
+            'dtype' : self._getd_dtype
         }
         self._special_flag_getters = {
             'visible' : self._getf__always_checkable,
             'auto_min_max_enabled' : self._getf__always_checkable,
-            'image.dtype' : self._getf__never_editable,
-            'image.type' : self._getf__never_editable,
-            'image.size' : self._getf__never_editable
+            'dtype' : self._getf__never_editable,
+            'type' : self._getf__never_editable,
+            'size' : self._getf__never_editable
         }
         self._special_data_setters = {
             'visible' : self._setd_visible,
@@ -316,7 +296,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
 
     def _getd_visible(self, midx, role):
         if role == Qt.Qt.CheckStateRole:
-            is_checked = self.get_cell(midx.row(), midx.column())
+            is_checked = self.get_cell(midx)
             if self.layer_stack.solo_layer_mode_action.isChecked():
                 if self._focused_row == midx.row():
                     if is_checked:
@@ -334,7 +314,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
 
     def _getd_auto_min_max_enabled(self, midx, role):
         if role == Qt.Qt.CheckStateRole:
-            if self.get_cell(midx.row(), midx.column()):
+            if self.get_cell(midx):
                 r = Qt.Qt.Checked
             else:
                 r = Qt.Qt.Unchecked
@@ -352,19 +332,19 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.RecursivePro
         elif role == Qt.Qt.DisplayRole:
             return Qt.QVariant(self.signaling_list[midx.row()].blend_function)
 
-    def _getd_image_size(self, midx, role):
+    def _getd_size(self, midx, role):
         if role == Qt.Qt.DisplayRole:
-            sz = self.get_cell(midx.row(), midx.column())
+            sz = self.get_cell(midx)
             if sz is not None:
                 return Qt.QVariant('{}x{}'.format(sz.width(), sz.height()))
         else:
             return self._getd__default(midx, role)
 
-    def _getd_image_dtype(self, midx, role):
+    def _getd_dtype(self, midx, role):
         if role == Qt.Qt.DisplayRole:
-            image = self.signaling_list[midx.row()].image
-            if image is not None:
-                return Qt.QVariant(str(image.dtype))
+            dtype = self.get_cell(midx)
+            if dtype is not None:
+                return Qt.QVariant(str(dtype))
         else:
             return self._getd__default(midx, role)
 

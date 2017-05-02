@@ -119,7 +119,7 @@ class PropertyTableModel(Qt.QAbstractTableModel):
             coerce_arg_fn=float_or_none)
 """
 
-    def __init__(self, property_names, signaling_list=None, parent=None):
+    def __init__(self, property_names, signaling_list, parent=None):
         super().__init__(parent)
         self._signaling_list = None
         self.property_names = list(property_names)
@@ -148,9 +148,12 @@ class PropertyTableModel(Qt.QAbstractTableModel):
     def drag_drop_flags(self, midx):
         return 0
 
+    def get_cell(self, midx):
+        return getattr(self.signaling_list[midx.row()], self.property_names[midx.column()])
+
     def data(self, midx, role=Qt.Qt.DisplayRole):
         if midx.isValid() and role in (Qt.Qt.DisplayRole, Qt.Qt.EditRole):
-            return Qt.QVariant(getattr(self.signaling_list[midx.row()], self.property_names[midx.column()]))
+            return Qt.QVariant(get_cell(midx))
         return Qt.QVariant()
 
     def setData(self, midx, value, role=Qt.Qt.EditRole):

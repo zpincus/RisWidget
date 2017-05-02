@@ -25,6 +25,8 @@
 from PyQt5 import Qt
 import textwrap
 import warnings
+import numpy
+
 from .image import Image
 from .om import qt_property
 from . import histogram
@@ -134,26 +136,9 @@ class Layer(qt_property.QtPropertyOwner):
         BLEND_FUNCTIONS[k] = '    // blending function name: {}\n    '.format(k) + '\n    '.join(v)
     del k, v
     # A change to any mutable property, including .image, potentially impacts layer presentation.  For convenience, .changed is emitted whenever
-    # any mutable-property-changed signal is emitted, including as a result of assigning to .image.name, calling .image.set(..), or calling
-    # .image.refresh().  NB: .image_changed is the more specific signal emitted in addition to .changed for modifications to .image.
+    # any mutable-property-changed signal is emitted, including or calling .image.refresh().
+    # NB: .image_changed is the more specific signal emitted in addition to .changed for modifications to .image.
     #
-    # For example, this single call supports extensibility by subclassing:
-    # image_instance.changed.connect(something.refresh)
-    # And that single call replaces the following set of calls, which is not even necessarily complete if Image is subclassed:
-    # image_instance.name_changed.connect(something.refresh)
-    # image_instance.data_changed.connect(something.refresh)
-    # image_instance.min_changed.connect(something.refresh)
-    # image_instance.max_changed.connect(something.refresh)
-    # image_instance.gamma_changed.connect(something.refresh)
-    # image_instance.trilinear_filtering_enabled_changed.connect(something.refresh)
-    # image_instance.getcolor_expression_changed.connect(something.refresh)
-    # image_instance.transformation_expression_changed.connect(something.refresh)
-    # image_instance.tint_changed.connect(something.refresh)
-    # image_instance.visible_changed.connect(something.refresh)
-    # image_instance.image_changed.connect(something.refresh)
-    #
-    # In the __init__ function of any Image subclass that adds presentation-affecting properties
-    # and associated change notification signals, do not forget to connect the subclass's change signals to changed.
     changed = Qt.pyqtSignal(object)
     image_changed = Qt.pyqtSignal(object)
     opacity_changed = Qt.pyqtSignal(object)
@@ -164,6 +149,7 @@ class Layer(qt_property.QtPropertyOwner):
         super().__init__(parent)
         self.image_changed.connect(self.changed)
         self.image = image
+        self.mask_radius = None
 
     def __repr__(self):
         image = self.image
@@ -194,32 +180,46 @@ class Layer(qt_property.QtPropertyOwner):
                 if not isinstance(v, Image):
                     v = Image(v)
                 try:
-                    v.data_changed.connect(self._on_image_data_changed)
+                    v.changed.connect(self._on_image_changed)
                 except Exception as e:
                     if self._image is not None:
-                        self._image.data_changed.disconnect(self._on_image_data_changed)
+                        self._image.changed.disconnect(self._on_image_changed)
                     self._image = None
                     raise e
             if self._image is not None:
-                self._image.data_changed.disconnect(self._on_image_data_changed)
+                self._image.changed.disconnect(self._on_image_changed)
             self._image = v
-            self._on_image_data_changed(v)
+            if v is not None:
+                self.dtype = v.data.dtype
+                self.type = v.type
+                self.size = v.size
+            else:
+                self.dtype = None
+                self.type = None
+                self.size = None
+            self._on_image_changed(v)
 
-    def _on_image_data_changed(self, image):
+    def _on_image_changed(self, image):
         assert image is self.image
-        self._update_property_defaults()
-        self._auto_min_max_values = None
         if image is not None:
-            self.image_min, self.image_max, self.histogram = histogram.histogram(image.data)
+            self.calculate_histogram()
             if self.auto_min_max_enabled:
                 self.do_auto_min_max()
             else:
-                r = image.range
-                if self.min < r[0]:
-                    self.min = r[0]
-                if self.max > r[1]:
-                    self.max = r[1]
+                l, h = image.valid_range
+                if self.min < l:
+                    self.min = l
+                if self.max > h:
+                    self.max = h
+        self._update_property_defaults()
         self.image_changed.emit(self)
+
+    def calculate_histogram(self):
+        image = self.image
+        r_min = None if self._is_default('histogram_min') else self.histogram_min
+        r_max = None if self._is_default('histogram_max') else self.histogram_max
+        self.image_min, self.image_max, self.histogram = histogram.histogram(image.data, (r_min, r_max), image.image_bits, self.mask_radius)
+
 
     def generate_contextual_info_for_pos(self, x, y, idx=None):
         image = self.image
@@ -238,27 +238,12 @@ class Layer(qt_property.QtPropertyOwner):
         t += image_text
         return t
 
-    def _find_auto_min_max(self):
-        image = self.image
-        if image is None:
-            self._auto_min_max_values = 0.0, 1.0
-        else:
-            # extremae = image.extremae
-            # if image.has_alpha_channel:
-            #     self._auto_min_max_values = extremae[:-1, 0].min(), extremae[:-1, 1].max()
-            # elif image.num_channels > 1:
-            #     self._auto_min_max_values = extremae[:, 0].min(), extremae[:, 1].max()
-            # else:
-            #     self._auto_min_max_values = extremae
-            # self._auto_min_max_values = max(self._auto_min_max_values[0], self.histogram_min), min(self._auto_min_max_values[1], self.histogram_max)
-            self._auto_min_max_values = max(self.image_min, self.histogram_min), min(self.image_max, self.histogram_max)
-
     def do_auto_min_max(self):
-        if self._auto_min_max_values is None:
-            self._find_auto_min_max()
+        assert self.image is not None
         self._retain_auto_min_max_enabled_on_min_max_change = True
         try:
-            self.min, self.max = self._auto_min_max_values
+            self.min = max(self.image_min, self.histogram_min)
+            self.max = min(self.image_max, self.histogram_max)
         finally:
             self._retain_auto_min_max_enabled_on_min_max_change = False
 
@@ -289,8 +274,8 @@ class Layer(qt_property.QtPropertyOwner):
 
     def _min_max_pre_set(self, v):
         if self.image is not None:
-            r = self.image.range
-            if not r[0] <= v <= r[1]:
+            l, h = self.image.valid_range
+            if not l <= v <= h:
                 warnings.warn('min/max values for this image must be in the closed interval [{}, {}].'.format(*r))
                 return False
 
@@ -332,28 +317,32 @@ class Layer(qt_property.QtPropertyOwner):
     def _histogram_min_default(self):
         if self.image is None:
             return 0.0
+        elif self.dtype == numpy.float32:
+            return self.image_min
         else:
-            return float(self.image.range[0])
+            return float(self.image.valid_range[0])
 
     def _histogram_max_default(self):
         if self.image is None:
             return 65535.0
+        elif self.dtype == numpy.float32:
+            return self.image_max
         else:
-            return float(self.image.range[1])
+            return float(self.image.valid_range[1])
 
     def _histogram_min_pre_set(self, v):
-        r = (0, 65535.0) if self.image is None else self.image.range
-        if not r[0] <= v <= r[1]:
-            warnings.warn('histogram_min value must be in [{}, {}].'.format(r[0], r[1]))
+        l, h = (0, 65535.0) if self.image is None else self.image.valid_range
+        if not l <= v <= h:
+            warnings.warn('histogram_min value must be in [{}, {}].'.format(l, h))
             return False
         if v >= self.histogram_max:
             warnings.warn('histogram_min must be less than histogram_max.')
             return False
 
     def _histogram_max_pre_set(self, v):
-        r = (0, 65535.0) if self.image is None else self.image.range
-        if not r[0] <= v <= r[1]:
-            warnings.warn('histogram_max value must be in [{}, {}].'.format(r[0], r[1]))
+        l, h = (0, 65535.0) if self.image is None else self.image.valid_range
+        if not l <= v <= h:
+            warnings.warn('histogram_max value must be in [{}, {}].'.format(l, h))
             return False
         if v <= self.histogram_min:
             warnings.warn('histogram_max must be greater than histogram_min.')
@@ -418,6 +407,9 @@ class Layer(qt_property.QtPropertyOwner):
         pre_set_callback=_blend_function_pre_set,
         doc=SHADER_PROP_HELP + '\n\nSupported blend_functions:\n    ' + '\n    '.join("'" + s + "'" for s in sorted(BLEND_FUNCTIONS.keys())))
 
+    name = qt_property.Property(
+        default_value='',
+        coerce_arg_fn=str)
 
     @property
     def opacity(self):
@@ -431,17 +423,4 @@ class Layer(qt_property.QtPropertyOwner):
         t = list(self.tint)
         t[3] = v
         self.tint = t #NB: tint takes care of emitting opacity_changed
-
-    # NB: This a property, not a Property.  There is already a change signal, setter, and a getter for objectName, which
-    # we proxy/use.
-    # name_changed = Qt.pyqtSignal(object)
-    # def _on_objectNameChanged(self):
-    #     self.name_changed.emit(self)
-    # name = property(
-    #     Qt.QObject.objectName,
-    #     lambda self, name: self.setObjectName('' if name is None else name),
-    #     doc='Property proxy for QObject::objectName Qt property, which is directly accessible via the objectName getter and '
-    #         'setObjectName setter, with change notification signal objectNameChanged.  The proxied change signal, which conforms '
-    #         'to the requirements of ris_widget.om.signaling_list.PropertyTableModel, is name_changed.')
-
 

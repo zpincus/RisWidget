@@ -82,8 +82,7 @@ class DragDropModelBehavior:
         if rows_drag is not None and len(rows_drag.rows) > 0:
             return self.handle_dropped_rows(rows_drag.src_model, rows_drag.rows, row, column, parent)
         if mime_data.hasImage():
-            url = mime_data.urls()[0].toDisplayString() if mime_data.hasUrls() else None
-            return self.handle_dropped_qimage(mime_data.imageData(), url, row, column, parent)
+            return self.handle_dropped_qimage(mime_data.imageData(), row, column, parent)
         if mime_data.hasUrls():
             # Note: if the URL is a "file://..." representing a local file, toLocalFile returns a string
             # appropriate for feeding to Python's open() function.  If the URL does not refer to a local file,
@@ -121,8 +120,7 @@ class DragDropModelBehavior:
     def can_drop_text(self, text, dst_row, dst_column, dst_parent):
         return True
 
-    def handle_dropped_qimage(self, qimage, name, dst_row, dst_column, dst_parent):
-#       print('handle_dropped_qimage(self, qimage={}, name={}, dst_row={}, dst_column={}, dst_parent={})'.format(qimage, name, dst_row, dst_column, dst_parent))
+    def handle_dropped_qimage(self, qimage, dst_row, dst_column, dst_parent):
         return False
 
     def handle_dropped_files(self, fpaths, dst_row, dst_column, dst_parent):

@@ -133,13 +133,13 @@ class BrushBox(Qt.QGroupBox):
         self.brush_name = brush_name
         self.default_to_min = default_to_min
         self.setLayout(Qt.QGridLayout())
-        painter_item.target_image_aspect_changed.connect(self._on_target_image_aspect_changed)
+        painter_item.target_image_changed.connect(self._on_target_image_changed)
         self.channel_value_set_key = None
         self.channel_value_sets = {}
         self.channel_lses = {}
         self.brush_size_lse = brush_size_lse
         self.brush_size_lse.value_changed.connect(self._on_brush_size_lse_value_changed)
-        self._on_target_image_aspect_changed()
+        self._on_target_image_changed()
 
     def _destroy_channel_lses(self):
         l = self.layout()
@@ -152,25 +152,25 @@ class BrushBox(Qt.QGroupBox):
             lse.editbox.deleteLater()
         self.channel_lses = {}
 
-    def _on_target_image_aspect_changed(self):
+    def _on_target_image_changed(self):
         ti = self.painter_item.target_image
         if ti is None:
             self._destroy_channel_lses()
             self.setEnabled(False)
             self.channel_value_set_key = None
             return
-        cvsk = ti.dtype, ti.type, (ti.range[0], ti.range[1])
+        cvsk = ti.data.dtype, ti.type, (ti.valid_range[0], ti.valid_range[1])
         if self.channel_value_set_key != cvsk:
             self.channel_value_set_key = cvsk
             try:
                 cvs = self.channel_value_sets[cvsk]
             except KeyError:
-                default_value = ti.range[0] if self.default_to_min else ti.range[1]
+                default_value = ti.valid_range[0] if self.default_to_min else ti.valid_range[1]
                 cvs = {c : default_value for c in ti.type}
             self._destroy_channel_lses()
             self.setEnabled(True)
-            t = float if numpy.issubdtype(ti.dtype, numpy.floating) else int
-            m, M = ti.range
+            t = float if numpy.issubdtype(ti.data.dtype, numpy.floating) else int
+            m, M = ti.valid_range
             self.channel_lses = {c : LabelSliderEdit(self.layout(), c, t, m, M, value=v) for (c, v) in cvs.items()}
             for channel_lse in self.channel_lses.values():
                 channel_lse.value_changed.connect(self._on_channel_lse_value_changed)
@@ -184,11 +184,11 @@ class BrushBox(Qt.QGroupBox):
             bs = self.brush_size_lse.value
             channel_count = len(ti.type)
             if channel_count == 1:
-                b = numpy.empty((bs, bs), ti.dtype, 'F')
+                b = numpy.empty((bs, bs), ti.data.dtype, 'F')
                 color = self.channel_lses[ti.type].value
             else:
                 bpe = ti.data.itemsize
-                b = numpy.ndarray((bs, bs, channel_count), strides=(channel_count*bpe, channel_count*bs*bpe, bpe), dtype=ti.dtype)
+                b = numpy.ndarray((bs, bs, channel_count), strides=(channel_count*bpe, channel_count*bs*bpe, bpe), dtype=ti.data.dtype)
                 color = [self.channel_lses[c].value for c in ti.type]
             b[:, :] = color
             m = numpy.zeros((bs, bs), bool, 'F')
@@ -224,14 +224,14 @@ class LayerStackPainter(Qt.QWidget):
         widget_layout.addLayout(section_layout)
         self.brush_size_lse = LabelSliderEdit(section_layout, 'Brush size:', int, 0, 101, odd_values_only=True, max_is_hard=False)
         self.brush_size_lse.value = 5
-        self.painter_item.target_image_aspect_changed.connect(self._on_target_image_aspect_changed)
+        self.painter_item.target_image_changed.connect(self._on_target_image_changed)
         self.brush_box = BrushBox(self.brush_size_lse, 'Right click brush', 'brush', self.painter_item, False)
         widget_layout.addWidget(self.brush_box)
         self.alternate_brush_box = BrushBox(self.brush_size_lse, 'Shift right click brush', 'alternate_brush', self.painter_item, True)
         widget_layout.addWidget(self.alternate_brush_box)
         widget_layout.addStretch()
 
-    def _on_target_image_aspect_changed(self):
+    def _on_target_image_changed(self):
         e = self.painter_item.target_image is not None
         bse = self.brush_size_lse
         bse.label.setEnabled(e)

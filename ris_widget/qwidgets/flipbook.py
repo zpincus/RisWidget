@@ -669,9 +669,9 @@ class PagesModel(PagesModelDragDropBehavior, om.signaling_list.PropertyTableMode
         'name',
         )
 
-    def __init__(self, signaling_list=None, parent=None):
+    def __init__(self, pages, parent=None):
         self.listeners = {}
-        super().__init__(self.PROPERTIES, signaling_list, parent)
+        super().__init__(self.PROPERTIES, pages, parent)
         self.modelAboutToBeReset.connect(self._on_model_about_to_be_reset)
         self.modelReset.connect(self._on_model_reset)
 
@@ -744,8 +744,8 @@ class PageContentModel(om.signaling_list.DragDropModelBehavior, om.signaling_lis
     def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
         return isinstance(src_model, PageContentModel)
 
-    def handle_dropped_qimage(self, qimage, name, dst_row, dst_column, dst_parent):
-        image = Image.from_qimage(qimage=qimage, name=name)
+    def handle_dropped_qimage(self, qimage, dst_row, dst_column, dst_parent):
+        image = Image.from_qimage(qimage)
         if image is not None:
             self.signaling_list[dst_row:dst_row] = [image]
             return True

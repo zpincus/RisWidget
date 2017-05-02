@@ -41,8 +41,8 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
     QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
     # Something relevant to LayerStackPainter changed: either we are now looking at a different Image
     # instance due to assignment to layer.image, or image data type and/or channel count and/or range
-    # changed.  target_image_aspect_changed is not emitted when just image data changes.
-    target_image_aspect_changed = Qt.pyqtSignal(Qt.QObject)
+    # changed.  target_image_changed is not emitted when just image data changes.
+    target_image_changed = Qt.pyqtSignal(Qt.QObject)
 
     def __init__(self, layer_stack_item):
         super().__init__(layer_stack_item)
@@ -56,10 +56,6 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         self._target_layer_idx = None
         self.target_layer = None
         self.target_image = None
-        self.target_image_dtype = None
-        self.target_image_shape = None
-        self.target_image_range = None
-        self.target_image_type = None
         self._connect_layers(self.layer_stack.layers)
         self._on_layer_stack_item_bounding_rect_changed()
         self.brush = None
@@ -105,7 +101,7 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
                 br.setBottom(br.bottom() - (r.bottom() - im.size.height() + 1))
                 r.setBottom(im.size.height() - 1)
             brush.apply(im.data[r.left():r.right()+1,r.top():r.bottom()+1], br)
-            self.target_image.refresh(data_changed=True)
+            self.target_image.refresh()
             return True
         return False
 
@@ -139,28 +135,8 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         self._on_image_changed()
 
     def _on_image_changed(self):
-        if self.target_image is not None and (self.target_layer is None or self.target_layer.image is None):
-            self.target_image = None
-            self.target_image_dtype = None
-            self.target_image_shape = None
-            self.target_image_range = None
-            self.target_image_type = None
-            self.setVisible(False)
-            self.target_image_aspect_changed.emit(self)
-            return
-        if self.target_layer.image is None:
-            return
-        ti = self.target_image
-        if self.target_layer.image is not ti or (
-            self.target_image_dtype != ti.dtype or
-            self.target_image_shape != ti.data.shape or
-            (self.target_image_range != ti.range).any() or
-            self.target_image_type != ti.type
-        ):
-            ti = self.target_image = self.target_layer.image
-            self.target_image_dtype = ti.dtype
-            self.target_image_shape = ti.data.shape
-            self.target_image_range = ti.range
-            self.target_image_type = ti.type
-            self.setVisible(True)
-            self.target_image_aspect_changed.emit(self)
+        new_target = None if self.target_layer is None else self.target_layer.image
+        if self.target_image is not new_target:
+            self.target_image = new_target
+            self.setVisible(new_target is not None) # hide if target goes to None
+            self.target_image_changed.emit(self)

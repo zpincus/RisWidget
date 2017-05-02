@@ -44,8 +44,7 @@ class AsyncTextureState(enum.Enum):
     Bound = 4
 
 class AsyncTexture:
-    def __init__(self, data, format, source_format, source_type, upload_immediately, name):
-        self.name = name
+    def __init__(self, data, format, source_format, source_type, upload_immediately):
         self.data = data
         self.format = format
         self.source_format = source_format

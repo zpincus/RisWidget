@@ -439,14 +439,14 @@ class LayerStackItem(ShaderItem):
         our unpacked 12-bit images in uint16 arrays.  Therefore, OpenGL will normalize by dividing by
         65535, even though no 12-bit image will have a component value larger than 4095.
         * float32 data uploaded to float32 texture is not normalized"""
-        if image.dtype == numpy.uint16:
+        if image.data.dtype == numpy.uint16:
             v /= 65535
-        elif image.dtype == numpy.uint8 or image.dtype == bool:
+        elif image.data.dtype == numpy.uint8 or image.data.dtype == bool:
             v /= 255
-        elif image.dtype == numpy.float32:
+        elif image.data.dtype == numpy.float32:
             pass
         else:
-            raise NotImplementedError('OpenGL-compatible normalization for {} missing.'.format(image.dtype))
+            raise NotImplementedError('OpenGL-compatible normalization for {} missing.'.format(image.data.dtype))
         return v
 
     def _get_visible_idxs_and_update_texs(self, estack):

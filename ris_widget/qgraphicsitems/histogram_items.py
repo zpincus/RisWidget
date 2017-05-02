@@ -104,13 +104,6 @@ class HistogramItem(ShaderItem):
             layer = self.layer
             widget_size = widget.size()
             histogram = layer.histogram
-            h_r = layer.histogram_min, layer.histogram_max
-            h_w = h_r[1] - h_r[0]
-            r = image.range
-            w = r[1] - r[0]
-            bin_width = w / len(histogram)
-            bin_count = h_w / bin_width
-            bin_idx_offset = int((h_r[0] - r[0]) / bin_width)
             with ExitStack() as estack:
                 qpainter.beginNativePainting()
                 estack.callback(qpainter.endNativePainting)
@@ -150,7 +143,7 @@ class HistogramItem(ShaderItem):
                 else:
                     tex.bind()
                     estack.callback(tex.release)
-                max_bin_val = histogram[bin_idx_offset:bin_idx_offset + math.ceil(bin_count)].max()
+                max_bin_val = histogram.max()
                 if tex.serial != self._layer_data_serial:
                     orig_unpack_alignment = GL.glGetIntegerv(GL.GL_UNPACK_ALIGNMENT)
                     if orig_unpack_alignment != 1:
@@ -186,8 +179,6 @@ class HistogramItem(ShaderItem):
                 prog.setUniformValue('tex', 0)
                 dpi_ratio = widget.devicePixelRatio()
                 prog.setUniformValue('inv_view_size', 1/(dpi_ratio * widget_size.width()), 1/(dpi_ratio * widget_size.height()))
-                prog.setUniformValue('x_offset', (h_r[0] - r[0]) / w)
-                prog.setUniformValue('x_factor', h_w / w)
                 inv_max_transformed_bin_val = max_bin_val**-self.gamma_gamma
                 prog.setUniformValue('inv_max_transformed_bin_val', inv_max_transformed_bin_val)
                 prog.setUniformValue('gamma_gamma', self.gamma_gamma)
@@ -214,27 +205,18 @@ class HistogramItem(ShaderItem):
                 image = layer.image
                 if image is not None:
                     histogram = layer.histogram
-                    h_r = layer.histogram_min, layer.histogram_max
-                    h_w = h_r[1] - h_r[0]
-                    r = image.range
-                    w = r[1] - r[0]
-                    bin_width = w / histogram.shape[-1]
-                    bin_count = h_w / bin_width
-                    bin_idx_offset = int((h_r[0] - r[0]) / bin_width)
-                    if image.dtype != numpy.float32:
-                        bin_count = round(bin_count)
-                    bin = bin_idx_offset + int(pos.x() * bin_count)
-                    if image.dtype == numpy.float32:
-                        bin_text = '[{:.8g},{:.8g}{}'.format(h_r[0] + bin * bin_width, h_r[0] + (bin + 1) * bin_width, ']' if bin == bin_count - 1 else ')')
+                    hist_min = layer.histogram_min
+                    hist_width = layer.histogram_max - hist_min
+                    n_bins = len(histogram)
+                    bin_width = hist_width / n_bins
+                    bin = int(pos.x() * n_bins)
+                    l, r = hist_min + bin * bin_width, hist_min + (bin + 1) * bin_width
+                    if image.data.dtype == numpy.float32:
+                        bin_text = '[{:.8g},{:.8g}{}'.format(l, r, ']' if bin == n_bins - 1 else ')')
                     else:
-                        l, r = math.ceil((bin_idx_offset + bin) * bin_width), math.floor((bin_idx_offset + bin + 1) * bin_width)
-                        bin_text = '{}'.format(l) if image.dtype == numpy.uint8 else '[{},{}]'.format(l, r)
-                    val_text =  ','.join('{}' for c in image.type)
-                    if image.num_channels > 1:
-                        val_text = val_text.format(*histogram[..., bin])
-                    else:
-                        val_text = val_text.format(histogram[bin])
-                    text = bin_text + ': ' + val_text
+                        l, r = int(math.ceil(l)), int(math.floor(r))
+                        bin_text = '{}'.format(l) if image.data.dtype == numpy.uint8 else '[{},{}]'.format(l, r)
+                    text = bin_text + ': {}'.format(histogram[bin])
         self.contextual_info.value = text
 
     def _on_layer_image_changed(self):

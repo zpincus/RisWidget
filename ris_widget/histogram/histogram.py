@@ -67,19 +67,37 @@ def _fast_index_first(image):
     else:
         return image
 
-def histogram(image, range=None, image_bits=None, mask_radius=None):
+def histogram(image, range=(None, None), image_bits=None, mask_radius=None):
     """
+    image: 2-dimensional greyscale image, or GA, RGB, or RGBA image in (x, y, c) index order.
+        If RGB(A), the RGB channels will be converted to greyscale first. Alpha channels are ignored.
     range: [low, high] range over which histogram is calculated
     image_bits: only applies to uint16 images. If None, images are assumed to occupy full 16-bit range.
-    mask: (starts, ends), where starts and ends contain the [start, end) index for
-        calculating the histogram, for each scanline row in the image.
+    mask_radius: radius of a vignette mask (in terms of fraction of the size of the image).
     returns: min, max, hist
-        min, max: image min and max values (within the range, if specified)
+        min, max: image min and max values (possibly outside the range, if specified)
         hist: histogram
     """
-    assert image.dtype.type in (numpy.float32, numpy.uint8, numpy.uint16)
+    image = numpy.asarray(image)
+    assert image.dtype in {bool, numpy.uint8, numpy.uint16, numpy.float32}
+    if image.ndim == 3:
+        if image.shape[2] in (3, 4): # RGB/RGBA
+            r, g, b = numpy.rollaxis(image, -1)
+            image = 0.2126*r + 0.7152*g + 0.0722*b # use CIE 1931 linear luminance
+        elif image.shape[2] == 2: # GA
+            image = image[:,:,0]
+    if image.ndim != 2:
+        raise ValueError('Only 2D, GA, RGB, and RGBA images are supported')
+
+    if image.dtype == bool:
+        was_bool = True
+        image = image.view(numpy.uint8)
+    else:
+        was_bool = False
     masked = mask_radius is not None
-    ranged = range is not None
+    range = tuple(range)
+    ranged = range is not (None, None)
+    r_min, r_max = range
 
     i = _fast_index_first(image)
     args = [_histogram.ffi.cast('char *', i.ctypes.data), i.shape[1], i.shape[0], i.strides[1], i.strides[0]]
@@ -108,30 +126,34 @@ def histogram(image, range=None, image_bits=None, mask_radius=None):
             hist_func = _histogram.lib.ranged_hist_float
         minmax_args = args[:-1] + [mn, mx] # ditch the hist pointer, and add the min and max pointers
         minmax_func(*minmax_args)
-        if range is None:
-            range = mn[0], mx[0]
-        args += [len(hist), range[0], range[1]]
+        if r_min is None:
+            r_min = mn[0]
+        if r_max is None:
+            r_max = mx[0]
+        args += [len(hist), r_min, r_max]
     else: # integral type image
         hist_func, mn, mx = _int_hists[(image.dtype.type, ranged, masked)]
         if image.dtype == numpy.uint16:
+            if image_bits is None:
+                image_bits = 16
             if ranged:
                 args.append(len(hist)) # nbins arg
             else:
-                if image_bits is None:
-                    image_bits = 16
                 assert image_bits >= 10
                 args.append(image_bits - 10) # bit shift arg
         if ranged:
-            args.extend(range)
+            if r_min is None:
+                r_min = 0
+            if r_max is None:
+                if image.dtype == numpy.uint8:
+                    r_max = 255
+                else:
+                    r_max = 2**image_bits - 1
+            args.extend(r_min, r_max)
         args += [mn, mx]
     hist_func(*args)
-    min, max = mn[0], mx[0]
-    # for float images, min and max may be outside of the range. Trim if so.
-    if range is not None and image.dtype == numpy.float32:
-        if min < range[0]:
-            min = range[0]
-        if max > range[1]:
-            max = range[1]
-    return min, max, hist
-
+    if was_bool:
+        hist = hist[:2]
+        r_min, r_max = bool(r_min), bool(r_max)
+    return mn[0], mx[0], hist
 

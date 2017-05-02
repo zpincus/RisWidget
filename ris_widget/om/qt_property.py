@@ -37,6 +37,7 @@ class Property(property):
     NB: Property is derived from "property" for the sole reason that IPython's question-mark magic is special-cased for
     properties.  Deriving from property causes Property to receive the same treatment, providing useful output for
     something.prop? in IPython (where prop is a Property instance)."""
+    # TODO: Document better
     def __init__(self, default_value, coerce_arg_fn=None, pre_set_callback=None, post_set_callback=None, doc=None):
         self.default_value = default_value
         self.coerce_arg_fn = coerce_arg_fn
@@ -141,3 +142,6 @@ class QtPropertyOwner(Qt.QObject, metaclass=QtPropertyOwnerMeta):
         # in case of cross-dependencies
         for signal in signals_to_emit:
             signal.emit(self)
+
+    def _is_default(self, prop):
+        return self._properties[prop].is_default(self)
