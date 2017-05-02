@@ -140,8 +140,8 @@ class LayerStackItem(ShaderItem):
 
     def _attach_layers(self, layers):
         layer_stack = self.layer_stack
-        examine_layer_mode_enabled = layer_stack.examine_layer_mode_enabled
-        if examine_layer_mode_enabled:
+        examine_layer_mode = layer_stack.examine_layer_mode
+        if examine_layer_mode:
             focused_layer = layer_stack.focused_layer
         layer_instance_counts = self._layer_instance_counts
         for layer in layers:
@@ -152,7 +152,7 @@ class LayerStackItem(ShaderItem):
                 # Initiate background texture upload if layer has a visible image; a no-op if image's texture is already uploaded or
                 # queued for uploading.
                 image = layer.image
-                if image is not None and (examine_layer_mode_enabled and layer is focused_layer or not examine_layer_mode_enabled and layer.visible):
+                if image is not None and (examine_layer_mode and layer is focused_layer or not examine_layer_mode and layer.visible):
                     image.async_texture.upload()
                 # Any change, including layer data change, may change result of rendering layer and therefore requires refresh
                 layer.changed.connect(self._on_layer_changed)
@@ -250,8 +250,8 @@ class LayerStackItem(ShaderItem):
                 new_br = self.DEFAULT_BOUNDING_RECT
             else:
                 new_br = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(image.size))
-                examine_layer_mode_enabled = self.layer_stack.examine_layer_mode_enabled
-                if examine_layer_mode_enabled and layer is self.layer_stack.focused_layer or not examine_layer_mode_enabled and layer.visible:
+                examine_layer_mode = self.layer_stack.examine_layer_mode
+                if examine_layer_mode and layer is self.layer_stack.focused_layer or not examine_layer_mode and layer.visible:
                     image.async_texture.upload()
             if new_br != current_br:
                 self.prepareGeometryChange()
@@ -262,7 +262,7 @@ class LayerStackItem(ShaderItem):
     def _on_layer_focus_changed(self, old_layer, layer):
         # The appearence of a layer_stack_item may depend on which layer table row is current while
         # "examine layer mode" is enabled.
-        if self.layer_stack.examine_layer_mode_enabled:
+        if self.layer_stack.examine_layer_mode:
             self.update()
 
     def hoverMoveEvent(self, event):
@@ -276,7 +276,7 @@ class LayerStackItem(ShaderItem):
         self.scene().contextual_info_item.clear_contextual_info(self)
 
     def _update_contextual_info(self):
-        if self.layer_stack.examine_layer_mode_enabled:
+        if self.layer_stack.examine_layer_mode:
             idx = self.layer_stack.focused_layer_idx
             visible_idxs = [] if idx is None else [idx]
         elif self.layer_stack.layers:
@@ -456,7 +456,7 @@ class LayerStackItem(ShaderItem):
         object creation and texture data uploading, and it leaves self._texs[layer] bound to texture unit n, where n is
         the associated visible_idx."""
         layer_stack = self.layer_stack
-        if layer_stack.examine_layer_mode_enabled:
+        if layer_stack.examine_layer_mode:
             idx = layer_stack.focused_layer_idx
             visible_idxs = [] if idx is None or layer_stack.layers[idx].image is None else [idx]
         elif layer_stack.layers:

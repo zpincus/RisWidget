@@ -27,7 +27,7 @@ from PyQt5 import Qt
 
 def _equals(a, b):
     r = a == b
-    if isinstance(r, (bool, numpy.bool_)):
+    if isinstance(r, (bool, numpy.bool8)):
         return bool(r)
     return all(r)
 

@@ -41,7 +41,7 @@ class HistogramItem(ShaderItem):
         self.contextual_info = ContextualInfo(self)
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
         self.layer = None
-        self._layer_data_serial = 0
+        self._hist_tex_needs_upload = True
         self._bounding_rect = Qt.QRectF(0, 0, 1, 1)
         self._tex = None
         self._gl_widget = None
@@ -51,36 +51,29 @@ class HistogramItem(ShaderItem):
         self.gamma_gamma = 1.0
         self.hide()
 
-    def _do_update(self):
-        self.update()
-
     def _on_layer_focus_changed(self, layer_stack, old_layer, layer):
         assert layer_stack is self.layer_stack
         if old_layer is not None:
-            self.layer.image_changed.disconnect(self._on_layer_image_changed)
+            self.layer.image_changed.disconnect(self._on_layer_histogram_change)
             self.layer.min_changed.disconnect(self.min_item.arrow_item._on_value_changed)
             self.layer.max_changed.disconnect(self.max_item.arrow_item._on_value_changed)
-            self.layer.histogram_min_changed.disconnect(self.min_item.arrow_item._on_value_changed)
-            self.layer.histogram_min_changed.disconnect(self._do_update)
-            self.layer.histogram_max_changed.disconnect(self.max_item.arrow_item._on_value_changed)
-            self.layer.histogram_max_changed.disconnect(self._do_update)
+            self.layer.histogram_min_changed.disconnect(self._on_layer_histogram_change)
+            self.layer.histogram_max_changed.disconnect(self._on_layer_histogram_change)
             self.layer.gamma_changed.disconnect(self.gamma_item._on_value_changed)
             self.layer = None
         if layer is None:
             self.hide()
         else:
-            layer.image_changed.connect(self._on_layer_image_changed)
+            layer.image_changed.connect(self._on_layer_histogram_change)
             layer.min_changed.connect(self.min_item.arrow_item._on_value_changed)
             layer.max_changed.connect(self.max_item.arrow_item._on_value_changed)
-            layer.histogram_min_changed.connect(self.min_item.arrow_item._on_value_changed)
-            layer.histogram_min_changed.connect(self._do_update)
-            layer.histogram_max_changed.connect(self.max_item.arrow_item._on_value_changed)
-            layer.histogram_max_changed.connect(self._do_update)
+            layer.histogram_min_changed.connect(self._on_layer_histogram_change)
+            layer.histogram_max_changed.connect(self._on_layer_histogram_change)
             layer.gamma_changed.connect(self.gamma_item._on_value_changed)
             self.layer = layer
             self.show()
             self.gamma_item._on_value_changed()
-            self._on_layer_image_changed()
+            self._on_layer_histogram_change()
 
     def type(self):
         return HistogramItem.QGRAPHICSITEM_TYPE
@@ -100,10 +93,8 @@ class HistogramItem(ShaderItem):
                 self._tex.destroy()
                 self._tex = None
         else:
-            image = layer.image
-            layer = self.layer
             widget_size = widget.size()
-            histogram = layer.histogram
+            histogram = self.layer.histogram
             with ExitStack() as estack:
                 qpainter.beginNativePainting()
                 estack.callback(qpainter.endNativePainting)
@@ -125,7 +116,7 @@ class HistogramItem(ShaderItem):
                 if tex is not None:
                     if tex.width() != desired_tex_width:
                         tex.destroy()
-                        tex = self._tex = None
+                        tex  = None
                 if tex is None:
                     tex = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target1D)
                     tex.setFormat(Qt.QOpenGLTexture.R32F)
@@ -139,12 +130,12 @@ class HistogramItem(ShaderItem):
                     tex.setMinMagFilters(Qt.QOpenGLTexture.Nearest, Qt.QOpenGLTexture.Nearest)
                     tex.bind()
                     estack.callback(tex.release)
-                    tex.serial = -1
+                    self._hist_tex_needs_upload = True
                 else:
                     tex.bind()
                     estack.callback(tex.release)
                 max_bin_val = histogram.max()
-                if tex.serial != self._layer_data_serial:
+                if self._hist_tex_needs_upload:
                     orig_unpack_alignment = GL.glGetIntegerv(GL.GL_UNPACK_ALIGNMENT)
                     if orig_unpack_alignment != 1:
                         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
@@ -157,7 +148,7 @@ class HistogramItem(ShaderItem):
                         GL.GL_UNSIGNED_INT,
                         memoryview(histogram)
                     )
-                    tex.serial = self._layer_data_serial
+                    self._hist_tex_needs_upload = False
                     self._tex = tex
                 glQuad = GL_QUAD()
                 if not glQuad.buffer.bind():
@@ -219,8 +210,8 @@ class HistogramItem(ShaderItem):
                     text = bin_text + ': {}'.format(histogram[bin])
         self.contextual_info.value = text
 
-    def _on_layer_image_changed(self):
-        self._layer_data_serial += 1
+    def _on_layer_histogram_change(self):
+        self._hist_tex_needs_upload = True
         self.min_item.arrow_item._on_value_changed()
         self.max_item.arrow_item._on_value_changed()
         self._update_contextual_info()

@@ -212,11 +212,11 @@ class LayerStack(Qt.QObject):
             sm.select(sm.currentIndex(), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
 
     @property
-    def examine_layer_mode_enabled(self):
+    def examine_layer_mode(self):
         return self.solo_layer_mode_action.isChecked()
 
-    @examine_layer_mode_enabled.setter
-    def examine_layer_mode_enabled(self, v):
+    @examine_layer_mode.setter
+    def examine_layer_mode(self, v):
         self.solo_layer_mode_action.setChecked(v)
 
     @property
@@ -231,14 +231,14 @@ class LayerStack(Qt.QObject):
         auto_min_max_all = self.auto_min_max_all
         for layer in layers:
             if auto_min_max_all:
-                layer.auto_min_max_enabled = True
+                layer.auto_min_max = True
             # can connect without worrying that it's already connected because LayerList guarantees
             # that a given layer can only be in the lost
-            layer.auto_min_max_enabled_changed.connect(self._on_layer_auto_min_max_enabled_changed)
+            layer.auto_min_max_changed.connect(self._on_layer_auto_min_max_changed)
 
     def _detach_layers(self, layers):
         for layer in layers:
-            layer.auto_min_max_enabled_changed.disconnect(self._on_layer_auto_min_max_enabled_changed)
+            layer.auto_min_max_changed.disconnect(self._on_layer_auto_min_max_changed)
 
     def _on_inserting_into_layers(self, idx, layers):
         self._attach_layers(layers)
@@ -294,14 +294,14 @@ class LayerStack(Qt.QObject):
         # a result of assignment to a constituent Layer's min or max properties.
         if not checked:
             for layer in self.layers:
-                layer.auto_min_max_enabled = False
+                layer.auto_min_max = False
 
     def _on_master_enable_auto_min_max_toggled(self, checked):
         if checked and self._layers:
             for layer in self._layers:
-                layer.auto_min_max_enabled = True
+                layer.auto_min_max = True
 
-    def _on_layer_auto_min_max_enabled_changed(self, layer):
-        if self.auto_min_max_all and not layer.auto_min_max_enabled:
+    def _on_layer_auto_min_max_changed(self, layer):
+        if self.auto_min_max_all and not layer.auto_min_max:
             self.auto_min_max_all = False
 

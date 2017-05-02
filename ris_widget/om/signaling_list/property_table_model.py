@@ -153,7 +153,7 @@ class PropertyTableModel(Qt.QAbstractTableModel):
 
     def data(self, midx, role=Qt.Qt.DisplayRole):
         if midx.isValid() and role in (Qt.Qt.DisplayRole, Qt.Qt.EditRole):
-            return Qt.QVariant(get_cell(midx))
+            return Qt.QVariant(self.get_cell(midx))
         return Qt.QVariant()
 
     def setData(self, midx, value, role=Qt.Qt.EditRole):

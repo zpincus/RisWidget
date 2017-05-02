@@ -144,7 +144,7 @@ class Layer(qt_property.QtPropertyOwner):
     opacity_changed = Qt.pyqtSignal(object)
 
     def __init__(self, image=None, parent=None):
-        self._retain_auto_min_max_enabled_on_min_max_change = False
+        self._retain_auto_min_max_on_min_max_change = False
         self._image = None
         super().__init__(parent)
         self.image_changed.connect(self.changed)
@@ -201,9 +201,10 @@ class Layer(qt_property.QtPropertyOwner):
 
     def _on_image_changed(self, image):
         assert image is self.image
+        self.calculate_histogram()
+        self._update_property_defaults()
         if image is not None:
-            self.calculate_histogram()
-            if self.auto_min_max_enabled:
+            if self.auto_min_max:
                 self.do_auto_min_max()
             else:
                 l, h = image.valid_range
@@ -211,14 +212,15 @@ class Layer(qt_property.QtPropertyOwner):
                     self.min = l
                 if self.max > h:
                     self.max = h
-        self._update_property_defaults()
         self.image_changed.emit(self)
 
     def calculate_histogram(self):
-        image = self.image
+        if self.image is None:
+            return
         r_min = None if self._is_default('histogram_min') else self.histogram_min
         r_max = None if self._is_default('histogram_max') else self.histogram_max
-        self.image_min, self.image_max, self.histogram = histogram.histogram(image.data, (r_min, r_max), image.image_bits, self.mask_radius)
+        self.image_min, self.image_max, self.histogram = histogram.histogram(
+            self.image.data, (r_min, r_max), self.image.image_bits, self.mask_radius)
 
 
     def generate_contextual_info_for_pos(self, x, y, idx=None):
@@ -240,25 +242,25 @@ class Layer(qt_property.QtPropertyOwner):
 
     def do_auto_min_max(self):
         assert self.image is not None
-        self._retain_auto_min_max_enabled_on_min_max_change = True
+        self._retain_auto_min_max_on_min_max_change = True
         try:
             self.min = max(self.image_min, self.histogram_min)
             self.max = min(self.image_max, self.histogram_max)
         finally:
-            self._retain_auto_min_max_enabled_on_min_max_change = False
+            self._retain_auto_min_max_on_min_max_change = False
 
     visible = qt_property.Property(
         default_value=True,
         coerce_arg_fn=bool)
 
-    def _auto_min_max_enabled_post_set(self, v):
+    def _auto_min_max_post_set(self, v):
         if v and self.image is not None:
             self.do_auto_min_max()
 
-    auto_min_max_enabled = qt_property.Property(
+    auto_min_max = qt_property.Property(
         default_value=False,
         coerce_arg_fn=bool,
-        post_set_callback=_auto_min_max_enabled_post_set)
+        post_set_callback=_auto_min_max_post_set)
 
     def _min_default(self):
         if self.image is None:
@@ -282,14 +284,14 @@ class Layer(qt_property.QtPropertyOwner):
     def _min_post_set(self, v):
         if v > self.max:
             self.max = v
-        if not self._retain_auto_min_max_enabled_on_min_max_change:
-            self.auto_min_max_enabled = False
+        if not self._retain_auto_min_max_on_min_max_change:
+            self.auto_min_max = False
 
     def _max_post_set(self, v):
         if v < self.min:
             self.min = v
-        if not self._retain_auto_min_max_enabled_on_min_max_change:
-            self.auto_min_max_enabled = False
+        if not self._retain_auto_min_max_on_min_max_change:
+            self.auto_min_max = False
 
     min = qt_property.Property(
         default_value=_min_default,
@@ -349,10 +351,18 @@ class Layer(qt_property.QtPropertyOwner):
             return False
 
     def _histogram_min_max_post_set(self, v):
-        if self.min < self.histogram_min:
-            self.min = self.histogram_min
-        if self.max > self.histogram_max:
-            self.max = self.histogram_max
+        self.calculate_histogram()
+        self._retain_auto_min_max_on_min_max_change = True
+        try:
+            if self.min < self.histogram_min:
+                self.min = self.histogram_min
+            if self.max > self.histogram_max:
+                self.max = self.histogram_max
+        finally:
+            self._retain_auto_min_max_on_min_max_change = False
+        if self.image is not None and self.auto_min_max:
+            self.do_auto_min_max()
+
 
     histogram_min = qt_property.Property(
         default_value=_histogram_min_default,
@@ -365,10 +375,6 @@ class Layer(qt_property.QtPropertyOwner):
         coerce_arg_fn=float,
         pre_set_callback=_histogram_max_pre_set,
         post_set_callback=_histogram_min_max_post_set)
-
-    trilinear_filtering_enabled = qt_property.Property(
-        default_value=True,
-        coerce_arg_fn=bool)
 
     def _getcolor_expression_default(self):
         image = self.image

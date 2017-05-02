@@ -29,7 +29,6 @@ import OpenGL.GL as PyGL
 from PyQt5 import Qt
 import textwrap
 from .async_texture import AsyncTexture
-from .ndimage_statistics import ndimage_statistics
 
 class Image(Qt.QObject):
     """An instance of the Image class is a wrapper around a Numpy ndarray representing a single image.
@@ -99,11 +98,10 @@ class Image(Qt.QObject):
 
         self.image_bits = image_bits
         self.size = Qt.QSize(*self._data.shape[:2])
-        self.has_alpha_channel = self.type in ('Ga', 'rgba')
         if data.dtype == numpy.uint16 and image_bits is not None:
             self.valid_range = 0, 2**image_bits-1
         else:
-            self.valid_range = NUMPY_DTYPE_TO_RANGE[self.dtype.type]
+            self.valid_range = self.NUMPY_DTYPE_TO_RANGE[data.dtype.type]
 
         self.refresh(immediate_texture_upload)
 
@@ -121,7 +119,7 @@ class Image(Qt.QObject):
             self._data,
             self.IMAGE_TYPE_TO_QOGLTEX_TEX_FORMAT[self.type],
             self.IMAGE_TYPE_TO_GL_PIX_FORMAT[self.type],
-            self.NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self.dtype.type],
+            self.NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self._data.dtype.type],
             immediate_texture_upload)
         self.changed.emit(self)
 

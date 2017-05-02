@@ -51,7 +51,7 @@ class LayerTableView(Qt.QTableView):
         self.setTextElideMode(Qt.Qt.ElideMiddle)
         self.checkbox_delegate = CheckboxDelegate(parent=self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['visible'], self.checkbox_delegate)
-        self.setItemDelegateForColumn(layer_table_model.property_columns['auto_min_max_enabled'], self.checkbox_delegate)
+        self.setItemDelegateForColumn(layer_table_model.property_columns['auto_min_max'], self.checkbox_delegate)
         self.blend_function_delegate = DropdownListDelegate(self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['blend_function'], self.blend_function_delegate)
         self.tint_delegate = ColorDelegate(self)
@@ -78,7 +78,15 @@ class LayerTableView(Qt.QTableView):
         # The text 'size' is typically somewhat shorter than '2160x2560', so we widen that column
         # by an arbitrary fudge factor...
         col = layer_table_model.property_columns['size']
-        self.horizontalHeader().resizeSection(col, self.horizontalHeader().sectionSize(col) * 2)
+        self.horizontalHeader().resizeSection(col, self.horizontalHeader().sectionSize(col) * 3)
+        # The text 'dtype' is typically somewhat shorter than 'uint16', so we widen that column
+        # by an arbitrary fudge factor...
+        col = layer_table_model.property_columns['dtype']
+        self.horizontalHeader().resizeSection(col, self.horizontalHeader().sectionSize(col) * 1.5)
+        # The text 'type' is typically somewhat shorter than 'rgba', so we widen that column
+        # by an arbitrary fudge factor...
+        col = layer_table_model.property_columns['type']
+        self.horizontalHeader().resizeSection(col, self.horizontalHeader().sectionSize(col) * 1.5)
         # Making the opacity column exactly 100 pixels wide gives 1:1 mapping between horizontal
         # position within the column and opacity slider integer % values
         col = layer_table_model.property_columns['opacity']
@@ -200,7 +208,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
     PROPERTIES = [
         'visible',
         'blend_function',
-        'auto_min_max_enabled',
+        'auto_min_max',
         'tint',
         'opacity',
         # 'getcolor_expression',
@@ -233,7 +241,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
 
         self._special_data_getters = {
             'visible' : self._getd_visible,
-            'auto_min_max_enabled' : self._getd_auto_min_max_enabled,
+            'auto_min_max' : self._getd_auto_min_max,
             'tint' : self._getd_tint,
             'blend_function' : self._getd_blend_function,
             'getcolor_expression' : self._getd__defaultable_property,
@@ -245,14 +253,14 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
         }
         self._special_flag_getters = {
             'visible' : self._getf__always_checkable,
-            'auto_min_max_enabled' : self._getf__always_checkable,
+            'auto_min_max' : self._getf__always_checkable,
             'dtype' : self._getf__never_editable,
             'type' : self._getf__never_editable,
             'size' : self._getf__never_editable
         }
         self._special_data_setters = {
             'visible' : self._setd_visible,
-            'auto_min_max_enabled' : self._setd__checkable
+            'auto_min_max' : self._setd__checkable
         }
 
     # flags #
@@ -312,7 +320,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
                     r = Qt.Qt.Unchecked
             return Qt.QVariant(r)
 
-    def _getd_auto_min_max_enabled(self, midx, role):
+    def _getd_auto_min_max(self, midx, role):
         if role == Qt.Qt.CheckStateRole:
             if self.get_cell(midx):
                 r = Qt.Qt.Checked

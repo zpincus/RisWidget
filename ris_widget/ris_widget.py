@@ -455,7 +455,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def _on_toggle_auto_min_max(self):
         layer = self.focused_layer
         if layer is not None:
-            layer.auto_min_max_enabled = not layer.auto_min_max_enabled
+            layer.auto_min_max = not layer.auto_min_max
 
     def _on_snapshot_action(self):
         freeimage = shared_resources.FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self, is_read=False)

@@ -26,53 +26,20 @@ import numpy
 from PyQt5 import Qt
 from ..qgraphicsitems.layer_stack_painter_item import LayerStackPainterBrush, LayerStackPainterItem
 
-class LabelSliderEdit(Qt.QObject):
+class LabelEdit(Qt.QObject):
     value_changed = Qt.pyqtSignal(Qt.QObject)
     FLOAT_MAX = int(1e9)
 
-    def __init__(self, layout, label_text, type_, min_, max_, odd_values_only=False, max_is_hard=True, value=...):
+    def __init__(self, layout, label_text):
         super().__init__()
-        min_, max_ = type_(min_), type_(max_)
-        assert type_ is int or type_ is float and not odd_values_only
-        assert min_ < max_
-        self.odd_values_only = odd_values_only
         self.ignore_change = False
-        self.min, self.max = min_, max_
-        self.max_is_hard = max_is_hard
-        self.type = type_
-        r = layout.rowCount()
         self.label = Qt.QLabel(label_text)
-        layout.addWidget(self.label, r, 0, Qt.Qt.AlignRight)
-        self.slider = Qt.QSlider(Qt.Qt.Horizontal)
-        if type_ is float:
-            self.factor = (max_ - min_) / self.FLOAT_MAX
-            self.slider.setRange(0, self.FLOAT_MAX)
-        else:
-            self.slider.setRange(min_, max_)
-            if odd_values_only:
-                assert self.min % 2 == 0
-            self.slider.setSingleStep(2)
-        self.slider.valueChanged.connect(self._on_slider_value_changed)
-        layout.addWidget(self.slider, r, 1)
+        layout.addWidget(self.label)
         self.editbox = Qt.QLineEdit()
         self.editbox.editingFinished.connect(self._on_editbox_editing_finished)
-        layout.addWidget(self.editbox, r, 2, Qt.Qt.AlignRight)
+        layout.addWidget(self.editbox)
+        self.setEnabled(False)
         self._value = None
-        if value is not ...:
-            self.value = value
-
-    def _on_slider_value_changed(self, v):
-        if self.ignore_change:
-            return
-        if self.type is float:
-            v *= self.factor
-            v += self.min
-        if v != self._value:
-            if self.odd_values_only:
-                v = min(max(v - (1 - v % 2), self.min), self.max)
-            self._value = v
-            self._update_editbox()
-            self.value_changed.emit(self)
 
     def _on_editbox_editing_finished(self):
         if self.ignore_change:
@@ -81,37 +48,25 @@ class LabelSliderEdit(Qt.QObject):
             v = self.parse_value(self.editbox.text())
             if v != self._value:
                 self._value = v
-                self._update_slider()
                 self.value_changed.emit(self)
         except ValueError:
+            pass
+        finally:
             self._update_editbox()
 
-    def _update_slider(self):
-        self.ignore_change = True
-        try:
-            s = self.slider
-            if self.type is float:
-                sv = min(max(int((self._value - self.min) / self.factor), 0), s.maximum())
-            else:
-                sv = min(max(self._value, s.minimum()), s.maximum())
-            s.setValue(sv)
-        finally:
-            self.ignore_change = False
+    @staticmethod
+    def _val_to_str(value):
+        return str(value)
 
     def _update_editbox(self):
         self.ignore_change = True
         try:
-            self.editbox.setText(str(self._value))
+            self.editbox.setText(self._val_to_str(self._value))
         finally:
             self.ignore_change = False
 
     def parse_value(self, v):
-        v = self.type(v)
-        if v < self.min or self.max_is_hard and v > self.max:
-            raise ValueError()
-        if self.odd_values_only and v % 2 == 0:
-            raise ValueError()
-        return v
+        raise NotImplementedError()
 
     @property
     def value(self):
@@ -123,117 +78,116 @@ class LabelSliderEdit(Qt.QObject):
         if self._value != v:
             self._value = v
             self._update_editbox()
-            self._update_slider()
             self.value_changed.emit(self)
 
-class BrushBox(Qt.QGroupBox):
-    def __init__(self, brush_size_lse, title, brush_name, painter_item, default_to_min):
-        super().__init__(title)
-        self.painter_item = painter_item
-        self.brush_name = brush_name
-        self.default_to_min = default_to_min
-        self.setLayout(Qt.QGridLayout())
-        painter_item.target_image_changed.connect(self._on_target_image_changed)
-        self.channel_value_set_key = None
-        self.channel_value_sets = {}
-        self.channel_lses = {}
-        self.brush_size_lse = brush_size_lse
-        self.brush_size_lse.value_changed.connect(self._on_brush_size_lse_value_changed)
+    def setEnabled(self, e):
+        self.label.setEnabled(e)
+        self.editbox.setEnabled(e)
+
+class BrushSizeEdit(LabelEdit):
+    def __init__(self, layout, label_text):
+        super().__init__(layout, label_text)
+        self.value = 5
+
+    def parse_value(self, v):
+        v = int(v)
+        if v < 1:
+            raise ValueError()
+        if v %2 == 0:
+            v += 1
+        return v
+
+class ImageValEdit(LabelEdit):
+    NUMPY_DTYPE_TO_TYPE = {
+        numpy.bool8  : bool,
+        numpy.uint8  : int,
+        numpy.uint16 : int,
+        numpy.float32: float}
+
+    def connect_image(self, image, max_default=True):
+        if image is None:
+            self.setEnabled(False)
+            return
+        self.setEnabled(True)
+        type = self.NUMPY_DTYPE_TO_TYPE[image.data.dtype.type]
+        min, max = image.valid_range
+        nchannels = len(image.type)
+        if self._value is not None:
+            prev_type = self.type, self.min, self.max, self.nchannels
+            if (type, min, max, nchannels) == prev_type:
+                return
+        self.type = type
+        self.min = min
+        self.max = max
+        self.nchannels = nchannels
+        default = max if max_default else min
+        if nchannels == 1: # g
+            self.value = default
+        elif nchannels == 2: # ga
+            self.value = default, max
+        elif nchannels == 3: # rgb:
+            self.value = default, default, default
+        else: # rgba
+            self.value = default, default, default, max
+
+    def parse_value(self, v):
+        if isinstance(v, str):
+            v = v.split(',')
+        try:
+            v = iter(v)
+        except TypeError:
+            v = (v,)
+        v = tuple(map(self.type, v))
+        if any((vv < self.min or vv > self.max) for vv in v):
+            raise ValueError()
+        if len(v) not in (1, self.nchannels):
+            raise ValueError()
+        return v
+
+    @staticmethod
+    def _val_to_str(value):
+        return ', '.join(map(str, value))
+        if len(value) == 1:
+            return str(value[0])
+
+class LayerStackPainter(Qt.QWidget):
+    def __init__(self, layer_stack_item, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Layer Painter')
+        self.painter_item = LayerStackPainterItem(layer_stack_item)
+        self.layer_stack = layer_stack_item.layer_stack
+        widget_layout = Qt.QVBoxLayout()
+        self.setLayout(widget_layout)
+        self.brush_size = BrushSizeEdit(widget_layout, 'Brush size')
+        self.brush_val = ImageValEdit(widget_layout, 'Right-click')
+        self.alt_brush_val = ImageValEdit(widget_layout, 'Shift-right-click')
+        widget_layout.addStretch()
+        self.painter_item.target_image_changed.connect(self._on_target_image_changed)
+        self.brush_size.value_changed.connect(self._on_brush_changed)
+        self.brush_size.value_changed.connect(self._on_alt_brush_changed)
+        self.brush_val.value_changed.connect(self._on_brush_changed)
+        self.alt_brush_val.value_changed.connect(self._on_alt_brush_changed)
         self._on_target_image_changed()
 
-    def _destroy_channel_lses(self):
-        l = self.layout()
-        for lse in self.channel_lses.values():
-            l.removeWidget(lse.label)
-            lse.label.deleteLater()
-            l.removeWidget(lse.slider)
-            lse.slider.deleteLater()
-            l.removeWidget(lse.editbox)
-            lse.editbox.deleteLater()
-        self.channel_lses = {}
-
     def _on_target_image_changed(self):
-        ti = self.painter_item.target_image
-        if ti is None:
-            self._destroy_channel_lses()
-            self.setEnabled(False)
-            self.channel_value_set_key = None
-            return
-        cvsk = ti.data.dtype, ti.type, (ti.valid_range[0], ti.valid_range[1])
-        if self.channel_value_set_key != cvsk:
-            self.channel_value_set_key = cvsk
-            try:
-                cvs = self.channel_value_sets[cvsk]
-            except KeyError:
-                default_value = ti.valid_range[0] if self.default_to_min else ti.valid_range[1]
-                cvs = {c : default_value for c in ti.type}
-            self._destroy_channel_lses()
-            self.setEnabled(True)
-            t = float if numpy.issubdtype(ti.data.dtype, numpy.floating) else int
-            m, M = ti.valid_range
-            self.channel_lses = {c : LabelSliderEdit(self.layout(), c, t, m, M, value=v) for (c, v) in cvs.items()}
-            for channel_lse in self.channel_lses.values():
-                channel_lse.value_changed.connect(self._on_channel_lse_value_changed)
-        self.update_brush()
+        self.brush_size.setEnabled(self.painter_item.target_image is not None)
+        self.brush_val.connect_image(self.painter_item.target_image)
+        self.alt_brush_val.connect_image(self.painter_item.target_image, max_default=False)
 
-    def update_brush(self):
+    def _on_brush_changed(self):
+        self.painter_item.brush = self._get_brush(self.brush_val)
+
+    def _on_alt_brush_changed(self):
+        self.painter_item.alternate_brush = self._get_brush(self.alt_brush_val)
+
+    def _get_brush(self, editor):
         ti = self.painter_item.target_image
         if ti is None:
             self.painter_item.brush = None
         else:
-            bs = self.brush_size_lse.value
-            channel_count = len(ti.type)
-            if channel_count == 1:
-                b = numpy.empty((bs, bs), ti.data.dtype, 'F')
-                color = self.channel_lses[ti.type].value
-            else:
-                bpe = ti.data.itemsize
-                b = numpy.ndarray((bs, bs, channel_count), strides=(channel_count*bpe, channel_count*bs*bpe, bpe), dtype=ti.data.dtype)
-                color = [self.channel_lses[c].value for c in ti.type]
-            b[:, :] = color
-            m = numpy.zeros((bs, bs), bool, 'F')
-            r = int(bs/2)
-            y, x = numpy.ogrid[-r:bs-r, -r:bs-r]
-            m[y*y + x*x <= r*r] = True
-            setattr(self.painter_item, self.brush_name, LayerStackPainterBrush(b, m, (r,r)))
-
-    def _on_brush_size_lse_value_changed(self):
-        ti = self.painter_item.target_image
-        if ti is None:
-            return
-        self.update_brush()
-
-    def _on_channel_lse_value_changed(self):
-        ti = self.painter_item.target_image
-        if ti is None:
-            return
-        self.update_brush()
-        self.channel_value_sets[self.channel_value_set_key] = {c : self.channel_lses[c].value for c in ti.type}
-
-class LayerStackPainter(Qt.QWidget):
-    PAINTER_ITEM_TYPE = LayerStackPainterItem
-
-    def __init__(self, layer_stack_item, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle('Layer Painter')
-        self.painter_item = self.PAINTER_ITEM_TYPE(layer_stack_item)
-        self.layer_stack = layer_stack_item.layer_stack
-        widget_layout = Qt.QVBoxLayout()
-        self.setLayout(widget_layout)
-        section_layout = Qt.QGridLayout()
-        widget_layout.addLayout(section_layout)
-        self.brush_size_lse = LabelSliderEdit(section_layout, 'Brush size:', int, 0, 101, odd_values_only=True, max_is_hard=False)
-        self.brush_size_lse.value = 5
-        self.painter_item.target_image_changed.connect(self._on_target_image_changed)
-        self.brush_box = BrushBox(self.brush_size_lse, 'Right click brush', 'brush', self.painter_item, False)
-        widget_layout.addWidget(self.brush_box)
-        self.alternate_brush_box = BrushBox(self.brush_size_lse, 'Shift right click brush', 'alternate_brush', self.painter_item, True)
-        widget_layout.addWidget(self.alternate_brush_box)
-        widget_layout.addStretch()
-
-    def _on_target_image_changed(self):
-        e = self.painter_item.target_image is not None
-        bse = self.brush_size_lse
-        bse.label.setEnabled(e)
-        bse.slider.setEnabled(e)
-        bse.editbox.setEnabled(e)
+            size = self.brush_size.value
+            mask = numpy.zeros((size, size), dtype=bool, order='F')
+            r = int(size/2)
+            x, y = numpy.indices(mask.shape) - r
+            mask[y**2 + x**2 <= r**2] = True
+            return LayerStackPainterBrush(editor.value, mask, center=(r, r))

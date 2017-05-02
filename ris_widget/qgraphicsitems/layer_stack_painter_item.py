@@ -26,16 +26,15 @@ from PyQt5 import Qt
 from ..shared_resources import UNIQUE_QGRAPHICSITEM_TYPE
 
 class LayerStackPainterBrush:
-    def __init__(self, content, mask, center=(0,0)):
-        assert content.shape[:2] == mask.shape[:2]
-        self.content = content
+    def __init__(self, color, mask, center):
+        self.color = color
         self.mask = mask
         self.center = center
 
     def apply(self, target_subimage, brush_subrect):
         br = brush_subrect
         m = self.mask[br.left():br.right()+1,br.top():br.bottom()+1]
-        target_subimage[m] = self.content[br.left():br.right()+1,br.top():br.bottom()+1][m]
+        target_subimage[m] = self.color
 
 class LayerStackPainterItem(Qt.QGraphicsObject):
     QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
@@ -82,12 +81,11 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
                 p.setY(p.y() * ti_sz.height()/br_sz.height())
             p = Qt.QPoint(p.x(), p.y())
             im = self.target_image
-            c = brush.content
-            r = Qt.QRect(p.x(), p.y(), c.shape[0], c.shape[1])
+            r = Qt.QRect(p.x(), p.y(), *brush.mask.shape)
             r.translate(-brush.center[0], -brush.center[1])
             if not r.intersects(Qt.QRect(Qt.QPoint(), im.size)):
                 return False
-            br = Qt.QRect(0, 0, c.shape[0], c.shape[1])
+            br = Qt.QRect(0, 0, *brush.mask.shape)
             if r.left() < 0:
                 br.setLeft(-r.x())
                 r.setLeft(0)

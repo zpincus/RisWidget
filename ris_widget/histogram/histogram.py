@@ -79,17 +79,18 @@ def histogram(image, range=(None, None), image_bits=None, mask_radius=None):
         hist: histogram
     """
     image = numpy.asarray(image)
-    assert image.dtype in {bool, numpy.uint8, numpy.uint16, numpy.float32}
+    assert image.dtype.type in {numpy.bool8, numpy.uint8, numpy.uint16, numpy.float32}
     if image.ndim == 3:
         if image.shape[2] in (3, 4): # RGB/RGBA
-            r, g, b = numpy.rollaxis(image, -1)
-            image = 0.2126*r + 0.7152*g + 0.0722*b # use CIE 1931 linear luminance
+            r, g, b = numpy.rollaxis(image, -1)[:3]
+            luma = 0.2126*r + 0.7152*g + 0.0722*b # use CIE 1931 linear luminance
+            image = luma.astype(image.dtype)
         elif image.shape[2] == 2: # GA
             image = image[:,:,0]
     if image.ndim != 2:
         raise ValueError('Only 2D, GA, RGB, and RGBA images are supported')
 
-    if image.dtype == bool:
+    if image.dtype == numpy.bool8:
         was_bool = True
         image = image.view(numpy.uint8)
     else:
@@ -149,7 +150,7 @@ def histogram(image, range=(None, None), image_bits=None, mask_radius=None):
                     r_max = 255
                 else:
                     r_max = 2**image_bits - 1
-            args.extend(r_min, r_max)
+            args += [int(r_min), int(r_max)]
         args += [mn, mx]
     hist_func(*args)
     if was_bool:
