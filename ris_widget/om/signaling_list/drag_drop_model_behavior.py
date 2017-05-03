@@ -127,25 +127,14 @@ class DragDropModelBehavior:
         return False
 
     def handle_dropped_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
-        d_sl, s_sl = self.signaling_list, src_model.signaling_list
-        elements = [s_sl[src_row] for src_row in src_rows]
-        if self.should_delete_rows_dragged_from_source(src_model):
+        dst, src = self.signaling_list, src_model.signaling_list
+        elements = [src[src_row] for src_row in src_rows]
+        if src_model is self: # if we're dragging from ourself, delete the rows we drag (otherwise duplicates are added)
             orig_src_midxs = [Qt.QPersistentModelIndex(src_model.createIndex(src_row, 0)) for src_row in reversed(src_rows)]
-            d_sl[dst_row:dst_row] = elements
             for orig_src_midx in orig_src_midxs:
-                del s_sl[orig_src_midx.row()]
-        else:
-            d_sl[dst_row:dst_row] = elements
+                del src[orig_src_midx.row()]
+        dst[dst_row:dst_row] = elements
         return True
-
-    def should_delete_rows_dragged_from_source(self, src_model):
-        # Called by the various handle_dropped_* methods in order to determine whether the rows dropped should be removed
-        # from their origin model.
-        #
-        # The default behavior implemented in the following line of code: Dropping a row onto this model inserts that row.
-        # If the row originated from the same model into which it is dropped, we return True in order that the source row
-        # is deleted, causing an intra-model drag to appear to be a re-ordering operation / move.
-        return src_model is self
 
     def _decode_rows_drag_mime_data(self, mime_data):
         """If mime_data contains packed ROWS_DRAG_MIME_TYPE mime data, it is unpacked into a list containing the source model

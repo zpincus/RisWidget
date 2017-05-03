@@ -152,6 +152,7 @@ class Layer(qt_property.QtPropertyOwner):
     #
     changed = Qt.pyqtSignal(object)
     image_changed = Qt.pyqtSignal(object)
+    opacity_changed = Qt.pyqtSignal(object)
     dtype_changed = Qt.pyqtSignal(object)
     type_changed = Qt.pyqtSignal(object)
     size_changed = Qt.pyqtSignal(object)

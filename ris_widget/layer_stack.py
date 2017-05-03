@@ -91,7 +91,6 @@ class LayerStack(Qt.QObject):
         self._connect_layers()
         self._mask_radius = None
         self._selection_model = None
-        self._layer_instance_counts = {}
         self.auto_min_max_all_action = Qt.QAction(self)
         self.auto_min_max_all_action.setText('Auto Min/Max')
         self.auto_min_max_all_action.setCheckable(True)
