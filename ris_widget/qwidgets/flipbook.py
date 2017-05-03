@@ -124,14 +124,9 @@ class Flipbook(Qt.QWidget):
     def __init__(self, layer_stack, parent=None):
         super().__init__(parent)
         self.layer_stack = layer_stack
-        self.setLayout(Qt.QVBoxLayout())
-        self.views_splitter = Qt.QSplitter(Qt.Qt.Vertical)
-        self.layout().addWidget(self.views_splitter)
-        self.pages_groupbox = Qt.QGroupBox('Pages')
-        l = Qt.QVBoxLayout()
-        self.pages_groupbox.setLayout(l)
+        layout = Qt.QVBoxLayout()
+        self.setLayout(layout)
         self.pages_view = PagesView()
-        l.addWidget(self.pages_view)
         self.pages_model = PagesModel(PageList(), self.pages_view)
         self.pages_model.handle_dropped_files = self._handle_dropped_files
         self.pages_model.rowsInserted.connect(self._on_model_change)
@@ -142,26 +137,7 @@ class Flipbook(Qt.QWidget):
         self.pages_view.setModel(self.pages_model)
         self.pages_view.selectionModel().currentRowChanged.connect(self.apply)
         self.pages_view.selectionModel().selectionChanged.connect(self._on_page_selection_changed)
-        self.views_splitter.addWidget(self.pages_groupbox)
-        self.page_content_groupbox = Qt.QGroupBox('Page Contents')
-        self.page_content_groupbox.setLayout(Qt.QHBoxLayout())
-        self.page_content_view = DefaultTable()
-        h = self.page_content_view.horizontalHeader()
-        h.setStretchLastSection(True)
-        h.setHighlightSections(False)
-        h.setSectionsClickable(False)
-        h = self.page_content_view.verticalHeader()
-        h.setHighlightSections(False)
-        h.setSectionsClickable(False)
-        self.page_content_groupbox.layout().addWidget(self.page_content_view)
-        self.page_content_model = PageContentModel(layer_stack, self.page_content_view)
-        self.page_content_model.rowsInserted.connect(self._on_content_model_rows_inserted, Qt.Qt.QueuedConnection)
-        self.page_content_model.modelReset.connect(self._on_content_model_rows_inserted, Qt.Qt.QueuedConnection)
-        self.page_content_view.setModel(self.page_content_model)
-        self.views_splitter.addWidget(self.page_content_groupbox)
-        self.views_splitter.setStretchFactor(0, 4)
-        self.views_splitter.setStretchFactor(0, 1)
-        self.views_splitter.setSizes((1, 0))
+        layout.addWidget(self.pages_view)
         self._attached_page = None
         self.delete_selected_action = Qt.QAction(self)
         self.delete_selected_action.setText('Delete pages')
@@ -181,7 +157,7 @@ class Flipbook(Qt.QWidget):
         mergebox.addWidget(self.merge_button)
         self.delete_button = shared.ActionButton(self.delete_selected_action)
         mergebox.addWidget(self.delete_button)
-        l.addLayout(mergebox)
+        layout.addLayout(mergebox)
 
         playbox = Qt.QHBoxLayout()
         self.toggle_playing_action = Qt.QAction(self)
@@ -206,7 +182,7 @@ class Flipbook(Qt.QWidget):
         playbox.addWidget(self.fps_editor)
         playbox.addWidget(Qt.QLabel('FPS'))
         playbox.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
-        l.addLayout(playbox)
+        layout.addLayout(playbox)
         self.playback_timer = Qt.QTimer()
         self.playback_timer.timeout.connect(self.advance_frame)
         self.playback_fps = 50
@@ -222,8 +198,6 @@ class Flipbook(Qt.QWidget):
         the contents of the current page change."""
         focused_page_idx = self.focused_page_idx
         if focused_page_idx is None:
-            self.page_content_groupbox.setEnabled(False)
-            self.page_content_model.signaling_list = None
             self._detach_page()
             return
         pages = self.pages
@@ -233,8 +207,6 @@ class Flipbook(Qt.QWidget):
             focused_page.inserted.connect(self.apply)
             focused_page.removed.connect(self.apply)
             focused_page.replaced.connect(self.apply)
-            self.page_content_groupbox.setEnabled(True)
-            self.page_content_model.signaling_list = focused_page
             self._attached_page = focused_page
         layer_stack = self.layer_stack
         if layer_stack.layers is None:
@@ -577,9 +549,6 @@ class Flipbook(Qt.QWidget):
         self.pages_view.resizeRowsToContents()
         self.ensure_page_focused()
 
-    def _on_content_model_rows_inserted(self):
-        self.page_content_view.resizeRowsToContents()
-
     @property
     def playback_fps(self):
         return 1000/self.playback_timer.interval()
@@ -731,34 +700,3 @@ class PagesModel(PagesModelDragDropBehavior, om.signaling_list.PropertyTableMode
 
     def _on_model_reset(self):
         self._add_listeners(self.signaling_list)
-
-class PageContentModel(om.signaling_list.DragDropModelBehavior, om.signaling_list.PropertyTableModel):
-    PROPERTIES = (
-        'name',
-        )
-
-    def __init__(self, layer_stack, parent=None):
-        super().__init__(self.PROPERTIES, layer_stack.layers, parent)
-        self.layer_stack = layer_stack
-
-    def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
-        return isinstance(src_model, PageContentModel)
-
-    def handle_dropped_qimage(self, qimage, dst_row, dst_column, dst_parent):
-        image = Image.from_qimage(qimage)
-        if image is not None:
-            self.signaling_list[dst_row:dst_row] = [image]
-            return True
-        return False
-
-    def handle_dropped_files(self, fpaths, dst_row, dst_column, dst_parent):
-        raise RuntimeError()
-        freeimage = FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=None)
-        if freeimage is None:
-            return False
-        images = ImageList()
-        for fpath in fpaths:
-            fpath_str = str(fpath)
-            images.append(Image(freeimage.read(fpath_str), name=fpath_str, immediate_texture_upload=False))
-        self.signaling_list[dst_row:dst_row] = images
-        return True
