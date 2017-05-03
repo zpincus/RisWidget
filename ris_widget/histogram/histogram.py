@@ -10,6 +10,7 @@ _mnf = _histogram.ffi.new('float *')
 _mxf = _histogram.ffi.new('float *')
 
 _int_hists = {
+    # dtype, ranged, masked: (hist_func, min_var, max_var)
     (numpy.uint16, False, False): (_histogram.lib.hist_uint16, _mn16, _mx16),
     (numpy.uint8, False, False): (_histogram.lib.hist_uint8, _mn, _mx),
     (numpy.uint16, False, True): (_histogram.lib.masked_hist_uint16, _mn16, _mx16),
@@ -19,7 +20,6 @@ _int_hists = {
     (numpy.uint16, True, False): (_histogram.lib.ranged_hist_uint16, _mn16, _mx16),
     (numpy.uint8, True, False): (_histogram.lib.ranged_hist_uint8, _mn, _mx),
 }
-
 
 def _scanline_bounds(r, cx, cy):
     # based on 8-connected super-circle algorithm from comments in http://www.willperone.net/Code/codecircle.php
@@ -97,16 +97,16 @@ def histogram(image, range=(None, None), image_bits=None, mask_radius=None):
         was_bool = False
     masked = mask_radius is not None
     range = tuple(range)
-    ranged = range is not (None, None)
+    ranged = range != (None, None)
     r_min, r_max = range
 
     i = _fast_index_first(image)
-    args = [_histogram.ffi.cast('char *', i.ctypes.data), i.shape[1], i.shape[0], i.strides[1], i.strides[0]]
-
     if masked:
         mask_radius = int(mask_radius * image.shape[0]) # use the shape of the un-transposed image (i might be transposed)
         ymin, ymax, starts, ends = _circle_mask(mask_radius, i.shape)
         i = i[:,ymin:ymax]
+    args = [_histogram.ffi.cast('char *', i.ctypes.data), i.shape[1], i.shape[0], i.strides[1], i.strides[0]]
+    if masked:
         sp = _histogram.ffi.cast('uint16_t *', starts.ctypes.data)
         ep = _histogram.ffi.cast('uint16_t *', ends.ctypes.data)
         args += [sp, ep]

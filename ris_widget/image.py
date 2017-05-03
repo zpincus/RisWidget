@@ -106,7 +106,6 @@ class Image(Qt.QObject):
         self.refresh(immediate_texture_upload)
 
     def __repr__(self):
-        num_channels = self.num_channels
         return '{}; {}x{} ({})>'.format(super().__repr__()[:-1], self.size.width(), self.size.height(), self.type)
 
     def refresh(self, immediate_texture_upload=True):

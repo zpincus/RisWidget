@@ -575,11 +575,13 @@ class RisWidget:
     Signals:
     * main_view_mouse_movement_signal(view_coordinate, scene_coordinate)
     * main_view_right_click_signal(view_coordinate, scene_coordinate)"""
+    # TODO: clarify main scene / view / layer stack etc.
     APP_PREFS_NAME = "RisWidget"
     COPY_REFS = [
         'flipbook',
         'main_scene',
         'main_view',
+        'layer_stack',
         ('main_scene.viewport_rect_item', 'main_viewport_rect_item'),
         ('main_scene.layer_stack_item', 'layer_stack_item'),
         'show',

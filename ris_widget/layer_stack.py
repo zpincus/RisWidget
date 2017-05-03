@@ -89,6 +89,7 @@ class LayerStack(Qt.QObject):
         super().__init__(parent)
         self._layers = LayerList()
         self._connect_layers()
+        self._mask_radius = None
         self._selection_model = None
         self._layer_instance_counts = {}
         self.auto_min_max_all_action = Qt.QAction(self)
@@ -227,9 +228,19 @@ class LayerStack(Qt.QObject):
     def auto_min_max_all(self, v):
         self.auto_min_max_all_action.setChecked(v)
 
+    @property
+    def mask_radius(self):
+        return self._mask_radius
+
+    @mask_radius.setter
+    def mask_radius(self, r):
+        for layer in self.layers:
+            layer.mask_radius = r
+
     def _attach_layers(self, layers):
         auto_min_max_all = self.auto_min_max_all
         for layer in layers:
+            layer.mask_radius = self.mask_radius
             if auto_min_max_all:
                 layer.auto_min_max = True
             # can connect without worrying that it's already connected because LayerList guarantees

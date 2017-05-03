@@ -81,6 +81,17 @@ def coerce_to_tint(v):
         v += (1.0,)
     return v
 
+def coerce_to_radius(v):
+    if v == '' or v is None:
+        return None
+    else:
+        v = float(v)
+        if v <= 0:
+            raise ValueError('Radius must be positive')
+        if v > 0.707:
+            v = None # larger radius and image is un-masked...
+        return v
+
 class Layer(qt_property.QtPropertyOwner):
     """Image's properties are all either computed from that ndarray, provide views into that ndarray's data (in the case of .data
     and .data_T), or, in the special cases of .is_twelve_bit for uint16 images and .imposed_float_range for floating-point images,
@@ -149,7 +160,6 @@ class Layer(qt_property.QtPropertyOwner):
         super().__init__(parent)
         self.image_changed.connect(self.changed)
         self.image = image
-        self.mask_radius = None
 
     def __repr__(self):
         image = self.image
@@ -252,6 +262,14 @@ class Layer(qt_property.QtPropertyOwner):
     visible = qt_property.Property(
         default_value=True,
         coerce_arg_fn=bool)
+
+    def _mask_radius_post_set(self, v):
+        self._on_image_changed(self.image)
+
+    mask_radius = qt_property.Property(
+        default_value=None,
+        coerce_arg_fn=coerce_to_radius,
+        post_set_callback=_mask_radius_post_set)
 
     def _auto_min_max_post_set(self, v):
         if v and self.image is not None:
