@@ -33,11 +33,7 @@ from ..qdelegates.checkbox_delegate import CheckboxDelegate
 from ..shared_resources import CHOICES_QITEMDATA_ROLE, FREEIMAGE
 from .. import om
 
-@om.item_view_shortcuts.with_selected_rows_deletion_shortcut
 class LayerTableView(Qt.QTableView):
-    # model_changed = Qt.pyqtSignal(object)
-    # selection_model_changed = Qt.pyqtSignal(object)
-
     def __init__(self, layer_table_model, parent=None):
         super().__init__(parent)
         self.layer_table_model = layer_table_model
@@ -123,13 +119,6 @@ class LayerTableView(Qt.QTableView):
         menu.addAction(reset_to_default_action)
         menu.exec(event.globalPos())
 
-    # def setModel(self, model):
-    #     super().setModel(model)
-    #     self.model_changed.emit(self)
-
-    # def setSelectionModel(self, selection_model):
-    #     super().setSelectionModel(selection_model)
-    #     self.selection_model_changed.emit(self)
 
 class InvertingProxyModel(Qt.QSortFilterProxyModel):
     # Making a full proxy model that reverses/inverts indexes from Qt.QAbstractProxyModel or Qt.QIdentityProxyModel turns

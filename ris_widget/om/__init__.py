@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from . import item_view_shortcuts
 from . import signaling_list
 from .signaling_list.signaling_list import SignalingList
 from .signaling_list.uniform_signaling_list import UniformSignalingList

@@ -29,7 +29,6 @@ from PyQt5 import Qt
 from .. import om
 from ..image import Image
 from ..shared_resources import FREEIMAGE
-from .default_table import DefaultTable
 from . import progress_thread_pool
 from . import shared
 

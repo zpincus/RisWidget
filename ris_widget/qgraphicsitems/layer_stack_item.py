@@ -100,7 +100,6 @@ class LayerStackItem(ShaderItem):
         super().__init__(parent_item)
         self._bounding_rect = Qt.QRectF(self.DEFAULT_BOUNDING_RECT)
         self.contextual_info = ContextualInfo(self)
-        self._layer_instance_counts = {}
         self.layer_stack = layer_stack
         self._connect_layers(layer_stack.layers)
         layer_stack.layers_replaced.connect(self._on_layerlist_replaced)
@@ -143,33 +142,24 @@ class LayerStackItem(ShaderItem):
         examine_layer_mode = layer_stack.examine_layer_mode
         if examine_layer_mode:
             focused_layer = layer_stack.focused_layer
-        layer_instance_counts = self._layer_instance_counts
         for layer in layers:
-            instance_count = layer_instance_counts.get(layer, 0) + 1
-            assert instance_count > 0
-            layer_instance_counts[layer] = instance_count
-            if instance_count == 1:
-                # Initiate background texture upload if layer has a visible image; a no-op if image's texture is already uploaded or
-                # queued for uploading.
-                image = layer.image
-                if image is not None and (examine_layer_mode and layer is focused_layer or not examine_layer_mode and layer.visible):
-                    image.async_texture.upload()
-                # Any change, including layer data change, may change result of rendering layer and therefore requires refresh
-                layer.changed.connect(self._on_layer_changed)
-                # When layer emits layer_changed, it will also emit changed.  In effect, self.update marks the scene as requiring
-                # refresh while self._on_layer_changed initiates a texture upload in the background.  Both operations are fast
-                # and may be called redundantly multiple times per frame without significantly impacting performance.
-                layer.image_changed.connect(self._on_layer_image_changed)
+            # Initiate background texture upload if layer has a visible image; a no-op if image's texture is already uploaded or
+            # queued for uploading.
+            image = layer.image
+            if image is not None and (examine_layer_mode and layer is focused_layer or not examine_layer_mode and layer.visible):
+                image.async_texture.upload()
+            # Any change, including layer data change, may change result of rendering layer and therefore requires refresh
+            layer.changed.connect(self._on_layer_changed)
+            # When layer emits layer_changed, it will also emit changed.  In effect, self.update marks the scene as requiring
+            # refresh while self._on_layer_changed initiates a texture upload in the background.  Both operations are fast
+            # and may be called redundantly multiple times per frame without significantly impacting performance.
+            layer.image_changed.connect(self._on_layer_image_changed)
 
     def _detach_layers(self, layers):
         for layer in layers:
-            instance_count = self._layer_instance_counts[layer] - 1
-            assert instance_count >= 0
-            if instance_count == 0:
-                layer.changed.disconnect(self._on_layer_changed)
-                layer.image_changed.disconnect(self._on_layer_image_changed)
-            else:
-                self._layer_instance_counts[layer] = instance_count
+            # no need to keep track of case when layer shows up in the list multiple times: LayerStack prevents that
+            layer.changed.disconnect(self._on_layer_changed)
+            layer.image_changed.disconnect(self._on_layer_image_changed)
 
     def _on_layers_inserted(self, idx, layers):
         br_change = False

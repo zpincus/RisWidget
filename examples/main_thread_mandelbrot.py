@@ -27,6 +27,22 @@ from pathlib import Path
 from PyQt5 import Qt
 from ..qwidgets.qml_item_widget import QmlItemWidget
 
+from PyQt5 import Qt
+
+class QmlItemWidget(Qt.QQuickWidget):
+    def __init__(self, qml_fpath, parent=None):
+        super().__init__(parent)
+        self.statusChanged.connect(self._on_status_changed)
+        self.setResizeMode(self.SizeRootObjectToView)
+        self.setSource(Qt.QUrl(str(qml_fpath)))
+
+    def _on_status_changed(self, status):
+        if status == self.Ready:
+            self.on_loaded()
+
+    def on_loaded(self):
+        self.show()
+
 class MandelbrotWidget(QmlItemWidget):
     _QML_REGISTERED = False
 
