@@ -463,10 +463,13 @@ class LayerStackItem(ShaderItem):
             visible_idxs = [idx for idx, layer in enumerate(layer_stack.layers) if layer.visible and layer.image is not None]
         else:
             visible_idxs = []
+        bound = set()
         for tex_unit, idx in enumerate(visible_idxs):
             layer = layer_stack.layers[idx]
             image = layer.image
-            image.async_texture.bind(tex_unit, estack)
+            if image not in bound:
+                image.async_texture.bind(tex_unit, estack)
+                bound.add(image)
             # The following generateMipMaps call completes in microseconds as mipmaps were already auto-generated on an _AsyncTextureUploadThread.  In fact, we should not have to call
             # generateMipMaps at this point.  However, OS X needs this call in order to see mipmaps generated on another thread.  Without it, all mip levels aside from base are black
             # on OS X.
