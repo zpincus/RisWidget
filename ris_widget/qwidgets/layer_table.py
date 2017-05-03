@@ -30,7 +30,6 @@ from ..qdelegates.dropdown_list_delegate import DropdownListDelegate
 from ..qdelegates.slider_delegate import SliderDelegate
 from ..qdelegates.color_delegate import ColorDelegate
 from ..qdelegates.checkbox_delegate import CheckboxDelegate
-from ..qdelegates.special_selection_highlight_delegate import SpecialSelectionHighlightDelegate
 from ..shared_resources import CHOICES_QITEMDATA_ROLE, FREEIMAGE
 from .. import om
 
@@ -58,10 +57,6 @@ class LayerTableView(Qt.QTableView):
         self.setItemDelegateForColumn(layer_table_model.property_columns['tint'], self.tint_delegate)
         self.opacity_delegate = SliderDelegate(0.0, 1.0, self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['opacity'], self.opacity_delegate)
-        # TODO: is the below useful?
-        self.dead_cell_special_selection_highlight_delegate = SpecialSelectionHighlightDelegate(self)
-        for pn in ('dtype', 'type', 'size'):
-            self.setItemDelegateForColumn(layer_table_model.property_columns[pn], self.dead_cell_special_selection_highlight_delegate)
         self.setSelectionBehavior(Qt.QAbstractItemView.SelectRows)
         self.setSelectionMode(Qt.QAbstractItemView.ExtendedSelection)
         self.setModel(layer_table_model)
@@ -108,7 +103,7 @@ class LayerTableView(Qt.QTableView):
             psdg = self.layer_table_model._special_data_getters[pname]
         except KeyError:
             return
-        if psdg != self.layer_table_model._getd__defaultable_property:
+        if psdg != self.layer_table_model._getd_defaultable_property:
             return
         try:
             layer = self.layer_table_model.layer_stack.layers[-(row+1)]
@@ -240,27 +235,30 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
         self.blend_function_choices += sorted(other_blends)
 
         self._special_data_getters = {
-            'visible' : self._getd_visible,
-            'auto_min_max' : self._getd_auto_min_max,
-            'tint' : self._getd_tint,
-            'blend_function' : self._getd_blend_function,
-            'getcolor_expression' : self._getd__defaultable_property,
-            'transform_section' : self._getd__defaultable_property,
-            'histogram_min' : self._getd__defaultable_property,
-            'histogram_max' : self._getd__defaultable_property,
-            'size' : self._getd_size,
-            'dtype' : self._getd_dtype
+            'visible': self._getd_visible,
+            'auto_min_max': self._getd_auto_min_max,
+            'tint': self._getd_tint,
+            'blend_function': self._getd_blend_function,
+            'getcolor_expression': self._getd_defaultable_property,
+            'transform_section': self._getd_defaultable_property,
+            'histogram_min': self._getd_defaultable_property,
+            'histogram_max': self._getd_defaultable_property,
+            'dtype': self._getd_dtype,
+            'type': self._getd_darken_if_no_image,
+            'size': self._getd_size,
+            'name': self._getd_darken_if_no_image
         }
         self._special_flag_getters = {
-            'visible' : self._getf__always_checkable,
-            'auto_min_max' : self._getf__always_checkable,
-            'dtype' : self._getf__never_editable,
-            'type' : self._getf__never_editable,
-            'size' : self._getf__never_editable
+            'visible': self._getf_always_checkable,
+            'auto_min_max': self._getf_always_checkable,
+            'dtype': self._getf_never_editable,
+            'type': self._getf_never_editable,
+            'size': self._getf_never_editable,
+            'name': self._getf_never_editable
         }
         self._special_data_setters = {
-            'visible' : self._setd_visible,
-            'auto_min_max' : self._setd__checkable
+            'visible': self._setd_visible,
+            'auto_min_max': self._setd_checkable
         }
 
     # flags #
@@ -268,10 +266,10 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
     def _getf_default(self, midx):
         return super().flags(midx)
 
-    def _getf__always_checkable(self, midx):
+    def _getf_always_checkable(self, midx):
         return self._getf_default(midx) & ~Qt.Qt.ItemIsEditable | Qt.Qt.ItemIsUserCheckable
 
-    def _getf__never_editable(self, midx):
+    def _getf_never_editable(self, midx):
         return super().flags(midx) & ~Qt.Qt.ItemIsEditable
 
     def flags(self, midx):
@@ -282,10 +280,10 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
 
     # data #
 
-    def _getd__default(self, midx, role):
+    def _getd_default(self, midx, role):
         return super().data(midx, role)
 
-    def _getd__defaultable_property(self, midx, role):
+    def _getd_defaultable_property(self, midx, role):
         if role == Qt.Qt.FontRole and midx.isValid():
             try:
                 pname = self.property_names[midx.column()]
@@ -300,7 +298,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
                 f = Qt.QFont()
                 f.setItalic(True)
                 return Qt.QVariant(f)
-        return self._getd__default(midx, role)
+        return self._getd_default(midx, role)
 
     def _getd_visible(self, midx, role):
         if role == Qt.Qt.CheckStateRole:
@@ -346,7 +344,13 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
             if sz is not None:
                 return Qt.QVariant('{}x{}'.format(sz.width(), sz.height()))
         else:
-            return self._getd__default(midx, role)
+            return self._getd_darken_if_no_image(midx, role)
+
+    def _getd_darken_if_no_image(self, midx, role):
+        if role == Qt.Qt.BackgroundRole and self.signaling_list[midx.row()].image is None:
+            return Qt.QVariant(Qt.QApplication.instance().palette().brush(Qt.QPalette.Disabled, Qt.QPalette.Dark))
+        else:
+            return self._getd_default(midx, role)
 
     def _getd_dtype(self, midx, role):
         if role == Qt.Qt.DisplayRole:
@@ -354,19 +358,19 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
             if dtype is not None:
                 return Qt.QVariant(str(dtype))
         else:
-            return self._getd__default(midx, role)
+            return self._getd_darken_if_no_image(midx, role)
 
     def data(self, midx, role=Qt.Qt.DisplayRole):
         if midx.isValid():
-            d = self._special_data_getters.get(self.property_names[midx.column()], self._getd__default)(midx, role)
+            d = self._special_data_getters.get(self.property_names[midx.column()], self._getd_default)(midx, role)
             if isinstance(d, Qt.QVariant):
                 return d
         else:
-            return self._getd__default(midx, role)
+            return self._getd_default(midx, role)
 
     # setData #
 
-    def _setd__checkable(self, midx, value, role):
+    def _setd_checkable(self, midx, value, role):
         if role == Qt.Qt.CheckStateRole:
             if isinstance(value, Qt.QVariant):
                 value = value.value()

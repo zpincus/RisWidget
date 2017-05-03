@@ -64,7 +64,7 @@ class Image(Qt.QObject):
         'rgb' : PyGL.GL_RGB,
         'rgba': PyGL.GL_RGBA}
 
-    def __init__(self, data, image_bits=None, immediate_texture_upload=True, parent=None):
+    def __init__(self, data, image_bits=None, immediate_texture_upload=True, name=None, parent=None):
         """
         image_bits: only applies to uint16 images. If None, images are assumed to occupy full 16-bit range.
         The shape of image and mask data is interpreted as (x,y) for 2-d arrays and (x,y,c) for 3-d arrays.  If your image or mask was loaded as (y,x),
@@ -103,6 +103,7 @@ class Image(Qt.QObject):
         else:
             self.valid_range = self.NUMPY_DTYPE_TO_RANGE[data.dtype.type]
 
+        self.name = name
         self.refresh(immediate_texture_upload)
 
     def __repr__(self):

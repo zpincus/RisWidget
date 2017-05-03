@@ -290,7 +290,7 @@ class Flipbook(Qt.QWidget):
                 page.name = page_names[i]
             if isinstance(p, (str, Path)):
                 if page_names is None:
-                    page.name = str(p)
+                    page.name = p.stem
                 if image_names is None:
                     task_page.im_names = [str(p)]
                 else:

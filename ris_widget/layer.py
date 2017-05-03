@@ -152,7 +152,10 @@ class Layer(qt_property.QtPropertyOwner):
     #
     changed = Qt.pyqtSignal(object)
     image_changed = Qt.pyqtSignal(object)
-    opacity_changed = Qt.pyqtSignal(object)
+    dtype_changed = Qt.pyqtSignal(object)
+    type_changed = Qt.pyqtSignal(object)
+    size_changed = Qt.pyqtSignal(object)
+    name_changed = Qt.pyqtSignal(object)
 
     def __init__(self, image=None, parent=None):
         self._retain_auto_min_max_on_min_max_change = False
@@ -203,10 +206,14 @@ class Layer(qt_property.QtPropertyOwner):
                 self.dtype = v.data.dtype
                 self.type = v.type
                 self.size = v.size
+                self.name = v.name
             else:
                 self.dtype = None
                 self.type = None
                 self.size = None
+                self.name = None
+            for proxy_prop in ('dtype', 'type', 'size', 'name'):
+                getattr(self, proxy_prop+'_changed').emit(self)
             self._on_image_changed(v)
 
     def _on_image_changed(self, image):
@@ -381,7 +388,6 @@ class Layer(qt_property.QtPropertyOwner):
         if self.image is not None and self.auto_min_max:
             self.do_auto_min_max()
 
-
     histogram_min = qt_property.Property(
         default_value=_histogram_min_default,
         coerce_arg_fn=float,
@@ -430,10 +436,6 @@ class Layer(qt_property.QtPropertyOwner):
         coerce_arg_fn=str,
         pre_set_callback=_blend_function_pre_set,
         doc=SHADER_PROP_HELP + '\n\nSupported blend_functions:\n    ' + '\n    '.join("'" + s + "'" for s in sorted(BLEND_FUNCTIONS.keys())))
-
-    name = qt_property.Property(
-        default_value='',
-        coerce_arg_fn=str)
 
     @property
     def opacity(self):
