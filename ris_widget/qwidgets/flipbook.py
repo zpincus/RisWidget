@@ -184,7 +184,7 @@ class Flipbook(Qt.QWidget):
         layout.addLayout(playbox)
         self.playback_timer = Qt.QTimer()
         self.playback_timer.timeout.connect(self.advance_frame)
-        self.playback_fps = 50
+        self.playback_fps = 30
 
         self._on_page_selection_changed()
         self.freeimage = FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self)
