@@ -255,7 +255,7 @@ def query_gl_exts():
         warnings.warn('An error occurred while querying OpenGL extension availability.')
 
 MSAA_SAMPLE_COUNT = 2
-SWAP_INTERVAL = 1
+SWAP_INTERVAL = 0
 GL_QSURFACE_FORMAT = None
 def create_default_QSurfaceFormat():
     global GL_QSURFACE_FORMAT
@@ -276,7 +276,6 @@ def create_default_QSurfaceFormat():
     GL_QSURFACE_FORMAT.setBlueBufferSize(8)
     GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
     Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
-
 
 QAPPLICATION = None
 def create_QApplication():
@@ -355,15 +354,6 @@ def ICONS():
             fpath = Path(__file__).parent / 'icons' / fn
             _icons[fpath.stem] = Qt.QIcon(str(fpath))
     return _icons
-
-_FPSD = None
-def FPSD():
-    global _FPSD
-    if _FPSD is None:
-        from .qwidgets.fps_display import FPSDisplay
-        _FPSD = FPSDisplay()
-        _FPSD.show()
-    return _FPSD
 
 class _GlQuad:
     def __init__(self):
