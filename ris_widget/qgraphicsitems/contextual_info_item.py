@@ -20,11 +20,56 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Authors: Erik Hvatum <ice.rikh@gmail.com>
+# Author: Zach Pincus
 
-from ..shared_resources import NV_PATH_RENDERING_AVAILABLE
+from PyQt5 import Qt
+from ..shared_resources import UNIQUE_QGRAPHICSITEM_TYPE
 
-if NV_PATH_RENDERING_AVAILABLE:
-    from .contextual_info_item_nv import ContextualInfoItemNV as ContextualInfoItem
-else:
-    from .contextual_info_item_plain import ContextualInfoItemPlain as ContextualInfoItem
+class ContextualInfoItem(Qt.QGraphicsSimpleTextItem):
+    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+
+    def __init__(self, parent_item):
+        super().__init__(parent_item)
+        self.contextual_info = None
+        font = Qt.QFont('Courier', pointSize=16, weight=Qt.QFont.Bold)
+        font.setKerning(False)
+        font.setStyleHint(Qt.QFont.Monospace, Qt.QFont.OpenGLCompatible | Qt.QFont.PreferQuality)
+        self.setFont(font)
+        self.pen = Qt.QPen(Qt.QColor(Qt.Qt.black))
+        self.pen.setWidth(3)
+        self.pen.setCosmetic(True)
+        self.brush = Qt.QBrush(Qt.QColor(45,255,70,255))
+        self.no_pen = Qt.QPen(Qt.Qt.NoPen)
+        self.no_brush = Qt.QBrush(Qt.Qt.NoBrush)
+        # Disabling brush/pen via setting to transparent color breaks antialiasing, somehow,
+        # (on OS X at least), but may be faster
+        # transparent_color = Qt.QColor(Qt.Qt.transparent)
+        # self.no_pen = Qt.QPen(transparent_color)
+        # self.no_brush = Qt.QBrush(transparent_color)
+
+        # Necessary to prevent context information from disappearing when mouse pointer passes over
+        # context info text
+        self.setAcceptHoverEvents(False)
+        self.setAcceptedMouseButtons(Qt.Qt.NoButton)
+        self.hide()
+
+    def type(self):
+        return ContextualInfoItemPlain.QGRAPHICSITEM_TYPE
+
+    def set_info_text(self, text):
+        if not text:
+            self.hide()
+        else:
+            self.setText(text)
+            self.show()
+
+    def paint(self, qpainter, option, widget):
+        # To ensure that character outlines never obscure the entirety of character interior, outline
+        # is drawn first and interior second.  If both brush and pen are nonempty, Qt draws interior first
+        # and outline second.
+        self.setBrush(self.no_brush)
+        self.setPen(self.pen)
+        super().paint(qpainter, option, widget)
+        self.setBrush(self.brush)
+        self.setPen(self.no_pen)
+        super().paint(qpainter, option, widget)

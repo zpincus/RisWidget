@@ -27,7 +27,6 @@ import numpy
 from PyQt5 import Qt
 from string import Template
 import textwrap
-from ..contextual_info import ContextualInfo
 from ..shared_resources import GL_QUAD, QGL, UNIQUE_QGRAPHICSITEM_TYPE
 from .shader_item import ShaderItem
 
@@ -98,8 +97,8 @@ class LayerStackItem(ShaderItem):
 
     def __init__(self, layer_stack, parent_item=None):
         super().__init__(parent_item)
+        self.contextual_info_pos = None
         self._bounding_rect = Qt.QRectF(self.DEFAULT_BOUNDING_RECT)
-        self.contextual_info = ContextualInfo(self)
         self.layer_stack = layer_stack
         self._connect_layers(layer_stack.layers)
         layer_stack.layers_replaced.connect(self._on_layerlist_replaced)
@@ -257,13 +256,12 @@ class LayerStackItem(ShaderItem):
 
     def hoverMoveEvent(self, event):
         # NB: contextual info overlay will only be correct for the first view containing this item.
-        self.contextual_info.pos = self.scene().views()[0].mapFromScene(event.scenePos())
-        self.scene().contextual_info_item.set_contextual_info(self.contextual_info)
+        self.contextual_info_pos = self.scene().views()[0].mapFromScene(event.scenePos())
         self._update_contextual_info()
 
     def hoverLeaveEvent(self, event):
-        self.contextual_info.pos = None
-        self.scene().contextual_info_item.clear_contextual_info(self)
+        self.contextual_info_pos = None
+        self.scene().contextual_info_item.set_info_text(None)
 
     def _update_contextual_info(self):
         if self.layer_stack.examine_layer_mode:
@@ -273,10 +271,10 @@ class LayerStackItem(ShaderItem):
             visible_idxs = [idx for idx, layer in enumerate(self.layer_stack.layers) if layer.visible]
         else:
             visible_idxs = []
-        if not visible_idxs or self.contextual_info.pos is None or self.scene() is None or not self.scene().views():
-            self.contextual_info.value = ''
+        if not visible_idxs or self.contextual_info_pos is None or self.scene() is None or not self.scene().views():
+            self.scene().contextual_info_item.set_info_text(None)
             return
-        fpos = self.scene().views()[0].mapToScene(self.contextual_info.pos)
+        fpos = self.scene().views()[0].mapToScene(self.contextual_info_pos)
         # NB: fpos is a QPointF, and one may call QPointF.toPoint(), as in the following line,
         # to get a QPoint from it.  However, toPoint() rounds x and y coordinates to the nearest int,
         # which would cause us to erroneously report mouse position as being over the pixel to the
@@ -314,7 +312,7 @@ class LayerStackItem(ShaderItem):
                     idx)
             if ci is not None:
                 cis.append(ci)
-        self.contextual_info.value = '\n'.join(reversed(cis))
+        self.scene().contextual_info_item.set_info_text('\n'.join(reversed(cis)))
 
     def paint(self, qpainter, option, widget):
         qpainter.beginNativePainting()
