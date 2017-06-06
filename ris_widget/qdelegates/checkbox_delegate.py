@@ -22,7 +22,6 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from contextlib import ExitStack
 from PyQt5 import Qt
 from ..shared_resources import ICONS
 
@@ -47,7 +46,7 @@ class CheckboxDelegate(Qt.QStyledItemDelegate):
     how CheckboxDelegate gets, sets, and interprets that item's data.
 
     If ItemIsUserCheckable is set for an item, then CheckStateRole is specified when retrieving that item's data.  If the return
-    value of this query is not Qt.Qt.Unchecked, Qt.Qt.Checked, or Qt.Qt.PartiallyChecked, the "wrong type" icon is displayed. 
+    value of this query is not Qt.Qt.Unchecked, Qt.Qt.Checked, or Qt.Qt.PartiallyChecked, the "wrong type" icon is displayed.
     CheckStateRole is used when setting the item's data, and the value supplied is either Qt.Qt.Unchecked or Qt.Qt.Checked.  This
     closely matches the default delegate behavior.
 

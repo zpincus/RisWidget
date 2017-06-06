@@ -259,7 +259,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
         return self._getf_default(midx) & ~Qt.Qt.ItemIsEditable | Qt.Qt.ItemIsUserCheckable
 
     def _getf_never_editable(self, midx):
-        return super().flags(midx) & ~Qt.Qt.ItemIsEditable
+        return self._getf_default(midx) & ~Qt.Qt.ItemIsEditable
 
     def flags(self, midx):
         if midx.isValid():
@@ -363,7 +363,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
         if role == Qt.Qt.CheckStateRole:
             if isinstance(value, Qt.QVariant):
                 value = value.value()
-            return self.setData(midx, value)
+            return super().setData(midx, value)
         return False
 
     def _setd_visible(self, midx, value, role):
@@ -380,7 +380,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
                 # partially checked.  And, so, in this one instance, we must special case *setting* of an overridable checkbox
                 # property.
                 value = Qt.Qt.Unchecked
-            return self.setData(midx, value)
+            return super().setData(midx, value)
         return False
 
     def setData(self, midx, value, role=Qt.Qt.EditRole):
