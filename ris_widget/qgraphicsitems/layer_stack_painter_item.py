@@ -23,7 +23,7 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from ..shared_resources import UNIQUE_QGRAPHICSITEM_TYPE
+from .. import shared_resources
 
 class LayerStackPainterBrush:
     def __init__(self, color, mask, center):
@@ -37,7 +37,7 @@ class LayerStackPainterBrush:
         target_subimage[m] = self.color
 
 class LayerStackPainterItem(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
     # Something relevant to LayerStackPainter changed: either we are now looking at a different Image
     # instance due to assignment to layer.image, or image data type and/or channel count and/or range
     # changed.  target_image_changed is not emitted when just image data changes.

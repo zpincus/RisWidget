@@ -25,22 +25,18 @@
 import json
 from PyQt5 import Qt
 import numpy
-from . import om
-from .image import Image
-from .layer import Layer
+from .object_model import uniform_signaling_list
+from . import image
+from . import layer
 
-class LayerList(om.UniformSignalingList):
+class LayerList(uniform_signaling_list.UniformSignalingList):
     @classmethod
-    def from_json(cls, json_str, show_error_messagebox=False):
-        try:
-            prop_stackd = json.loads(json_str)['layer property stack']
-            layers = cls()
-            for props in prop_stackd:
-                layers.append(Layer.from_savable_properties_dict(props))
-            return layers
-        except (FileNotFoundError, KeyError, ValueError, TypeError) as e:
-            if show_error_messagebox:
-                Qt.QMessageBox.information(None, 'JSON Error', '{} : {}'.format(type(e).__name__, e))
+    def from_json(cls, json_str):
+        prop_stack = json.loads(json_str)['layer property stack']
+        layers = cls()
+        for props in prop_stack:
+            layers.append(layer.Layer.from_savable_properties_dict(props))
+        return layers
 
     def to_json(self):
         return json.dumps(
@@ -54,9 +50,9 @@ class LayerList(om.UniformSignalingList):
         )
 
     def take_input_element(self, obj):
-        if isinstance(obj, (numpy.ndarray, Image)):
-            obj = Layer(obj)
-        elif isinstance(obj, Layer):
+        if isinstance(obj, (numpy.ndarray, image.Image)):
+            obj = layer.Layer(obj)
+        elif isinstance(obj, layer.Layer):
             if hasattr(self, '_list') and obj in self._list:
                 raise ValueError('A given layer can only be in the layer stack once.')
         else:

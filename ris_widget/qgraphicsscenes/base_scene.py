@@ -23,7 +23,8 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from ..qgraphicsitems.viewport_rect_item import ViewportRectItem
+from ..qgraphicsitems import viewport_rect_item
+from ..qgraphicsitems import contextual_info_item
 
 class BaseScene(Qt.QGraphicsScene):
     """BaseScene provides for creating and maintaining a ContextualInfoItem (or compatible).
@@ -72,8 +73,7 @@ class BaseScene(Qt.QGraphicsScene):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.viewport_rect_item = ViewportRectItem()
+        self.viewport_rect_item = viewport_rect_item.ViewportRectItem()
         self.addItem(self.viewport_rect_item)
-        from ..qgraphicsitems.contextual_info_item import ContextualInfoItem
-        self.contextual_info_item = ContextualInfoItem(self.viewport_rect_item)
+        self.contextual_info_item = contextual_info_item.ContextualInfoItem(self.viewport_rect_item)
         self.contextual_info_item.setPos(10, 5)

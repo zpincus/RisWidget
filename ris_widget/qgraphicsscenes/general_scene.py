@@ -23,13 +23,13 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from .base_scene import BaseScene
-from ..qgraphicsitems.layer_stack_item import LayerStackItem
+from . import base_scene
+from ..qgraphicsitems import layer_stack_item
 
-class GeneralScene(BaseScene):
+class GeneralScene(base_scene.BaseScene):
     def __init__(self, parent, layer_stack):
         super().__init__(parent)
-        self.layer_stack_item = LayerStackItem(layer_stack=layer_stack)
+        self.layer_stack_item = layer_stack_item.LayerStackItem(layer_stack=layer_stack)
         self.layer_stack_item.bounding_rect_changed.connect(self._on_layer_stack_item_bounding_rect_changed)
         self.addItem(self.layer_stack_item)
 

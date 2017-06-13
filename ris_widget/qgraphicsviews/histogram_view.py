@@ -22,10 +22,10 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from .base_view import BaseView
+from . import base_view
 from PyQt5 import Qt
 
-class HistogramView(BaseView):
+class HistogramView(base_view.BaseView):
     @classmethod
     def make_histogram_view_and_frame(cls, base_scene, parent):
         histogram_frame = Qt.QFrame(parent)

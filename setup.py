@@ -27,26 +27,10 @@
 import setuptools
 
 setuptools.setup(
-    package_data = {
-        'ris_widget' : [
-            'icons/checked_box_icon.svg',
-            'icons/disabled_checked_box_icon.svg',
-            'icons/disabled_pseudo_checked_box_icon.svg',
-            'icons/disabled_unchecked_box_icon.svg',
-            'icons/disabled_wrong_type_checked_box_icon.svg',
-            'icons/image_icon.svg',
-            'icons/layer_icon.svg',
-            'icons/layer_stack_icon.svg',
-            'icons/pseudo_checked_box_icon.svg',
-            'icons/unchecked_box_icon.svg',
-            'icons/wrong_type_checked_box_icon.svg',
-            'shaders/histogram_item_fragment_shader.glsl',
-            'shaders/layer_stack_item_fragment_shader_template.glsl',
-            'shaders/planar_quad_vertex_shader.glsl'
-        ]
-    },
     name = 'ris_widget',
     packages = setuptools.find_packages(),
+    package_data = {'ris_widget.qdelegates': ['checkbox_icons/*.svg']
+                    'ris_widget.qgraphicsitems': ['shaders/*.glsl']},
     install_requires=['cffi>=1.0.0', 'numpy', 'PyOpenGL', 'PyQt5'],
     setup_requires=['cffi>=1.0.0'],
     cffi_modules=['ris_widget/histogram/build_histogram.py:ffi'],

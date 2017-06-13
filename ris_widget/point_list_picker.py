@@ -24,8 +24,8 @@
 
 from PyQt5 import Qt
 import weakref
-from . import om
-from .shared_resources import UNIQUE_QGRAPHICSITEM_TYPE
+from .object_model import uniform_signaling_list
+from . import shared_resources
 
 class Point(Qt.QObject):
     changed = Qt.pyqtSignal(object)
@@ -64,7 +64,7 @@ class Point(Qt.QObject):
             self.y_changed.emit(self)
             self.changed.emit(self)
 
-class PointList(om.UniformSignalingList):
+class PointList(uniform_signaling_list.UniformSignalingList):
     def take_input_element(self, obj):
         if isinstance(obj, Point):
             if hasattr(self, '_list') and obj in self:
@@ -115,7 +115,7 @@ class PointItemMixin:
         self.point_list_picker_wr()._on_point_selected_has_changed(self.point_wr(), self.isSelected())
 
 class PointListRectItem(PointItemMixin, Qt.QGraphicsRectItem):
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
     def __init__(self, point, point_list_picker, parent_item=None):
         Qt.QGraphicsRectItem.__init__(self, parent_item)
         PointItemMixin.__init__(self, point, point_list_picker)
@@ -148,7 +148,7 @@ class PointListPicker(Qt.QGraphicsObject):
 
     Although PointListPicker's implementation is not trivial, using it and extending it very much are.  See
     RisWidget.make_point_list_picker(..) for a basic usage example and RisWidget.make_point_list_picker_with_table_view(..)
-    for something slightly more advanced.  For information regarding extending PointListPicker, see 
+    for something slightly more advanced.  For information regarding extending PointListPicker, see
     examples.poly_line_picker for a basic example and examples.quadratic_compound_bezier_picker for one that's more
     ambitious."""
     point_list_replaced = Qt.pyqtSignal(object)
@@ -156,7 +156,7 @@ class PointListPicker(Qt.QGraphicsObject):
     point_is_selected_changed = Qt.pyqtSignal(object, bool)
     point_focused = Qt.pyqtSignal(object)
 
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
     POINT_LIST_TYPE = PointList
 
     def __init__(self, general_view, parent_item, points=None):

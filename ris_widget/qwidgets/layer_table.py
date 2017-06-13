@@ -23,17 +23,21 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from ..image import Image
-from ..layer import Layer
-from ..layer_stack import LayerList
-from ..qdelegates.dropdown_list_delegate import DropdownListDelegate
-from ..qdelegates.slider_delegate import SliderDelegate
-from ..qdelegates.color_delegate import ColorDelegate
-from ..qdelegates.checkbox_delegate import CheckboxDelegate
-from ..shared_resources import CHOICES_QITEMDATA_ROLE, FREEIMAGE
-from .. import om
+from .. import image
+from .. import layer
+from .. import layer_stack
+from ..qdelegates import dropdown_list_delegate
+from ..qdelegates import slider_delegate
+from ..qdelegates import color_delegate
+from ..qdelegates import checkbox_delegate
+from ..om import drag_drop_model_behavior, property_table_model
 
-class LayerTableView(Qt.QTableView):
+try:
+    import freeimage
+except ModuleNotFoundError:
+    freeimage = None
+
+class layer.LayerTableView(Qt.QTableView):
     def __init__(self, layer_table_model, parent=None):
         super().__init__(parent)
         self.layer_table_model = layer_table_model
@@ -44,14 +48,14 @@ class LayerTableView(Qt.QTableView):
         self.verticalHeader().setHighlightSections(False)
         self.verticalHeader().setSectionsClickable(False)
         self.setTextElideMode(Qt.Qt.ElideMiddle)
-        self.checkbox_delegate = CheckboxDelegate(parent=self)
+        self.checkbox_delegate = checkbox_delegate.CheckboxDelegate(parent=self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['visible'], self.checkbox_delegate)
         self.setItemDelegateForColumn(layer_table_model.property_columns['auto_min_max'], self.checkbox_delegate)
-        self.blend_function_delegate = DropdownListDelegate(self)
+        self.blend_function_delegate = dropdown_list_delegate.DropdownListDelegate(self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['blend_function'], self.blend_function_delegate)
-        self.tint_delegate = ColorDelegate(self)
+        self.tint_delegate = color_delegate.ColorDelegate(self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['tint'], self.tint_delegate)
-        self.opacity_delegate = SliderDelegate(0.0, 1.0, self)
+        self.opacity_delegate = slider_delegate.SliderDelegate(0.0, 1.0, self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['opacity'], self.opacity_delegate)
         self.setSelectionBehavior(Qt.QAbstractItemView.SelectRows)
         self.setSelectionMode(Qt.QAbstractItemView.ExtendedSelection)
@@ -132,7 +136,7 @@ class InvertingProxyModel(Qt.QSortFilterProxyModel):
         # We want the table upside-down and therefore will be sorting by index (aka row #)
         return lhs.row() < rhs.row()
 
-class LayerTableDragDropBehavior(om.signaling_list.DragDropModelBehavior):
+class layer.LayerTableDragDropBehavior(drag_drop_model_behavior.DragDropModelBehavior):
     def _fix_row_for_inversion(self, row):
         if row == -1:
             return 0
@@ -147,38 +151,37 @@ class LayerTableDragDropBehavior(om.signaling_list.DragDropModelBehavior):
         return super().dropMimeData(mime_data, drop_action, self._fix_row_for_inversion(row), column, parent)
 
     def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
-        return isinstance(src_model, LayerTableModel)
+        return isinstance(src_model, layer.LayerTableModel)
 
     def can_drop_text(self, txt, dst_row, dst_column, dst_parent):
-        return bool(LayerList.from_json(txt))
+        return bool(layer_stack.LayerList.from_json(txt))
 
     def handle_dropped_qimage(self, qimage, name, dst_row, dst_column, dst_parent):
-        image = Image.from_qimage(qimage)
+        image = image.Image.from_qimage(qimage)
         if image is not None:
-            layer = Layer(image=image)
+            layer = layer.Layer(image=image)
             self.layer_stack.layers[dst_row:dst_row] = [layer]
             return True
         return False
 
     def handle_dropped_files(self, fpaths, dst_row, dst_column, dst_parent):
-        freeimage = FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=None)
         if freeimage is None:
             return False
-        layers = LayerList()
+        layers = layer_stack.LayerList()
         for fpath in fpaths:
             if fpath.suffix in ('.json', '.jsn'):
                 with fpath.open('r') as f:
-                    in_layers = LayerList.from_json(f.read())
+                    in_layers = layer_stack.LayerList.from_json(f.read())
                     if in_layers:
                         layers.extend(in_layers)
             else:
                 fpath_str = str(fpath)
-                layers.append(Layer(Image(freeimage.read(fpath_str), name=fpath_str)))
+                layers.append(layer.Layer(image.Image(freeimage.read(fpath_str), name=fpath_str)))
         self.layer_stack.layers[dst_row:dst_row] = layers
         return True
 
     def handle_dropped_text(self, txt, dst_row, dst_column, dst_parent):
-        dropped_layers = LayerList.from_json(txt)
+        dropped_layers = layer_stack.LayerList.from_json(txt)
         if dropped_layers:
             self.layer_stack.layers[dst_row:dst_row] = dropped_layers
 
@@ -187,7 +190,7 @@ class LayerTableDragDropBehavior(om.signaling_list.DragDropModelBehavior):
         mime_data.setText(self.layer_stack.layers.to_json())
         return mime_data
 
-class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTableModel):
+class layer.LayerTableModel(layer.LayerTableDragDropBehavior, property_table_model.PropertyTableModel):
 
     PROPERTIES = [
         'visible',
@@ -220,7 +223,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
         # Tack less commonly used / advanced blend function names onto list of dropdown choices without duplicating
         # entries for values that have verbose choice names
         self.blend_function_choices = ['normal', 'screen']
-        other_blends = set(Layer.BLEND_FUNCTIONS.keys()) - set(self.blend_function_choices)
+        other_blends = set(layer.Layer.BLEND_FUNCTIONS.keys()) - set(self.blend_function_choices)
         self.blend_function_choices += sorted(other_blends)
 
         self._special_data_getters = {
@@ -322,7 +325,7 @@ class LayerTableModel(LayerTableDragDropBehavior, om.signaling_list.PropertyTabl
             return Qt.QVariant(self.signaling_list[midx.row()].tint)
 
     def _getd_blend_function(self, midx, role):
-        if role == CHOICES_QITEMDATA_ROLE:
+        if role == dropdown_list_delegate.CHOICES_QITEMDATA_ROLE:
             return Qt.QVariant(self.blend_function_choices)
         elif role == Qt.Qt.DisplayRole:
             return Qt.QVariant(self.signaling_list[midx.row()].blend_function)

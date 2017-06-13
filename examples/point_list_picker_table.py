@@ -22,11 +22,11 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from .. import om
 from .default_table import DefaultTable
 from PyQt5 import Qt
+from ris_widget.object_model import property_table_model, drag_drop_model_behavior
 
-class PointListPickerTableModel(om.signaling_list.DragDropModelBehavior, om.signaling_list.PropertyTableModel):
+class PointListPickerTableModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_model.PropertyTableModel):
     pass
 
 class PointListPickerTable(DefaultTable):

@@ -79,7 +79,7 @@ class SignalingList(Qt.QObject, MutableSequence, metaclass=_QtAbcMeta):
         lambda self, name: self.setObjectName('' if name is None else name),
         doc='Property proxy for QObject::objectName Qt property, which is directly accessible via the objectName getter and '
             'setObjectName setter, with change notification signal objectNameChanged.  The proxied change signal, which conforms '
-            'to the requirements of ris_widget.om.signaling_list.PropertyTableModel, is name_changed.')
+            'to the requirements of ris_widget.object_model.property_table_model.PropertyTableModel, is name_changed.')
 
     @staticmethod
     def _obj_repr(obj):

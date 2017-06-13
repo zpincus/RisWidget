@@ -23,24 +23,31 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 import numpy
-from pathlib import Path
+import pathlib
 from PyQt5 import Qt
+import os.path
 
-from .. import om
-from ..image import Image
-from ..shared_resources import FREEIMAGE
+from ..object_model import uniform_signaling_list
+from ..object_model import drag_drop_model_behavior
+from ..object_model import property_table_model
+from .. import image
 from . import progress_thread_pool
 from . import shared
 
-class ImageList(om.UniformSignalingList):
-    def take_input_element(self, obj):
-        return obj if isinstance(obj, Image) else Image(obj, immediate_texture_upload=False)
+try:
+    import freeimage
+except ModuleNotFoundError:
+    freeimage = None
 
-class PageList(om.UniformSignalingList):
+class ImageList(uniform_signaling_list.UniformSignalingList):
+    def take_input_element(self, obj):
+        return obj if isinstance(obj, image.Image) else image.Image(obj, immediate_texture_upload=False)
+
+class PageList(uniform_signaling_list.UniformSignalingList):
     def take_input_element(self, obj):
         if isinstance(obj, ImageList):
             return obj
-        if isinstance(obj, (numpy.ndarray, Image)):
+        if isinstance(obj, (numpy.ndarray, image.Image)):
             ret = ImageList((obj,))
             if hasattr(obj, 'name'):
                 ret.name = obj.name
@@ -106,6 +113,23 @@ _FLIPBOOK_PAGES_DOCSTRING = ("""
 
     """)
 
+class ActionButton(Qt.QPushButton):
+    def __init__(self, action, parent=None):
+        super().__init__(parent)
+        self.action = action
+        self.updateButtonStatusFromAction()
+        self.action.changed.connect(self.updateButtonStatusFromAction)
+        self.clicked.connect(self.action.triggered)
+
+    def updateButtonStatusFromAction(self):
+        self.setText(self.action.text())
+        self.setStatusTip(self.action.statusTip())
+        self.setToolTip(self.action.toolTip())
+        self.setIcon(self.action.icon())
+        self.setEnabled(self.action.isEnabled())
+        self.setCheckable(self.action.isCheckable())
+        self.setChecked(self.action.isChecked())
+
 class Flipbook(Qt.QWidget):
     """
     Flipbook: A Qt widget with a list view containing pages.  Calling a Flipbook instance's
@@ -152,9 +176,9 @@ class Flipbook(Qt.QWidget):
         self.addAction(self.merge_selected_action)
 
         mergebox = Qt.QHBoxLayout()
-        self.merge_button = shared.ActionButton(self.merge_selected_action)
+        self.merge_button = ActionButton(self.merge_selected_action)
         mergebox.addWidget(self.merge_button)
-        self.delete_button = shared.ActionButton(self.delete_selected_action)
+        self.delete_button = ActionButton(self.delete_selected_action)
         mergebox.addWidget(self.delete_button)
         layout.addLayout(mergebox)
 
@@ -187,7 +211,6 @@ class Flipbook(Qt.QWidget):
         self.playback_fps = 30
 
         self._on_page_selection_changed()
-        self.freeimage = FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self)
         self.apply()
 
     def apply(self):
@@ -239,36 +262,7 @@ class Flipbook(Qt.QWidget):
 
     def add_image_files(self, image_fpaths, page_names=None, image_names=None, insertion_point=-1):
         """image_fpaths: An iterable of filenames and/or iterables of filenames, with
-        a filename being either a pathlib.Path object or a string.  For example, the
-        following would append 7 pages to the flipbook, with 1 image in the first
-        appended page, 4 in the second, 1 in the third, 4 in the fourth, 4 in the
-        fifth, and 1 in the sixth and seventh pages:
-
-        rw.flipbook.add_image_files(
-        [
-            '/home/me/nofish_control.png',
-            [
-                '/home/me/monkey_fish0/cheery_chartreuse.png',
-                '/home/me/monkey_fish0/serious_celadon.png',
-                '/home/me/monkey_fish0/uber_purple.png',
-                '/home/me/monkey_fish0/ultra_violet.png'
-            ],
-            '/home/me/onefish_muchcontrol.png',
-            [
-                pathlib.Path('/home/me/monkey_fish1/cheery_chartreuse.png'),
-                '/home/me/monkey_fish1/serious_celadon.png',
-                '/home/me/monkey_fish1/uber_purple.png',
-                '/home/me/monkey_fish1/ultra_violet.png'
-            ],
-            [
-                '/home/me/monkey_fish2/cheery_chartreuse.png',
-                '/home/me/monkey_fish2/serious_celadon.png',
-                '/home/me/monkey_fish2/uber_purple.png',
-                '/home/me/monkey_fish2/ultra_violet.png'
-            ]
-            '/home/me/somefish_somecontrol.png',
-            '/home/me/allfish_nocontrol.png'
-        ])
+        a filename being either a pathlib.Path object or a string.
 
         page_names: iterable of same length as image_fpaths, containing
             names for each entry to display in the flipbook. Optional.
@@ -279,39 +273,40 @@ class Flipbook(Qt.QWidget):
         Returns list of futures objects corresponding to the page-IO tasks.
         To wait until read is done, call concurrent.futures.wait() on this list.
         """
-        if not self.freeimage:
-            return
+        if freeimage is None:
+            raise RuntimeError('Could not import freeimage module for image IO')
+        paths = []
+        for p in image_fpaths:
+            if isinstance(p, (str, pathlib.Path)):
+                p = [p]
+            paths.append([pathlib.Path(pp) for pp in p])
+
+        if page_names is None:
+            abspaths = []
+            flat_abspaths = []
+            for subpaths in paths:
+                abspaths.append([pp.resolve() for pp in subpaths])
+                flat_abspaths.extend(abspaths[-1])
+            root = os.path.commonpath(flat_abspaths)
+            page_names = [', '.join(str(p.relative_to(root)) for p in subpaths) for subpaths in abspaths]
+
+        if image_names is None:
+            image_names = [[str(p) for p in subpaths] for subpaths in paths]
+
         task_pages = []
-        for i, p in enumerate(image_fpaths):
+        for file_paths, page_name, page_image_names in zip(paths, page_names, image_names):
             task_page = _ReadPageTaskPage()
-            task_page.page = page = ImageList()
-            if page_names is not None:
-                page.name = page_names[i]
-            if isinstance(p, (str, Path)):
-                if page_names is None:
-                    page.name = p.stem
-                if image_names is None:
-                    task_page.im_names = [str(p)]
-                else:
-                    task_page.im_names = [image_names[i]]
-                task_page.im_fpaths = [Path(p)]
-            else:
-                task_page.im_fpaths = []
-                for j, im_fpaths in enumerate(p):
-                    assert(isinstance(im_fpaths, (str, Path)))
-                    task_page.im_fpaths.append(Path(im_fpaths))
-                if page_names is None:
-                    page.name = ', '.join(image_fpath.stem for image_fpath in task_page.im_fpaths)
-                if image_names is None:
-                    task_page.im_names = [str(image_fpath) for image_fpath in task_page.im_fpaths]
-                else:
-                    task_page.im_names = image_names[i]
+            task_page.page = ImageList()
+            task_page.page.name = page_name
+            task_page.im_names = page_image_names
+            task_page.im_fpaths = file_paths
             assert len(task_page.im_names) == len(task_page.im_fpaths)
             task_pages.append(task_page)
         return self.queue_page_creation_tasks(insertion_point, task_pages)
 
+
     def _handle_dropped_files(self, fpaths, dst_row, dst_column, dst_parent):
-        if self.freeimage is None:
+        if freeimage is None:
             return False
         if dst_row in (-1, None):
             dst_row = len(self.pages)
@@ -325,7 +320,7 @@ class Flipbook(Qt.QWidget):
             if e.error:
                 e.task_page.page.name += ' (ERROR)'
             else:
-                e.task_page.page.extend(Image(im, name=im_name, immediate_texture_upload=False) for
+                e.task_page.page.extend(image.Image(im, name=im_name, immediate_texture_upload=False) for
                                         (im, im_name) in zip(e.task_page.ims, e.task_page.im_names))
             return True
         return super().event(e)
@@ -609,7 +604,7 @@ class PagesView(Qt.QTableView):
         self.setSelectionMode(Qt.QAbstractItemView.ExtendedSelection)
         self.setWordWrap(False)
 
-class PagesModelDragDropBehavior(om.signaling_list.DragDropModelBehavior):
+class PagesModelDragDropBehavior(drag_drop_model_behavior.DragDropModelBehavior):
     def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
         return isinstance(src_model, PagesModel)
 
@@ -632,7 +627,7 @@ class ImageListListener(Qt.QObject):
         index = self.pages_model.createIndex(idx, 0)
         self.pages_model.dataChanged.emit(index, index)
 
-class PagesModel(PagesModelDragDropBehavior, om.signaling_list.PropertyTableModel):
+class PagesModel(PagesModelDragDropBehavior, property_table_model.PropertyTableModel):
     PROPERTIES = (
         'name',
         )

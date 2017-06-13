@@ -23,7 +23,7 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from .flipbook import ImageList
+from . import flipbook
 
 class _BaseField(Qt.QObject):
     widget_value_changed = Qt.pyqtSignal(object)
@@ -261,7 +261,7 @@ class FlipbookPageAnnotator(Qt.QWidget):
             else:
                 initial = True
                 for page in pages:
-                    if not isinstance(page, ImageList):
+                    if not isinstance(page, flipbook.ImageList):
                         continue
                     if hasattr(page, self.page_metadata_attribute_name):
                         data = getattr(page, self.page_metadata_attribute_name)

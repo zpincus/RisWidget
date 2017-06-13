@@ -22,7 +22,6 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-import ctypes
 from PyQt5 import Qt
 
 class PropertyTableModel(Qt.QAbstractTableModel):
@@ -44,12 +43,13 @@ class PropertyTableModel(Qt.QAbstractTableModel):
     the x, y, and z property values of a SignalingList's elements:
 
     from PyQt5 import Qt
-    from ris_widget.om import qt_property
+    from ris_widget import qt_property
+    from ris_widget.object_model import signaling_list, property_table_model, drag_drop_model_behavior
 
     class PosTableWidget(Qt.QWidget):
         def __init__(self, parent=None):
             super().__init__(parent)
-            self.model = PosTableModel(('x', 'y', 'z'), om.SignalingList(), self)
+            self.model = PosTableModel(('x', 'y', 'z'), signaling_list.SignalingList(), self)
             self.view = PosTableView(self.model, self)
             self.setLayout(Qt.QVBoxLayout())
             self.layout().addWidget(self.view)
@@ -90,7 +90,7 @@ class PropertyTableModel(Qt.QAbstractTableModel):
             if midx.isValid():
                 m.removeRow(midx.row())
 
-    class PosTableModel(om.signaling_list.DragDropModelBehavior, om.signaling_list.PropertyTableModel):
+    class PosTableModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_model.PropertyTableModel):
         pass
 
     def float_or_none(v):

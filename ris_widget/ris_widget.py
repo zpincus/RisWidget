@@ -31,17 +31,21 @@ import sys
 
 from . import shared_resources
 from . import async_texture
-from .layer import Layer
-from .layer_stack import LayerList, LayerStack
-from .point_list_picker import PointListPicker
-from .qwidgets.flipbook import Flipbook
-from .qwidgets.fps_display import FPSDisplay
-from .qwidgets.layer_table import InvertingProxyModel, LayerTableModel, LayerTableView
-from .qwidgets.layer_stack_painter import LayerStackPainter
-from .qgraphicsscenes.general_scene import GeneralScene
-from .qgraphicsviews.general_view import GeneralView
-from .qgraphicsscenes.histogram_scene import HistogramScene
-from .qgraphicsviews.histogram_view import HistogramView
+from . import layer
+from . import layer_stack
+from .qwidgets import flipbook
+from .qwidgets import fps_display
+from .qwidgets import layer_table
+from .qwidgets import layer_stack_painter
+from .qgraphicsscenes import general_scene
+from .qgraphicsviews import general_view
+from .qgraphicsscenes import histogram_scene
+from .qgraphicsviews import histogram_view
+
+try:
+    import freeimage
+except ModuleNotFoundError:
+    freeimage = None
 
 # the pyQt input hook starts and quits a QApplication over and over. This plays
 # badly with the RisWidget assumption that the aboutToQuit signal only happens
@@ -66,11 +70,28 @@ def _atexit_cleanup():
     app = Qt.QApplication.instance()
     if app is None:
         return
-    from . shared_resources import _GL_CACHE, _on_destruction_of_context_with_cached_gl
-    for context in _GL_CACHE.keys():
-        context.destroyed[Qt.QObject].disconnect(_on_destruction_of_context_with_cached_gl)
+    for context in shared_resources._GL_CACHE.keys():
+        context.destroyed[Qt.QObject].disconnect(shared_resources._on_destruction_of_context_with_cached_gl)
     app.aboutToQuit.emit()
-    # app.processEvents()
+
+_QAPPLICATION = None
+def _init_qapplication():
+    shared_resources.create_default_QSurfaceFormat()
+    global QAPPLICATION
+    if QAPPLICATION is None:
+        instance = Qt.QApplication.instance()
+        if instance is None:
+            QAPPLICATION = Qt.QApplication(sys.argv)
+        else:
+            QAPPLICATION = instance
+        # are we running in IPython? If so, turn on the GUI integration
+        try:
+            import IPython
+            ip = IPython.get_ipython() # only not None if IPython is currently running
+            if ip is not None:
+                ip.enable_gui('qt5')
+        except ModuleNotFoundError:
+            pass
 
 class RisWidgetQtObject(Qt.QMainWindow):
     main_view_change_signal = Qt.pyqtSignal(Qt.QTransform, Qt.QRectF)
@@ -83,8 +104,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
             window_flags=Qt.Qt.WindowFlags(0),
             layers=tuple()):
 
-        shared_resources.create_default_QSurfaceFormat()
-        shared_resources.create_QApplication()
+        _init_qapplication()
 
         super().__init__(parent, window_flags)
         self.app_prefs_name = app_prefs_name
@@ -101,7 +121,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.setAcceptDrops(True)
         shared_resources.query_gl_exts()
         async_texture._TextureCache.init()
-        self.layer_stack = LayerStack()
+        self.layer_stack = layer_stack.LayerStack()
         self._init_scenes_and_views()
         self._init_flipbook()
         self._init_layer_stack_painter()
@@ -165,10 +185,11 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.main_view.zoom_one_to_one_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.layer_stack.solo_layer_mode_action.setShortcut(Qt.Qt.Key_Space)
         self.layer_stack.solo_layer_mode_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.snapshot_action = Qt.QAction(self)
-        self.snapshot_action.setText('Snapshot')
-        self.snapshot_action.setToolTip('Save snapshot of displayed image(s).')
-        self.snapshot_action.triggered.connect(self._on_snapshot_action)
+        if freeimage is not None:
+            self.snapshot_action = Qt.QAction(self)
+            self.snapshot_action.setText('Snapshot')
+            self.snapshot_action.setToolTip('Save snapshot of displayed image(s).')
+            self.snapshot_action.triggered.connect(self._on_snapshot_action)
 
     @staticmethod
     def _format_zoom(zoom):
@@ -183,12 +204,12 @@ class RisWidgetQtObject(Qt.QMainWindow):
             return txt
 
     def _init_scenes_and_views(self):
-        self.main_scene = GeneralScene(self, self.layer_stack)
-        self.main_view = GeneralView(self.main_scene, self)
+        self.main_scene = general_scene.GeneralScene(self, self.layer_stack)
+        self.main_view = general_view.GeneralView(self.main_scene, self)
         self.setCentralWidget(self.main_view)
-        self.histogram_scene = HistogramScene(self, self.layer_stack)
+        self.histogram_scene = histogram_scene.HistogramScene(self, self.layer_stack)
         self.histogram_dock_widget = Qt.QDockWidget('Histogram', self)
-        self.histogram_view, self._histogram_frame = HistogramView.make_histogram_view_and_frame(self.histogram_scene, self.histogram_dock_widget)
+        self.histogram_view, self._histogram_frame = histogram_view.HistogramView.make_histogram_view_and_frame(self.histogram_scene, self.histogram_dock_widget)
         self.histogram_dock_widget.setWidget(self._histogram_frame)
         self.histogram_dock_widget.setAllowedAreas(Qt.Qt.BottomDockWidgetArea | Qt.Qt.TopDockWidgetArea)
         self.histogram_dock_widget.setFeatures(
@@ -196,15 +217,15 @@ class RisWidgetQtObject(Qt.QMainWindow):
             Qt.QDockWidget.DockWidgetMovable | Qt.QDockWidget.DockWidgetVerticalTitleBar)
         self.addDockWidget(Qt.Qt.BottomDockWidgetArea, self.histogram_dock_widget)
         self.layer_table_dock_widget = Qt.QDockWidget('Layer Stack', self)
-        self.layer_table_model = LayerTableModel(self.layer_stack)
+        self.layer_table_model = layer_table.LayerTableModel(self.layer_stack)
         # NB: Qt.QAbstractItemView, an ancestor of InvertingProxyModel, attempts to start a QTimer as it is destroyed.  Therefore,
         # it must be destroyed before the event dispatcher thread local object is destroyed - IE, not by Python's last-pass garbage
         # collector, which collects in no particular order, often collecting the dispatcher before any stray item models.  To prompt
         # pre-last-pass destruction, it is sufficient to make all Qt.QAbstractItemView progeny QObject-parented to a QObject that
         # is definitely destroyed before the last pass.  We are careful to ensure that RisWidget instances meet this criterion.
-        self.layer_table_model_inverter = InvertingProxyModel(self)
+        self.layer_table_model_inverter = layer_table.InvertingProxyModel(self)
         self.layer_table_model_inverter.setSourceModel(self.layer_table_model)
-        self.layer_table_view = LayerTableView(self.layer_table_model)
+        self.layer_table_view = layer_table.LayerTableView(self.layer_table_model)
         self.layer_table_view.setModel(self.layer_table_model_inverter)
         self.layer_table_model.setParent(self.layer_table_view)
         self.layer_table_model.rowsInserted.connect(self._update_layer_stack_visibility)
@@ -218,7 +239,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.addDockWidget(Qt.Qt.TopDockWidgetArea, self.layer_table_dock_widget)
         self.layer_table_dock_widget.hide()
         self.fps_display_dock_widget = Qt.QDockWidget('FPS', self)
-        self.fps_display = FPSDisplay()
+        self.fps_display = fps_display.FPSDisplay()
         self.main_scene.layer_stack_item.painted.connect(self.fps_display.notify)
         self.fps_display_dock_widget.setWidget(self.fps_display)
         self.fps_display_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
@@ -228,7 +249,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.fps_display_dock_widget.hide()
 
     def _init_flipbook(self):
-        self.flipbook = fb = Flipbook(self.layer_stack, self)
+        self.flipbook = fb = flipbook.Flipbook(self.layer_stack, self)
         self.flipbook_dock_widget = Qt.QDockWidget('Flipbook', self)
         self.flipbook_dock_widget.setWidget(fb)
         self.flipbook_dock_widget.setAllowedAreas(Qt.Qt.RightDockWidgetArea | Qt.Qt.LeftDockWidgetArea)
@@ -256,7 +277,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def _on_layer_stack_painter_dock_widget_visibility_toggled(self, is_visible):
         if is_visible:
             if self.layer_stack_painter is None:
-                self.layer_stack_painter = LayerStackPainter(self.main_scene.layer_stack_item)
+                self.layer_stack_painter = layer_stack_painter.LayerStackPainter(self.main_scene.layer_stack_item)
                 self.layer_stack_painter_dock_widget.setWidget(self.layer_stack_painter)
         else:
             if self.layer_stack_painter is not None:
@@ -271,9 +292,9 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.main_view_zoom_combo.setInsertPolicy(Qt.QComboBox.NoInsert)
         self.main_view_zoom_combo.setDuplicatesEnabled(True)
         self.main_view_zoom_combo.setSizeAdjustPolicy(Qt.QComboBox.AdjustToContents)
-        for zoom in GeneralView._ZOOM_PRESETS:
+        for zoom in general_view.GeneralView._ZOOM_PRESETS:
             self.main_view_zoom_combo.addItem(self._format_zoom(zoom * 100) + '%')
-        self.main_view_zoom_combo.setCurrentIndex(GeneralView._ZOOM_ONE_TO_ONE_PRESET_IDX)
+        self.main_view_zoom_combo.setCurrentIndex(general_view.GeneralView._ZOOM_ONE_TO_ONE_PRESET_IDX)
         self.main_view_zoom_combo.activated[int].connect(self._main_view_zoom_combo_changed)
         self.main_view_zoom_combo.lineEdit().returnPressed.connect(self._main_view_zoom_combo_custom_value_entered)
         self.main_view.zoom_changed.connect(self._main_view_zoom_changed)
@@ -360,7 +381,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         if layers:
             layer = layers[0]
         else:
-            layer = Layer()
+            layer = layer.Layer()
             if layers is None:
                 self.layers = [layer]
             else:
@@ -435,8 +456,8 @@ class RisWidgetQtObject(Qt.QMainWindow):
             self.main_view.custom_zoom = float(scale_txt) * 0.01
         except ValueError:
             e = 'Please enter a number between {} and {}.'.format(
-                self._format_zoom(GeneralView._ZOOM_MIN_MAX[0] * 100),
-                self._format_zoom(GeneralView._ZOOM_MIN_MAX[1] * 100))
+                self._format_zoom(general_view.GeneralView._ZOOM_MIN_MAX[0] * 100),
+                self._format_zoom(general_view.GeneralView._ZOOM_MIN_MAX[1] * 100))
             Qt.QMessageBox.information(self, self.windowTitle() + ' Input Error', e)
             self.main_view_zoom_combo.setFocus()
             self.main_view_zoom_combo.lineEdit().selectAll()
@@ -458,94 +479,51 @@ class RisWidgetQtObject(Qt.QMainWindow):
             layer.auto_min_max = not layer.auto_min_max
 
     def _on_snapshot_action(self):
-        freeimage = shared_resources.FREEIMAGE(show_messagebox_on_error=True, error_messagebox_owner=self, is_read=False)
-        if freeimage:
-            try:
-                snapshot = self.main_view.snapshot()
-            except RuntimeError as e:
-                Qt.QMessageBox.information(self, self.windowTitle() + ' Snapshot Error', e)
-            else:
-                if sys.platform == 'darwin':
-                    # TODO: With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
-                    # active, the OS X native modal file save dialog ends up being dismissed just as it appears.  This
-                    # can be avoided by using Qt's own reasonably good save dialog.  This will probably eventually be
-                    # fixed by the IPython developers, at which point this if clause may be deleted with the contents
-                    # of the associated else clause unindented and left as the only remaining code path.
-                    fn, _ = Qt.QFileDialog.getSaveFileName(
-                        self,
-                        'Save Snapshot',
-                        filter='Images (*.png *.jpg *.tiff *.tif)',
-                        options=Qt.QFileDialog.DontUseNativeDialog)
-                else:
-                    fn, _ = Qt.QFileDialog.getSaveFileName(
-                        self,
-                        'Save Snapshot',
-                        filter='Images (*.png *.jpg *.tiff *.tif)')
-                if fn:
-                    try:
-                        freeimage.write(snapshot, fn)
-                    except Exception as e:
-                        Qt.QMessageBox.information(self, self.windowTitle() + ' Freeimage Error', type(e).__name__ + ': ' + str(e))
+        # if sys.platform == 'darwin':
+        #     # Onn some versions of PyQt, IPython, and OS X, the Qt event loop intergration can cause the
+        #     # native  file save dialog to be dismissed just as it appears. Uncomment if this problem returns
+        #     options = Qt.QFileDialog.DontUseNativeDialog
+        # else:
+        #     options = Qt.QFileDialog.Option()
+        # fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Snapshot',
+        #             filter='Images (*.png *.jpg *.tiff *.tif)', options=options)
+
+        fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Snapshot', filter='Images (*.png *.jpg *.tiff *.tif)')
+
+        if fn:
+            freeimage.write(self.main_view.snapshot(), fn)
 
     def _on_save_layer_property_stack(self):
-        if sys.platform == 'darwin':
-            # TODO: With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
-            # active, the OS X native modal file save dialog ends up being dismissed just as it appears.  This
-            # can be avoided by using Qt's own reasonably good save dialog.  This will probably eventually be
-            # fixed by the IPython developers, at which point this if clause may be deleted with the contents
-            # of the associated else clause unindented and left as the only remaining code path.
-            fn, _ = Qt.QFileDialog.getSaveFileName(
-                self,
-                'Save Layer Property Stack',
-                filter='JSON (*.json *.jsn)',
-                options=Qt.QFileDialog.DontUseNativeDialog)
-        else:
-            fn, _ = Qt.QFileDialog.getSaveFileName(
-                self,
-                'Save Layer Property Stack',
-                filter='JSON (*.json *.jsn)')
+        # if sys.platform == 'darwin':
+        #     # On some versions of PyQt, IPython, and OS X, the Qt event loop intergration can cause the
+        #     # native  file save dialog to be dismissed just as it appears. Uncomment if this problem returns
+        #     options = Qt.QFileDialog.DontUseNativeDialog
+        # else:
+        #     options = Qt.QFileDialog.Option()
+        # fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Layer Property Stack',
+        #             filter='JSON (*.json *.jsn)', options=options)
+
+        fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Layer Property Stack', filter='JSON (*.json *.jsn)')
         if fn:
-            try:
-                f = open(fn, 'w')
-            except PermissionError as e:
-                Qt.QMessageBox.information(
-                    self, self.windowTitle() + ' File Error', type(e).__name__ + ': ' + str(e))
-                return
-            try:
+            with f as open(fn, 'w'):
                 f.write(self.layers.to_json())
-            finally:
-                f.close()
 
     def _on_load_layer_property_stack(self):
-        if sys.platform == 'darwin':
-            # TODO: With the current version of PyQt (5.5.2) and below, if IPython's Qt event loop intergration is
-            # active, the OS X native modal file save dialog ends up being dismissed just as it appears.  This
-            # can be avoided by using Qt's own reasonably good save dialog.  This will probably eventually be
-            # fixed by the IPython developers, at which point this if clause may be deleted with the contents
-            # of the associated else clause unindented and left as the only remaining code path.
-            fn, _ = Qt.QFileDialog.getOpenFileName(
-                self,
-                'Load Layer Property Stack',
-                filter='JSON (*.json *.jsn)',
-                options=Qt.QFileDialog.DontUseNativeDialog)
-        else:
-            fn, _ = Qt.QFileDialog.getOpenFileName(
-                self,
-                'Load Layer Property Stack',
-                filter='JSON (*.json *.jsn)')
+        # if sys.platform == 'darwin':
+        #     # On some versions of PyQt, IPython, and OS X, the Qt event loop intergration can cause the
+        #     # native  file save dialog to be dismissed just as it appears. Uncomment if this problem returns
+        #     options = Qt.QFileDialog.DontUseNativeDialog
+        # else:
+        #     options = Qt.QFileDialog.Option()
+        # fn, _ = Qt.QFileDialog.getOpenFileName(self, 'Load Layer Property Stack',
+        #             filter='JSON (*.json *.jsn)', options=options)
+
+        fn, _ = Qt.QFileDialog.getOpenFileName(self, 'Load Layer Property Stack', filter='JSON (*.json *.jsn)')
         if fn:
-            try:
-                f = open(fn, 'r')
-            except PermissionError as e:
-                Qt.QMessageBox.information(
-                    self, self.windowTitle() + ' File Error', type(e).__name__ + ': ' + str(e))
-                return
-            try:
-                l = LayerList.from_json(f.read(), show_error_messagebox=True)
+            with f as open(fn):
+                l = layer_stack.LayerList.from_json(f.read())
                 if l is not None:
                     self.layers = l
-            finally:
-                f.close()
 
 class ProxyProperty(property):
     def __init__(self, name, owner_name, owner_type):
@@ -651,7 +629,7 @@ class RisWidget:
     mask = ProxyProperty('mask', 'qt_object', RisWidgetQtObject)
     # It is not easy to spot the pages property of a flipbook amongst the many possibilities visibile in dir(Flipbook).  So,
     # although flipbook_pages saves no characters compared to flipbook.pages, flipbook_pages is nice to have.
-    flipbook_pages = ProxyProperty('pages', 'flipbook', Flipbook)
+    flipbook_pages = ProxyProperty('pages', 'flipbook', flipbook.Flipbook)
 
 if __name__ == '__main__':
     import sys

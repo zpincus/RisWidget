@@ -22,10 +22,12 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from pathlib import Path
+import pkg_resources
+
 from PyQt5 import Qt
-from string import Template
-from ..shared_resources import QGL, NoGLContextIsCurrentError
+import string
+from .. import shared_resources
+
 
 class ShaderItem(Qt.QGraphicsObject):
     def __init__(self, parent=None):
@@ -36,23 +38,22 @@ class ShaderItem(Qt.QGraphicsObject):
     def type(self):
         raise NotImplementedError()
 
-    def build_shader_prog(self, desc, vert_fn, frag_fn, **frag_template_mapping):
-        source_dpath = Path(__file__).parent.parent / 'shaders'
+    def build_shader_prog(self, desc, vert_name, frag_name, **frag_template_mapping):
+
+        vert_src = pkg_resources.resource_string(__name__, 'shaders/{}.glsl'.format(vert_name))
+        frag_src = pkg_resources.resource_string(__name__, 'shaders/{}.glsl'.format(frag_name))
+
         prog = Qt.QOpenGLShaderProgram(self)
 
-        if not prog.addShaderFromSourceFile(Qt.QOpenGLShader.Vertex, str(source_dpath / vert_fn)):
-            raise RuntimeError('Failed to compile vertex shader "{}" for {} {} shader program.'.format(vert_fn, type(self).__name__, desc))
+        if not prog.addShaderFromSourceCode(Qt.QOpenGLShader.Vertex, vert_src):
+            raise RuntimeError('Failed to compile vertex shader "{}" for {} {} shader program.'.format(vert_name, type(self).__name__, desc))
 
-        if len(frag_template_mapping) == 0:
-            if not prog.addShaderFromSourceFile(Qt.QOpenGLShader.Fragment, str(source_dpath / frag_fn)):
-                raise RuntimeError('Failed to compile fragment shader "{}" for {} {} shader program.'.format(frag_fn, type(self).__name__, desc))
-        else:
-            with (source_dpath / frag_fn).open('r') as f:
-                frag_template = Template(f.read())
-            s=frag_template.substitute(frag_template_mapping)
-#           print(s)
-            if not prog.addShaderFromSourceCode(Qt.QOpenGLShader.Fragment, s):
-                raise RuntimeError('Failed to compile fragment shader "{}" for {} {} shader program.'.format(frag_fn, type(self).__name__, desc))
+        if frag_template_mapping:
+            frag_template = string.Template(frag_src)
+            frag_src = frag_template.substitute(frag_template_mapping)
+
+        if not prog.addShaderFromSourceCode(Qt.QOpenGLShader.Fragment, frag_src):
+            raise RuntimeError('Failed to compile fragment shader "{}" for {} {} shader program.'.format(frag_name, type(self).__name__, desc))
 
         if not prog.link():
             raise RuntimeError('Failed to link {} {} shader program.'.format(type(self).__name__, desc))
@@ -72,7 +73,7 @@ class ShaderItem(Qt.QGraphicsObject):
         # transparency data immediately after it has been used to blend into the scene.  In fact, this is what Qt does when drawing partially transparent QGraphicsItems:
         # they are blended into the viewport framebuffer, but alpha is discarded and framebuffer alpha remains saturated.  This does require us to clear the framebuffer
         # with saturated alpha at the start of each frame, which we do by default (see ris_widget.qgraphicsviews.base_view.BaseView and its drawBackground method).
-        GL = QGL()
+        GL = shared_resources.QGL()
         if not GL.glIsEnabled(GL.GL_BLEND):
             GL.glEnable(GL.GL_BLEND)
             estack.callback(lambda: GL.glDisable(GL.GL_BLEND))
@@ -94,22 +95,22 @@ class ShaderTexture:
     cases where GL_LUMINANCE*_EXT format textures may be required, we use ShaderTexture rather than
     QOpenGLTexture."""
     def __init__(self, target):
-        self.texture_id = QGL().glGenTextures(1)
+        self.texture_id = shared_resources.QGL().glGenTextures(1)
         self.target = target
 
     def __del__(self):
         self.destroy()
 
     def bind(self):
-        QGL().glBindTexture(self.target, self.texture_id)
+        shared_resources.QGL().glBindTexture(self.target, self.texture_id)
 
     def release(self):
-        QGL().glBindTexture(self.target, 0)
+        shared_resources.QGL().glBindTexture(self.target, 0)
 
     def destroy(self):
         if hasattr(self, 'texture_id'):
             try:
-                QGL().glDeleteTextures(1, (self.texture_id,))
+                shared_resources.QGL().glDeleteTextures(1, (self.texture_id,))
                 del self.texture_id
-            except NoGLContextIsCurrentError:
+            except shared_resources.NoGLContextIsCurrentError:
                 pass

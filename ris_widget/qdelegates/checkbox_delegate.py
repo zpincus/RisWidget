@@ -23,19 +23,23 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from ..shared_resources import ICONS
+import pkg_resources
+
+def _load_icon(icon_name):
+    filename = pkg_resources.resource_filename(__name__, 'checkbox_icons/{}.svg'.format(icon_name))
+    return Qt.QIcon(filename)
 
 _ENABLED_CHECKBOX_STATE_ICONS = {
-    Qt.Qt.Unchecked : ICONS()['unchecked_box_icon'],
-    Qt.Qt.Checked : ICONS()['checked_box_icon'],
-    Qt.Qt.PartiallyChecked : ICONS()['pseudo_checked_box_icon'],
-    None : ICONS()['wrong_type_checked_box_icon']}
+    Qt.Qt.Unchecked : _load_icon('unchecked_box_icon'),
+    Qt.Qt.Checked : _load_icon('checked_box_icon'),
+    Qt.Qt.PartiallyChecked : _load_icon('pseudo_checked_box_icon'),
+    None : _load_icon('wrong_type_checked_box_icon')}
 
 _DISABLED_CHECKBOX_STATE_ICONS = {
-    Qt.Qt.Unchecked : ICONS()['disabled_unchecked_box_icon'],
-    Qt.Qt.Checked : ICONS()['disabled_checked_box_icon'],
-    Qt.Qt.PartiallyChecked : ICONS()['disabled_pseudo_checked_box_icon'],
-    None : ICONS()['disabled_wrong_type_checked_box_icon']}
+    Qt.Qt.Unchecked : _load_icon('disabled_unchecked_box_icon'),
+    Qt.Qt.Checked : _load_icon('disabled_checked_box_icon'),
+    Qt.Qt.PartiallyChecked : _load_icon('disabled_pseudo_checked_box_icon'),
+    None : _load_icon('disabled_wrong_type_checked_box_icon')}
 
 class CheckboxDelegate(Qt.QStyledItemDelegate):
     """CheckboxDelegate: A light way of showing item-model-view cells containing boolean or tri-state-check values as a checkbox

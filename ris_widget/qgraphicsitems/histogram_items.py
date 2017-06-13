@@ -28,11 +28,11 @@ import numpy
 import OpenGL
 import OpenGL.GL as PyGL
 from PyQt5 import Qt
-from .shader_item import ShaderItem
-from ..shared_resources import GL_QUAD, QGL, UNIQUE_QGRAPHICSITEM_TYPE
+from . import shader_item
+from .. import shared_resources
 
-class HistogramItem(ShaderItem):
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+class HistogramItem(shader_item.ShaderItem):
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
 
     def __init__(self, layer_stack, graphics_item_parent=None):
         super().__init__(graphics_item_parent)
@@ -97,7 +97,7 @@ class HistogramItem(ShaderItem):
             with ExitStack() as estack:
                 qpainter.beginNativePainting()
                 estack.callback(qpainter.endNativePainting)
-                GL = QGL()
+                GL = shared_resources.QGL()
                 desired_shader_type = 'G'
                 if desired_shader_type in self.progs:
                     prog = self.progs[desired_shader_type]
@@ -108,8 +108,8 @@ class HistogramItem(ShaderItem):
                 else:
                     prog = self.build_shader_prog(
                         desired_shader_type,
-                        'planar_quad_vertex_shader.glsl',
-                        'histogram_item_fragment_shader.glsl')
+                        'planar_quad_vertex_shader',
+                        'histogram_item_fragment_shader')
                 desired_tex_width = len(histogram)
                 tex = self._tex
                 if tex is not None:
@@ -149,9 +149,9 @@ class HistogramItem(ShaderItem):
                     )
                     self._hist_tex_needs_upload = False
                     self._tex = tex
-                glQuad = GL_QUAD()
+                glQuad = shared_resources.GL_QUAD()
                 if not glQuad.buffer.bind():
-                    Qt.qDebug('GL_QUAD.buffer.bind() failed')
+                    Qt.qDebug('shared_resources.GL_QUAD.buffer.bind() failed')
                     return
                 estack.callback(glQuad.buffer.release)
                 glQuad.vao.bind()
@@ -215,7 +215,7 @@ class HistogramItem(ShaderItem):
         self.update()
 
 class MinMaxItem(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
 
     def __init__(self, histogram_item, name):
         super().__init__(histogram_item)
@@ -238,7 +238,7 @@ class MinMaxItem(Qt.QGraphicsObject):
         qpainter.drawLine(x, br.top(), x, br.bottom())
 
 class MinMaxArrowItem(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
 
     def __init__(self, min_max_item, histogram_item, name):
         super().__init__(histogram_item)
@@ -319,7 +319,7 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
             self._ignore_x_change = False
 
 class GammaItem(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
     CURVE_VERTEX_Y_INCREMENT = 1 / 100
 
     def __init__(self, histogram_item, min_item, max_item):

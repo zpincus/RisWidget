@@ -23,10 +23,10 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from ..shared_resources import UNIQUE_QGRAPHICSITEM_TYPE
+from .. import shared_resources
 
 class VerySimplePolyLinePicker(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
 
     def __init__(self, general_view, parent_item):
         super().__init__(parent_item)

@@ -27,8 +27,8 @@ import numpy
 from PyQt5 import Qt
 from string import Template
 import textwrap
-from ..shared_resources import GL_QUAD, QGL, UNIQUE_QGRAPHICSITEM_TYPE
-from .shader_item import ShaderItem
+from .. import shared_resources
+from . import shader_item
 
 
 SRC_BLEND = '''    // blending function name: src
@@ -36,7 +36,7 @@ SRC_BLEND = '''    // blending function name: src
     da = s.a;
 '''
 
-class LayerStackItem(ShaderItem):
+class LayerStackItem(shader_item.ShaderItem):
     """The layer_stack attribute of LayerStackItem is an SignalingList, a container with a list interface, containing a sequence
     of Layer instances (or instances of subclasses of Layer or some duck-type compatible thing).  In terms of composition ordering,
     these are in ascending Z-order, with the positive Z axis pointing out of the screen.  layer_stack should be manipulated via the
@@ -64,7 +64,7 @@ class LayerStackItem(ShaderItem):
     has not been modified, that LayerStackItem instance will be the same width and height in scene units as the first element
     of layer_stack is in pixel units, making the mapping between scene units and pixel units 1:1 for the layer at the bottom
     of the stack (ie, layer_stack[0])."""
-    QGRAPHICSITEM_TYPE = UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
     UNIFORM_SECTION_TEMPLATE = Template(textwrap.dedent("""\
         uniform sampler2D tex_${tidx};
         uniform float rescale_min_${tidx};
@@ -347,8 +347,8 @@ class LayerStackItem(ShaderItem):
                        ) )
                 prog = self.build_shader_prog(
                     prog_desc,
-                    'planar_quad_vertex_shader.glsl',
-                    'layer_stack_item_fragment_shader_template.glsl',
+                    'planar_quad_vertex_shader',
+                    'layer_stack_item_fragment_shader_template',
                     uniforms='\n'.join(uniforms),
                     color_transform_procedures='\n'.join(color_transform_procedures),
                     main='\n'.join(main))
@@ -357,14 +357,14 @@ class LayerStackItem(ShaderItem):
             if widget is None:
                 # We are being called as a result of a BaseView.snapshot(..) invocation
                 widget = self.scene().views()[0].gl_widget
-            glQuad = GL_QUAD()
+            glQuad = shared_resources.GL_QUAD()
             glQuad.buffer.bind()
             estack.callback(glQuad.buffer.release)
             glQuad.vao.bind()
             estack.callback(glQuad.vao.release)
             vert_coord_loc = prog.attributeLocation('vert_coord')
             prog.enableAttributeArray(vert_coord_loc)
-            GL = QGL()
+            GL = shared_resources.QGL()
             prog.setAttributeBuffer(vert_coord_loc, GL.GL_FLOAT, 0, 2, 0)
             prog.setUniformValue('viewport_height', GL.glGetFloatv(GL.GL_VIEWPORT)[3])
             prog.setUniformValue('layer_stack_item_opacity', self.opacity())

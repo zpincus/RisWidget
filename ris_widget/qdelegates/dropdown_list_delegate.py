@@ -23,7 +23,8 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 from PyQt5 import Qt
-from ..shared_resources import CHOICES_QITEMDATA_ROLE
+
+CHOICES_QITEMDATA_ROLE = Qt.Qt.UserRole + 1
 
 class DropdownListDelegate(Qt.QStyledItemDelegate):
     def createEditor(self, parent, option, midx):

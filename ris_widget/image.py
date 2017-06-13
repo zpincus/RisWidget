@@ -28,7 +28,7 @@ import OpenGL
 import OpenGL.GL as PyGL
 from PyQt5 import Qt
 import textwrap
-from .async_texture import AsyncTexture
+from . import async_texture
 
 class Image(Qt.QObject):
     """An instance of the Image class is a wrapper around a Numpy ndarray representing a single image.
@@ -115,7 +115,7 @@ class Image(Qt.QObject):
 
         The .refresh method is primarily useful to cause a user interface to update in response to data changes caused by manipulation of .data.data or
         another numpy view of the same memory."""
-        self.async_texture = AsyncTexture(
+        self.async_texture = async_texture.AsyncTexture(
             self._data,
             self.IMAGE_TYPE_TO_QOGLTEX_TEX_FORMAT[self.type],
             self.IMAGE_TYPE_TO_GL_PIX_FORMAT[self.type],

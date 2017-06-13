@@ -22,48 +22,14 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-import sys
 from contextlib import ExitStack
 import numpy
-from pathlib import Path
 from PyQt5 import Qt
 import warnings
 
-NUMPY_DTYPE_TO_QOGLTEX_PIXEL_TYPE = {
-    numpy.bool8: Qt.QOpenGLTexture.UInt8,
-    numpy.uint8: Qt.QOpenGLTexture.UInt8,
-    numpy.uint16: Qt.QOpenGLTexture.UInt16,
-    numpy.float32: Qt.QOpenGLTexture.Float32
-}
-IMAGE_TYPE_TO_QOGLTEX_TEX_FORMAT = {
-    'G': Qt.QOpenGLTexture.R32F,
-    'Ga': Qt.QOpenGLTexture.RG32F,
-    'rgb': Qt.QOpenGLTexture.RGB32F,
-    'rgba': Qt.QOpenGLTexture.RGBA32F
-}
-IMAGE_TYPE_TO_QOGLTEX_SRC_PIX_FORMAT = {
-    'G': Qt.QOpenGLTexture.Red,
-    'Ga': Qt.QOpenGLTexture.RG,
-    'rgb': Qt.QOpenGLTexture.RGB,
-    'rgba': Qt.QOpenGLTexture.RGBA
-}
-
-def qtransform_to_ndarray(t):
-    return numpy.array([
-        [t.m11(), t.m21(), t.m31()],
-        [t.m12(), t.m22(), t.m32()],
-        [t.m13(), t.m23(), t.m33()]])
-
-def ndarray_to_qtransform(a):
-    assert a.ndim == 2 and a.shape[0] == 3 and a.shape[1] == 3
-    return Qt.QTransform(
-        a[0,0], a[1,0], a[2,0],
-        a[0,1], a[1,1], a[2,1],
-        a[0,2], a[1,2], a[2,2])
-
 _NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType + 1
 
-def UNIQUE_QGRAPHICSITEM_TYPE():
+def shared_resources.UNIQUE_QGRAPHICSITEM_TYPE():
     """Returns a value to return from QGraphicsItem.type() overrides (which help
     Qt and PyQt return objects of the right type from any call returning QGraphicsItem
     references; for details see http://www.riverbankcomputing.com/pipermail/pyqt/2015-January/035302.html
@@ -76,16 +42,6 @@ def UNIQUE_QGRAPHICSITEM_TYPE():
     ret = _NEXT_QGRAPHICSITEM_USERTYPE
     _NEXT_QGRAPHICSITEM_USERTYPE += 1
     return ret
-
-_NEXT_QITEMDATA_ROLE = Qt.Qt.UserRole + 1
-
-def UNIQUE_QITEMDATA_ROLE():
-    global _NEXT_QITEMDATA_ROLE
-    ret = _NEXT_QITEMDATA_ROLE
-    _NEXT_QITEMDATA_ROLE += 1
-    return ret
-
-CHOICES_QITEMDATA_ROLE = UNIQUE_QITEMDATA_ROLE()
 
 class NoGLContextIsCurrentError(RuntimeError):
     DEFAULT_MESSAGE = (
@@ -146,69 +102,6 @@ def QGL():
 
 def _on_destruction_of_context_with_cached_gl(context):
     del _GL_CACHE[context]
-
-_GL_LOGGERS = {}
-
-def GL_LOGGER():
-    context = Qt.QOpenGLContext.currentContext()
-    if context is None:
-        raise NoGLContextIsCurrentError()
-    assert Qt.QThread.currentThread() is context.thread()
-    try:
-        return _GL_LOGGERS[context]
-    except KeyError:
-        pass
-    gl_logger = Qt.QOpenGLDebugLogger()
-    if not gl_logger.initialize():
-        raise RuntimeError('Failed to initialize QOpenGLDebugLogger.')
-    gl_logger.messageLogged.connect(_on_gl_logger_message)
-    context.destroyed.connect(_on_destroyed_context_with_gl_logger)
-    gl_logger.enableMessages()
-    gl_logger.startLogging(Qt.QOpenGLDebugLogger.SynchronousLogging)
-    _GL_LOGGERS[context] = gl_logger
-    return gl_logger
-
-_GL_LOGGER_MESSAGE_SEVERITIES = {
-    Qt.QOpenGLDebugMessage.InvalidSeverity : 'Invalid',
-    Qt.QOpenGLDebugMessage.HighSeverity : 'High',
-    Qt.QOpenGLDebugMessage.MediumSeverity : 'Medium',
-    Qt.QOpenGLDebugMessage.LowSeverity : 'Low',
-    Qt.QOpenGLDebugMessage.NotificationSeverity : 'Notification',
-    Qt.QOpenGLDebugMessage.AnySeverity : 'Any'}
-
-_GL_LOGGER_MESSAGE_SOURCES = {
-    Qt.QOpenGLDebugMessage.InvalidSource : 'Invalid',
-    Qt.QOpenGLDebugMessage.APISource : 'API',
-    Qt.QOpenGLDebugMessage.WindowSystemSource : 'WindowSystem',
-    Qt.QOpenGLDebugMessage.ShaderCompilerSource : 'ShaderCompiler',
-    Qt.QOpenGLDebugMessage.ThirdPartySource : 'ThirdParty',
-    Qt.QOpenGLDebugMessage.ApplicationSource : 'Application',
-    Qt.QOpenGLDebugMessage.OtherSource : 'Other',
-    Qt.QOpenGLDebugMessage.AnySource : 'Any'}
-
-_GL_LOGGER_MESSAGE_TYPES = {
-    Qt.QOpenGLDebugMessage.InvalidType : 'Invalid',
-    Qt.QOpenGLDebugMessage.ErrorType : 'Error',
-    Qt.QOpenGLDebugMessage.DeprecatedBehaviorType : 'DeprecatedBehavior',
-    Qt.QOpenGLDebugMessage.UndefinedBehaviorType : 'UndefinedBehavior',
-    Qt.QOpenGLDebugMessage.PortabilityType : 'Portability',
-    Qt.QOpenGLDebugMessage.PerformanceType : 'Performance',
-    Qt.QOpenGLDebugMessage.OtherType : 'Other',
-    Qt.QOpenGLDebugMessage.MarkerType : 'Marker',
-    Qt.QOpenGLDebugMessage.GroupPushType : 'GroupPush',
-    Qt.QOpenGLDebugMessage.GroupPopType : 'GroupPop',
-    Qt.QOpenGLDebugMessage.AnyType : 'Any'}
-
-def _on_gl_logger_message(message):
-    Qt.qDebug('GL LOG MESSAGE (severity: {}, source: {}, type: {}, GL ID: {}): "{}"'.format(
-        _GL_LOGGER_MESSAGE_SEVERITIES[message.severity()],
-        _GL_LOGGER_MESSAGE_SOURCES[message.source()],
-        _GL_LOGGER_MESSAGE_TYPES[message.type()],
-        message.id(),
-        message.message()))
-
-def _on_destroyed_context_with_gl_logger(context):
-    del _GL_LOGGERS[context]
 
 _GL_EXTS_QUERIED = False
 NV_PATH_RENDERING_AVAILABLE = False
@@ -276,84 +169,6 @@ def create_default_QSurfaceFormat():
     GL_QSURFACE_FORMAT.setBlueBufferSize(8)
     GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
     Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
-
-QAPPLICATION = None
-def create_QApplication():
-    global QAPPLICATION
-    if QAPPLICATION is not None:
-        return
-    instance = Qt.QApplication.instance()
-    if instance is None:
-        QAPPLICATION = Qt.QApplication(sys.argv)
-    else:
-        QAPPLICATION = instance
-    # are we running in IPython? If so, turn on the GUI integration
-    try:
-        import IPython
-        ip = IPython.get_ipython() # only not None if IPython is currently running
-        if ip is not None:
-            ip.enable_gui('qt5')
-    except ModuleNotFoundError:
-        pass
-
-_freeimage = None
-
-def FREEIMAGE(show_messagebox_on_error=False, error_messagebox_owner=None, is_read=True):
-    """If show_messagebox_on_error is true and importing freeimage fails with an exception, a modal QMessageBox is displayed
-    describing the error and None is returned.  If show_messagebox_on_error is false and importing freeimage fails with
-    and exception, the exception is allowed to propagate."""
-    global _freeimage
-    if _freeimage is None:
-        if show_messagebox_on_error:
-            try:
-                import freeimage
-                _freeimage = freeimage
-            except ImportError:
-                Qt.QMessageBox.information(
-                    error_messagebox_owner,
-                    'freeimage-py Module Not Found',
-                    """Zach's <a href=https://github.com/zpincus/freeimage-py>freeimage-py module</a> is required for {} image files with RisWidget.
-                    Even without freeimage-py, RisWidget accepts image data (<i>rw.image = numpy.zeros((400,400),dtype=numpy.uint8)</i>, for example), but
-                    freeimage-py is required if RisWidget is to {} image files on your behalf.""".format(*(('loading', 'load') if is_read else ('saving', 'save'))))
-                return
-            except RuntimeError as e:
-                estr = '\n'.join((
-                    "freeimage.py was found, but an error occurred while importing it " + \
-                    "(likely because freeimage.so/dylib/dll could not be found):\n",) + e.args)
-                Qt.QMessageBox.information(error_messagebox_owner, 'Error While Importing freeimage-py Module', estr)
-                return
-        else:
-            import freeimage
-            _freeimage = freeimage
-    return _freeimage
-
-_icons = None
-
-def ICONS():
-    global _icons
-    if _icons is None:
-        _icons = {}
-        fns = (
-            'image_icon.svg',
-            'layer_icon.svg',
-            'layer_stack_icon.svg',
-
-            'checked_box_icon.svg',
-            'disabled_checked_box_icon.svg',
-
-            'pseudo_checked_box_icon.svg',
-            'disabled_pseudo_checked_box_icon.svg',
-
-            'unchecked_box_icon.svg',
-            'disabled_unchecked_box_icon.svg',
-
-            'wrong_type_checked_box_icon.svg',
-            'disabled_wrong_type_checked_box_icon.svg'
-        )
-        for fn in fns:
-            fpath = Path(__file__).parent / 'icons' / fn
-            _icons[fpath.stem] = Qt.QIcon(str(fpath))
-    return _icons
 
 class _GlQuad:
     def __init__(self):

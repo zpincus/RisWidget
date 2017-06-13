@@ -27,9 +27,9 @@ import textwrap
 import warnings
 import numpy
 
-from .image import Image
-from .om import qt_property
+from . import image
 from . import histogram
+from . import qt_property
 
 
 SHADER_PROP_HELP = """The GLSL fragment shader used to render an image within a layer stack is created
@@ -191,8 +191,8 @@ class Layer(qt_property.QtPropertyOwner):
     def image(self, v):
         if v is not self._image:
             if v is not None:
-                if not isinstance(v, Image):
-                    v = Image(v)
+                if not isinstance(v, image.Image):
+                    v = image.Image(v)
                 try:
                     v.changed.connect(self._on_image_changed)
                 except Exception as e:

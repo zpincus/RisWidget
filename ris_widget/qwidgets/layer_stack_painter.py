@@ -24,7 +24,7 @@
 
 import numpy
 from PyQt5 import Qt
-from ..qgraphicsitems.layer_stack_painter_item import LayerStackPainterBrush, LayerStackPainterItem
+from ..qgraphicsitems import layer_stack_painter_item
 
 class LabelEdit(Qt.QObject):
     value_changed = Qt.pyqtSignal(Qt.QObject)
@@ -154,7 +154,7 @@ class LayerStackPainter(Qt.QWidget):
     def __init__(self, layer_stack_item, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Layer Painter')
-        self.painter_item = LayerStackPainterItem(layer_stack_item)
+        self.painter_item = layer_stack_painter_item.LayerStackPainterItem(layer_stack_item)
         self.layer_stack = layer_stack_item.layer_stack
         widget_layout = Qt.QVBoxLayout()
         self.setLayout(widget_layout)
@@ -190,4 +190,4 @@ class LayerStackPainter(Qt.QWidget):
             r = int(size/2)
             x, y = numpy.indices(mask.shape) - r
             mask[y**2 + x**2 <= r**2] = True
-            return LayerStackPainterBrush(editor.value, mask, center=(r, r))
+            return layer_stack_painter_item.LayerStackPainterBrush(editor.value, mask, center=(r, r))

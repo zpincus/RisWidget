@@ -25,7 +25,6 @@
 import ctypes
 from pathlib import Path
 from PyQt5 import Qt
-import sys
 
 # Everything in this file could be generalized into supporting row-wise and column-wise tables generally and dragging
 # between the two, but we haven't needed that.  Additionally, generalization away from .signaling_list is possible,
@@ -67,10 +66,6 @@ class DragDropModelBehavior:
             # appropriate for feeding to Python's open() function.  If the URL does not refer to a local file,
             # toLocalFile returns None.
             fpaths = [url.toLocalFile() for url in mime_data.urls()]
-            if sys.platform == 'darwin' and len(fpaths) > 0 and fpaths[0].startswith('file:///.file/id='):
-                e = 'In order for image file drag & drop to work on OS X >=10.10 (Yosemite), please upgrade to at least Qt 5.4.1.'
-                Qt.QMessageBox.information(None, 'Qt Upgrade Required', e)
-                return False
             return self.can_drop_files(fpaths, row, column, parent)
         if mime_data.hasText():
             return self.can_drop_text(mime_data.text(), row, column, parent)
@@ -88,17 +83,13 @@ class DragDropModelBehavior:
             # appropriate for feeding to Python's open() function.  If the URL does not refer to a local file,
             # toLocalFile returns None.
             fpath_strs = [url.toLocalFile() for url in mime_data.urls()]
-            if sys.platform == 'darwin' and any(fpath_str.startswith('file:///.file/id=') for fpath_str in fpath_strs):
-                e = 'In order for image file drag & drop to work on OS X >=10.10 (Yosemite), please upgrade to at least Qt 5.4.1.'
-                Qt.QMessageBox.information(None, 'Qt Upgrade Required', e)
-                return False
             return self.handle_dropped_files([Path(fpath_str) for fpath_str in fpath_strs], row, column, parent)
         if mime_data.hasText():
             return self.handle_dropped_text(mime_data.text(), row, column, parent)
         return False
 
     def drag_drop_flags(self, midx):
-        # NB: drag_drop_flags_transform(..) is called by the flags method of om.signaling_list.*model instances.  Such a flags
+        # NB: drag_drop_flags_transform(..) is called by the flags method of object_model.*model instances.  Such a flags
         # method either directly or indirectly overrides QAbstractItemView.flags(..).
         #
         # QAbstractItemView and derivatives call their model's flags method to determine if an item at a specific model index

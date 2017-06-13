@@ -22,11 +22,11 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from .base_view import BaseView
+from . import base_view
 import numpy
 from PyQt5 import Qt
 
-class GeneralView(BaseView):
+class GeneralView(base_view.BaseView):
     """Signals:
     * zoom_changed(zoom_level, custom_zoom_ratio)"""
 

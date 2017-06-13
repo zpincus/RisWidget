@@ -24,28 +24,28 @@
 
 import ctypes
 from PyQt5 import Qt
-from .. import om
+from ..object_model import signaling_list, drag_drop_model_behavior
 
 class BasicSignalingListView(Qt.QListView):
-    '''BasicSignalingListView is a Qt.QListView with a constructor that provides a few conveniences for the common use case 
-    where a list whose elements (or specified element attribute/property values) are instances of simple types (ex: int, 
-    float, str) needs to be presented as an editable list view. 
+    '''BasicSignalingListView is a Qt.QListView with a constructor that provides a few conveniences for the common use case
+    where a list whose elements (or specified element attribute/property values) are instances of simple types (ex: int,
+    float, str) needs to be presented as an editable list view.
 
-    If a SignalingList instance is supplied for the list_ argument to BasicSignalingListView.__init__(self, 
-    property_name=None, list_=None, model=None, parent=None) and the model argument is None, BasicSignalingListView creates 
-    a BasicSignalingListModel and binds it to list_, pass the value of the property_name argument on to 
-    BasicSignalingListModel's constructor.  Subsequent edits to that list_ or, equivalently, 
-    BasicSignalingListView.signaling_list, will cause its BasicSignalingListView to update (and vice versa). If list_ is 
-    some other kind of iterable that does not offer the various change signals required by ListModel, its elements are 
-    copied to a new SignalingList.  In both cases, a new BasicSignalingListModel is created, bound to the SignalingList, and 
-    set as BasicSignalingListView's model. 
+    If a SignalingList instance is supplied for the list_ argument to BasicSignalingListView.__init__(self,
+    property_name=None, list_=None, model=None, parent=None) and the model argument is None, BasicSignalingListView creates
+    a BasicSignalingListModel and binds it to list_, pass the value of the property_name argument on to
+    BasicSignalingListModel's constructor.  Subsequent edits to that list_ or, equivalently,
+    BasicSignalingListView.signaling_list, will cause its BasicSignalingListView to update (and vice versa). If list_ is
+    some other kind of iterable that does not offer the various change signals required by ListModel, its elements are
+    copied to a new SignalingList.  In both cases, a new BasicSignalingListModel is created, bound to the SignalingList, and
+    set as BasicSignalingListView's model.
 
     If BasicSignalingListView.__init__'s model argument is not None, BasicSignalingListView attempts to use that model
     rather than creating a new one, and the values of the list_ and property_name arguments are ignored.
 
-    It is possible to modify BasicSignalingListView's behavior by assigning a custom delegate to some or all of 
-    BasicSignalingListView's rows, and futher customization is may be achieved by subclassing BasicSignalingListView. 
-    However, it may be cleaner to compose your own ListModel from DragDropBehavior and ListModel and to work with a plain 
+    It is possible to modify BasicSignalingListView's behavior by assigning a custom delegate to some or all of
+    BasicSignalingListView's rows, and futher customization is may be achieved by subclassing BasicSignalingListView.
+    However, it may be cleaner to compose your own ListModel from DragDropBehavior and ListModel and to work with a plain
     Qt.QListView instance or instance of your own Qt.QListView subclass.
 
     Usage example:
@@ -124,9 +124,9 @@ class BasicSignalingListView(Qt.QListView):
         super().__init__(parent)
         if model is None:
             if list_ is None:
-                list_ = om.SignalingList()
-            elif not isinstance(list_, om.SignalingList) and any(not hasattr(list_, signal) for signal in ('inserted', 'removed', 'replaced', 'name_changed')):
-                list_ = om.SignalingList(list_)
+                list_ = signaling_list.SignalingList()
+            elif not isinstance(list_, signaling_list.SignalingList) and any(not hasattr(list_, signal) for signal in ('inserted', 'removed', 'replaced', 'name_changed')):
+                list_ = signaling_list.SignalingList(list_)
             model = BasicSignalingListModel(property_name, list_, parent)
         self.setModel(model)
         self.setDragDropMode(Qt.QAbstractItemView.DragDrop)
@@ -159,8 +159,8 @@ class BasicSignalingListView(Qt.QListView):
 
     @signaling_list.setter
     def signaling_list(self, list_):
-        if not isinstance(list_, om.SignalingList) and any(not hasattr(list_, signal) for signal in ('inserted', 'removed', 'replaced', 'name_changed')):
-            list_ = om.SignalingList(list_)
+        if not isinstance(list_, signaling_list.SignalingList) and any(not hasattr(list_, signal) for signal in ('inserted', 'removed', 'replaced', 'name_changed')):
+            list_ = signaling_list.SignalingList(list_)
         self.model().signaling_list = list_
 
     def setSelectionModel(self, sm):
@@ -174,7 +174,7 @@ class BasicSignalingListView(Qt.QListView):
         if sm is not None:
             sm.currentRowChanged.connect(self._on_selection_model_current_row_changed)
 
-class BasicSignalingListModel(om.signaling_list.DragDropModelBehavior, om.signaling_list.ListModel):
+class BasicSignalingListModel(drag_drop_model_behavior.DragDropModelBehavior, ListModel):
     '''BasicSignalingListModel is a composition of DragDropModelBehavior and ListModel that does not
     override any of the behaviors of its components.  This is often adequate; there is built-in
     support for displaying and editing basic data types, and rows containing a supported data type

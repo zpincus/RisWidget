@@ -29,6 +29,7 @@ import OpenGL.GL.ARB.texture_float
 from PyQt5 import Qt
 from .. import shared_resources
 from .. import image
+from . import gl_logger
 
 class BaseView(Qt.QGraphicsView):
     """Instances of BaseView and its subclasses have a .viewport_rect_item attribute, which is an instance of
@@ -188,7 +189,7 @@ class _ShaderViewGLViewport(Qt.QOpenGLWidget):
             return
         with ExitStack() as estack:
             self._check_current(estack)
-            self.logger = shared_resources.GL_LOGGER()
+            self.logger = gl_logger.get_logger()
 
     def stop_logging(self):
         if not hasattr(self, 'logger'):
