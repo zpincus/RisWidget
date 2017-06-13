@@ -29,7 +29,7 @@ import warnings
 
 _NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType + 1
 
-def shared_resources.UNIQUE_QGRAPHICSITEM_TYPE():
+def UNIQUE_QGRAPHICSITEM_TYPE():
     """Returns a value to return from QGraphicsItem.type() overrides (which help
     Qt and PyQt return objects of the right type from any call returning QGraphicsItem
     references; for details see http://www.riverbankcomputing.com/pipermail/pyqt/2015-January/035302.html

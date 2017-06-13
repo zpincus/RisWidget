@@ -32,7 +32,6 @@ from ..object_model import drag_drop_model_behavior
 from ..object_model import property_table_model
 from .. import image
 from . import progress_thread_pool
-from . import shared
 
 try:
     import freeimage
@@ -326,7 +325,7 @@ class Flipbook(Qt.QWidget):
         return super().event(e)
 
     def _read_page_task(self, task_page):
-        task_page.ims = [self.freeimage.read(str(image_fpath)) for image_fpath in task_page.im_fpaths]
+        task_page.ims = [freeimage.read(str(image_fpath)) for image_fpath in task_page.im_fpaths]
         Qt.QApplication.instance().postEvent(self, _ReadPageTaskDoneEvent(task_page))
 
     def _on_task_error(self, task_page):

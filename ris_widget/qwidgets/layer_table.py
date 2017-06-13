@@ -30,14 +30,14 @@ from ..qdelegates import dropdown_list_delegate
 from ..qdelegates import slider_delegate
 from ..qdelegates import color_delegate
 from ..qdelegates import checkbox_delegate
-from ..om import drag_drop_model_behavior, property_table_model
+from ..object_model import drag_drop_model_behavior, property_table_model
 
 try:
     import freeimage
 except ModuleNotFoundError:
     freeimage = None
 
-class layer.LayerTableView(Qt.QTableView):
+class LayerTableView(Qt.QTableView):
     def __init__(self, layer_table_model, parent=None):
         super().__init__(parent)
         self.layer_table_model = layer_table_model
@@ -136,7 +136,7 @@ class InvertingProxyModel(Qt.QSortFilterProxyModel):
         # We want the table upside-down and therefore will be sorting by index (aka row #)
         return lhs.row() < rhs.row()
 
-class layer.LayerTableDragDropBehavior(drag_drop_model_behavior.DragDropModelBehavior):
+class LayerTableDragDropBehavior(drag_drop_model_behavior.DragDropModelBehavior):
     def _fix_row_for_inversion(self, row):
         if row == -1:
             return 0
@@ -151,7 +151,7 @@ class layer.LayerTableDragDropBehavior(drag_drop_model_behavior.DragDropModelBeh
         return super().dropMimeData(mime_data, drop_action, self._fix_row_for_inversion(row), column, parent)
 
     def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
-        return isinstance(src_model, layer.LayerTableModel)
+        return isinstance(src_model, LayerTableModel)
 
     def can_drop_text(self, txt, dst_row, dst_column, dst_parent):
         return bool(layer_stack.LayerList.from_json(txt))
@@ -190,7 +190,7 @@ class layer.LayerTableDragDropBehavior(drag_drop_model_behavior.DragDropModelBeh
         mime_data.setText(self.layer_stack.layers.to_json())
         return mime_data
 
-class layer.LayerTableModel(layer.LayerTableDragDropBehavior, property_table_model.PropertyTableModel):
+class LayerTableModel(LayerTableDragDropBehavior, property_table_model.PropertyTableModel):
 
     PROPERTIES = [
         'visible',

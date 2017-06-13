@@ -29,7 +29,7 @@ import setuptools
 setuptools.setup(
     name = 'ris_widget',
     packages = setuptools.find_packages(),
-    package_data = {'ris_widget.qdelegates': ['checkbox_icons/*.svg']
+    package_data = {'ris_widget.qdelegates': ['checkbox_icons/*.svg'],
                     'ris_widget.qgraphicsitems': ['shaders/*.glsl']},
     install_requires=['cffi>=1.0.0', 'numpy', 'PyOpenGL', 'PyQt5'],
     setup_requires=['cffi>=1.0.0'],

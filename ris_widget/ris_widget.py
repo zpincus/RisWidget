@@ -77,13 +77,13 @@ def _atexit_cleanup():
 _QAPPLICATION = None
 def _init_qapplication():
     shared_resources.create_default_QSurfaceFormat()
-    global QAPPLICATION
-    if QAPPLICATION is None:
+    global _QAPPLICATION
+    if _QAPPLICATION is None:
         instance = Qt.QApplication.instance()
         if instance is None:
-            QAPPLICATION = Qt.QApplication(sys.argv)
+            _QAPPLICATION = Qt.QApplication(sys.argv)
         else:
-            QAPPLICATION = instance
+            _QAPPLICATION = instance
         # are we running in IPython? If so, turn on the GUI integration
         try:
             import IPython
@@ -377,27 +377,16 @@ class RisWidgetQtObject(Qt.QMainWindow):
         while assigning to rw.layer causes rw.layers to be set to a LayerList containing the thing assigned (wrapped in a Layer as needed).
         * If len(rw.layers) == 0: Querying rw.layer causes a new Layer to be inserted at rw.layers[0] and returned, while assigning to
         rw.layer causes the assigned thing to be inserted at rw.layers[0] (wrapped in a Layer as needed)."""
-        layers = self.layers
-        if layers:
-            layer = layers[0]
-        else:
-            layer = layer.Layer()
-            if layers is None:
-                self.layers = [layer]
-            else:
-                layers.append(layer)
-        return layer
+        if len(self.layers) == 0:
+            self.layers.append(layer.Layer())
+        return self.layers[0]
 
     @layer.setter
     def layer(self, v):
-        layers = self.layers
-        if layers:
-            layers[0] = v
+        if len(self.layers) == 0:
+            self.layers.append(v)
         else:
-            if layers is None:
-                self.layers = v
-            else:
-                layers.append(v)
+            self.layers[0] = v
 
     @property
     def image(self):
@@ -505,7 +494,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
         fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Layer Property Stack', filter='JSON (*.json *.jsn)')
         if fn:
-            with f as open(fn, 'w'):
+            with open(fn, 'w') as f:
                 f.write(self.layers.to_json())
 
     def _on_load_layer_property_stack(self):
@@ -520,7 +509,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
 
         fn, _ = Qt.QFileDialog.getOpenFileName(self, 'Load Layer Property Stack', filter='JSON (*.json *.jsn)')
         if fn:
-            with f as open(fn):
+            with open(fn) as f:
                 l = layer_stack.LayerList.from_json(f.read())
                 if l is not None:
                     self.layers = l

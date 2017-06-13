@@ -49,7 +49,7 @@ class ShaderItem(Qt.QGraphicsObject):
             raise RuntimeError('Failed to compile vertex shader "{}" for {} {} shader program.'.format(vert_name, type(self).__name__, desc))
 
         if frag_template_mapping:
-            frag_template = string.Template(frag_src)
+            frag_template = string.Template(frag_src.decode('ascii'))
             frag_src = frag_template.substitute(frag_template_mapping)
 
         if not prog.addShaderFromSourceCode(Qt.QOpenGLShader.Fragment, frag_src):
