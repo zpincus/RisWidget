@@ -58,10 +58,6 @@ class BaseView(Qt.QGraphicsView):
         self._update_viewport_rect_item()
 
     def scrollContentsBy(self, dx, dy):
-        """This function is never actually called for HistogramView as HistogramView always displays
-        a unit-square view into HistogramScene.  However, if zooming and panning and whatnot are ever
-        implemented for HistogramView, then this function will swing into action as it does for GeneralView,
-        and HistogramView's add_contextual_info_item's resize signal's disconnect call should be removed."""
         super().scrollContentsBy(dx, dy)
         # In the case of scrollContentsBy(..) execution in response to view resize, self.resizeEvent(..)
         # has not yet had a chance to do its thing, meaning that self.transform() may differ from
@@ -102,10 +98,6 @@ class BaseView(Qt.QGraphicsView):
         GL.glClearDepth(1)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         p.endNativePainting()
-
-    # def paintEvent(self, event):
-    #     print('paintEvent')
-    #     pass
 
     @property
     def viewport_rect_item(self):

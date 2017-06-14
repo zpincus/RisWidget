@@ -22,43 +22,27 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from . import base_view
 import numpy
+import math
 from PyQt5 import Qt
 
+from . import base_view
+
+
 class GeneralView(base_view.BaseView):
-    """Signals:
-    * zoom_changed(zoom_level, custom_zoom_ratio)"""
-
-    def _make_zoom_presets(self=None):
-        def f(x, step_zoomout=0.125, step_zoomin=0.2):
-            if x == 0:
-                return 1
-            if x < 0:
-                return 2**(x*step_zoomout)
-            return 1 + x*step_zoomin
-        xs = numpy.linspace(15, -16, 32, endpoint=True, dtype=numpy.float64)
-        ys = list(map(f, xs))
-        return numpy.array(ys, dtype=numpy.float64)
-    _ZOOM_PRESETS = _make_zoom_presets()
-    _ZOOM_MIN_MAX = (.001, 3000.0)
-    _ZOOM_ONE_TO_ONE_PRESET_IDX = 15
-    _ZOOM_INCREMENT_BEYOND_PRESETS_FACTORS = (.8, 1.25)
-
-    zoom_changed = Qt.pyqtSignal(int, float)
+    # mouse wheel up/down changes the zoom among values of 2**(i*ZOOM_EXPONENT) where i is an integer
+    ZOOM_EXPONENT = 0.125
+    zoom_changed = Qt.pyqtSignal(float)
 
     def __init__(self, base_scene, parent):
         super().__init__(base_scene, parent)
         self.setMinimumSize(Qt.QSize(100,100))
-        self._zoom_preset_idx = self._ZOOM_ONE_TO_ONE_PRESET_IDX
-        self._custom_zoom = 0
+        self._zoom = 1
         self.zoom_to_fit_action = Qt.QAction('Zoom to Fit', self)
         self.zoom_to_fit_action.setCheckable(True)
         self.zoom_to_fit_action.setChecked(True)
         self._ignore_zoom_to_fit_action_toggle = False
         self.zoom_to_fit_action.toggled.connect(self.on_zoom_to_fit_action_toggled)
-        self.zoom_one_to_one_action = Qt.QAction('1:1 Zoom', self)
-        self.zoom_one_to_one_action.triggered.connect(lambda: GeneralView.zoom_preset_idx.fset(self, GeneralView._ZOOM_ONE_TO_ONE_PRESET_IDX))
         # Calling self.setDragMode(Qt.QGraphicsView.ScrollHandDrag) would enable QGraphicsView's built-in
         # click-drag panning, saving us from having to implement it.  However, QGraphicsView is very
         # insistent about setting the mouse cursor to the hand icon in ScrollHandDragMode.  It does this
@@ -86,62 +70,6 @@ class GeneralView(base_view.BaseView):
     def _on_resize(self, size):
         if self.zoom_to_fit:
             self._apply_zoom()
-
-    def wheelEvent(self, event):
-        wheel_delta = event.angleDelta().y()
-        if wheel_delta != 0:
-            zoom_in = wheel_delta > 0
-            switched_to_custom = False
-            if self._zoom_preset_idx != -1:
-                if zoom_in:
-                    if self._zoom_preset_idx == 0:
-                        self._zoom_preset_idx = -1
-                        self._custom_zoom = GeneralView._ZOOM_PRESETS[0]
-                        switched_to_custom = True
-                    else:
-                        self._zoom_preset_idx -= 1
-                else:
-                    if self._zoom_preset_idx == GeneralView._ZOOM_PRESETS.shape[0] - 1:
-                        self._zoom_preset_idx = -1
-                        self._custom_zoom = GeneralView._ZOOM_PRESETS[-1]
-                        switched_to_custom = True
-                    else:
-                        self._zoom_preset_idx += 1
-            if self._zoom_preset_idx == -1:
-                self._custom_zoom *= GeneralView._ZOOM_INCREMENT_BEYOND_PRESETS_FACTORS[zoom_in]
-                if not switched_to_custom and self._custom_zoom <= GeneralView._ZOOM_PRESETS[0] and self._custom_zoom >= GeneralView._ZOOM_PRESETS[-1]:
-                    # Jump to nearest preset if we are re-entering preset range
-                    self._zoom_preset_idx = numpy.argmin(numpy.abs(GeneralView._ZOOM_PRESETS - self._custom_zoom))
-                    self._custom_zoom = 0
-            if self._zoom_preset_idx == -1:
-                if zoom_in:
-                    if self._custom_zoom > GeneralView._ZOOM_MIN_MAX[1]:
-                        self._custom_zoom = GeneralView._ZOOM_MIN_MAX[1]
-                else:
-                    if self._custom_zoom < GeneralView._ZOOM_MIN_MAX[0]:
-                        self._custom_zoom = GeneralView._ZOOM_MIN_MAX[0]
-                desired_zoom = self._custom_zoom
-            else:
-                desired_zoom = self._ZOOM_PRESETS[self._zoom_preset_idx]
-            # With transformationAnchor set to AnchorUnderMouse, QGraphicsView.scale modifies the view's transformation matrix such
-            # that the same image pixel remains under the mouse cursor (except where the demands imposed by centering of an
-            # undersized scene take priority).  But, that does mean we must modify the transformation via the view's scale function
-            # and not by direct manipulation of the view's transformation matrix.  Thus, it is necessary to find the current
-            # scaling in order to compute the factor by which scaling must be mulitplied in order to arrive at our desired scaling.
-            # This found by taking the view's current vertical scaling under the assumption that a square in the scene will appear
-            # as a square in the view (and not a rectangle or trapezoid), which holds if we are displaying images with square
-            # pixels - the only kind we support.
-            current_zoom = self.transform().m22()
-            scale_zoom = desired_zoom / current_zoom
-            self.setTransformationAnchor(Qt.QGraphicsView.AnchorUnderMouse)
-            self.scale(scale_zoom, scale_zoom)
-            self.setTransformationAnchor(Qt.QGraphicsView.AnchorViewCenter)
-            if self.zoom_to_fit:
-                self._ignore_zoom_to_fit_action_toggle = True
-                self.zoom_to_fit_action.setChecked(False)
-                self._ignore_zoom_to_fit_action_toggle = False
-            self._update_viewport_rect_item()
-            self.zoom_changed.emit(self._zoom_preset_idx, self._custom_zoom)
 
     def mousePressEvent(self, event):
         # For our convenience, Qt sets event accepted to true before calling us, so that we don't have to in the common case
@@ -205,12 +133,47 @@ class GeneralView(base_view.BaseView):
         if not event.isAccepted():
             super().dropEvent(event)
 
+    def wheelEvent(self, event):
+        wheel_delta = event.angleDelta().y()
+        if wheel_delta == 0:
+            return
+        zoom_in = wheel_delta > 0
+
+        # mouse wheel up/down changes the zoom among values of 2**(i*ZOOM_EXPONENT) where i is an integer
+        # first, figure out what the current i value is (may be non-integer if custom zoom was set)
+        exponent_multiplier = math.log2(self._zoom)/self.ZOOM_EXPONENT
+        int_multiplier = round(exponent_multiplier)
+        if abs(int_multiplier - exponent_multiplier) < 0.01:
+            exponent_multiplier = int_multiplier
+        elif zoom_in:
+            # reset to zoom stop just less-zoomed-in than the current zoom
+            exponent_multiplier = math.floor(exponent_multiplier)
+        else: # zooming out
+            # reset to zoom stop just more-zoomed-in than the current zoom
+            exponent_multiplier = math.ceil(exponent_multiplier)
+        if zoom_in:
+            exponent_multiplier += 1
+        else:
+            exponent_multiplier -= 1
+        current_zoom = self._zoom
+        self._zoom = 2**(exponent_multiplier*self.ZOOM_EXPONENT)
+
+        scale_zoom = self._zoom / current_zoom
+        self.setTransformationAnchor(Qt.QGraphicsView.AnchorUnderMouse)
+        self.scale(scale_zoom, scale_zoom)
+        self.setTransformationAnchor(Qt.QGraphicsView.AnchorViewCenter)
+        if self.zoom_to_fit:
+            self._ignore_zoom_to_fit_action_toggle = True
+            self.zoom_to_fit_action.setChecked(False)
+            self._ignore_zoom_to_fit_action_toggle = False
+        self._update_viewport_rect_item()
+        self.zoom_changed.emit(self._zoom)
+
     def on_zoom_to_fit_action_toggled(self):
         if not self._ignore_zoom_to_fit_action_toggle:
             if not self.zoom_to_fit:
                 # unchecking zoom to fit: return to 100%
-                self._zoom_preset_idx = self._ZOOM_ONE_TO_ONE_PRESET_IDX
-                self._custom_zoom = 0
+                self._zoom = 1
             self._apply_zoom()
 
     @property
@@ -222,31 +185,12 @@ class GeneralView(base_view.BaseView):
         self.zoom_to_fit_action.setChecked(zoom_to_fit)
 
     @property
-    def custom_zoom(self):
-        return self._custom_zoom
+    def zoom(self):
+        return self._zoom
 
-    @custom_zoom.setter
-    def custom_zoom(self, custom_zoom):
-        if custom_zoom < GeneralView._ZOOM_MIN_MAX[0] or custom_zoom > GeneralView._ZOOM_MIN_MAX[1]:
-            raise ValueError('Value must be in the range [{}, {}].'.format(*GeneralView._ZOOM_MIN_MAX))
-        self._custom_zoom = custom_zoom
-        self._zoom_preset_idx = -1
-        if self.zoom_to_fit:
-            self._ignore_zoom_to_fit_action_toggle = True
-            self.zoom_to_fit_action.setChecked(False)
-            self._ignore_zoom_to_fit_action_toggle = False
-        self._apply_zoom()
-
-    @property
-    def zoom_preset_idx(self):
-        return self._zoom_preset_idx
-
-    @zoom_preset_idx.setter
-    def zoom_preset_idx(self, idx):
-        if idx < 0 or idx >= GeneralView._ZOOM_PRESETS.shape[0]:
-            raise ValueError('idx must be in the range [0, {}).'.format(GeneralView._ZOOM_PRESETS.shape[0]))
-        self._zoom_preset_idx = idx
-        self._custom_zoom = 0
+    @zoom.setter
+    def zoom(self, zoom):
+        self._zoom = zoom
         if self.zoom_to_fit:
             self._ignore_zoom_to_fit_action_toggle = True
             self.zoom_to_fit_action.setChecked(False)
@@ -257,15 +201,13 @@ class GeneralView(base_view.BaseView):
         if self.zoom_to_fit:
             self.fitInView(self.scene().layer_stack_item, Qt.Qt.KeepAspectRatio)
             current_zoom = self.transform().m22()
-            if current_zoom != self._custom_zoom:
-                self._custom_zoom = current_zoom
-                self._zoom_preset_idx = -1
-                self.zoom_changed.emit(self._zoom_preset_idx, self._custom_zoom)
+            if current_zoom != self._zoom:
+                self._zoom = current_zoom
+                self.zoom_changed.emit(self._zoom)
         else:
-            zoom_factor = self._custom_zoom if self._zoom_preset_idx == -1 else GeneralView._ZOOM_PRESETS[self._zoom_preset_idx]
             old_transform = Qt.QTransform(self.transform())
             self.resetTransform()
             self.translate(old_transform.dx(), old_transform.dy())
-            self.scale(zoom_factor, zoom_factor)
-            self.zoom_changed.emit(self._zoom_preset_idx, self._custom_zoom)
+            self.scale(self._zoom, self._zoom)
+            self.zoom_changed.emit(self._zoom)
         self._update_viewport_rect_item()

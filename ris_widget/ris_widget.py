@@ -143,66 +143,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.deleteLater()
         atexit.unregister(_atexit_cleanup)
 
-    def _init_actions(self):
-        self.flipbook_focus_prev_page_action = Qt.QAction(self)
-        self.flipbook_focus_prev_page_action.setText('Previous Page')
-        self.flipbook_focus_prev_page_action.setShortcut(Qt.Qt.Key_PageUp)
-        self.flipbook_focus_prev_page_action.triggered.connect(self.flipbook.focus_prev_page)
-        self.flipbook_focus_prev_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.flipbook_focus_next_page_action = Qt.QAction(self)
-        self.flipbook_focus_next_page_action.setText('Next Page')
-        self.flipbook_focus_next_page_action.setShortcut(Qt.Qt.Key_PageDown)
-        self.flipbook_focus_next_page_action.triggered.connect(self.flipbook.focus_next_page)
-        self.flipbook_focus_next_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.layer_stack_reset_curr_min_max_action = Qt.QAction(self)
-        self.layer_stack_reset_curr_min_max_action.setText('Reset Min/Max')
-        self.layer_stack_reset_curr_min_max_action.triggered.connect(self._on_reset_min_max)
-        self.layer_stack_toggle_curr_auto_min_max_action = Qt.QAction(self)
-        self.layer_stack_toggle_curr_auto_min_max_action.setText('Toggle Auto Min/Max')
-        self.layer_stack_toggle_curr_auto_min_max_action.triggered.connect(self._on_toggle_auto_min_max)
-        self.addAction(self.layer_stack_toggle_curr_auto_min_max_action) # Necessary for shortcut to work as this action does not appear in a menu or toolbar
-        self.layer_stack_reset_curr_gamma_action = Qt.QAction(self)
-        self.layer_stack_reset_curr_gamma_action.setText('Reset \u03b3')
-        self.layer_stack_reset_curr_gamma_action.triggered.connect(self._on_reset_gamma)
-        self.layer_property_stack_save_action = Qt.QAction(self)
-        self.layer_property_stack_save_action.setText('Save layer property stack as...')
-        self.layer_property_stack_save_action.triggered.connect(self._on_save_layer_property_stack)
-        self.layer_property_stack_load_action = Qt.QAction(self)
-        self.layer_property_stack_load_action.setText('Load layer property stack from file...')
-        self.layer_property_stack_load_action.triggered.connect(self._on_load_layer_property_stack)
-        if sys.platform == 'darwin':
-            self.exit_fullscreen_action = Qt.QAction(self)
-            # If self.exit_fullscreen_action's text were "Exit Full Screen Mode" as we desire,
-            # we would not be able to add it as a menu entry (http://doc.qt.io/qt-5/qmenubar.html#qmenubar-on-os-x).
-            # "Leave Full Screen Mode" is a compromise.
-            self.exit_fullscreen_action.setText('Leave Full Screen Mode')
-            self.exit_fullscreen_action.triggered.connect(self.showNormal)
-            self.exit_fullscreen_action.setShortcut(Qt.Qt.Key_Escape)
-            self.exit_fullscreen_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.main_view.zoom_to_fit_action.setShortcut(Qt.Qt.Key_QuoteLeft)
-        self.main_view.zoom_to_fit_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.main_view.zoom_one_to_one_action.setShortcut(Qt.Qt.Key_1)
-        self.main_view.zoom_one_to_one_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.layer_stack.solo_layer_mode_action.setShortcut(Qt.Qt.Key_Space)
-        self.layer_stack.solo_layer_mode_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        if freeimage is not None:
-            self.snapshot_action = Qt.QAction(self)
-            self.snapshot_action.setText('Snapshot')
-            self.snapshot_action.setToolTip('Save snapshot of displayed image(s).')
-            self.snapshot_action.triggered.connect(self._on_snapshot_action)
-
-    @staticmethod
-    def _format_zoom(zoom):
-        if int(zoom) == zoom:
-            return '{}'.format(int(zoom))
-        else:
-            txt = '{:.2f}'.format(zoom)
-            if txt[-2:] == '00':
-                return txt[:-3]
-            if txt[-1:] == '0':
-                return txt[:-1]
-            return txt
-
     def _init_scenes_and_views(self):
         self.main_scene = general_scene.GeneralScene(self, self.layer_stack)
         self.main_view = general_view.GeneralView(self.main_scene, self)
@@ -248,6 +188,50 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.addDockWidget(Qt.Qt.RightDockWidgetArea, self.fps_display_dock_widget)
         self.fps_display_dock_widget.hide()
 
+    def _init_actions(self):
+        self.flipbook_focus_prev_page_action = Qt.QAction(self)
+        self.flipbook_focus_prev_page_action.setText('Previous Page')
+        self.flipbook_focus_prev_page_action.setShortcut(Qt.Qt.Key_PageUp)
+        self.flipbook_focus_prev_page_action.triggered.connect(self.flipbook.focus_prev_page)
+        self.flipbook_focus_prev_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        self.flipbook_focus_next_page_action = Qt.QAction(self)
+        self.flipbook_focus_next_page_action.setText('Next Page')
+        self.flipbook_focus_next_page_action.setShortcut(Qt.Qt.Key_PageDown)
+        self.flipbook_focus_next_page_action.triggered.connect(self.flipbook.focus_next_page)
+        self.flipbook_focus_next_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        self.layer_stack_reset_curr_min_max_action = Qt.QAction(self)
+        self.layer_stack_reset_curr_min_max_action.setText('Reset Min/Max')
+        self.layer_stack_reset_curr_min_max_action.triggered.connect(self._on_reset_min_max)
+        self.layer_stack_toggle_curr_auto_min_max_action = Qt.QAction(self)
+        self.layer_stack_toggle_curr_auto_min_max_action.setText('Toggle Auto Min/Max')
+        self.layer_stack_toggle_curr_auto_min_max_action.triggered.connect(self._on_toggle_auto_min_max)
+        self.addAction(self.layer_stack_toggle_curr_auto_min_max_action) # Necessary for shortcut to work as this action does not appear in a menu or toolbar
+        self.layer_stack_reset_curr_gamma_action = Qt.QAction(self)
+        self.layer_stack_reset_curr_gamma_action.setText('Reset \u03b3')
+        self.layer_stack_reset_curr_gamma_action.triggered.connect(self._on_reset_gamma)
+        self.layer_property_stack_save_action = Qt.QAction(self)
+        self.layer_property_stack_save_action.setText('Save layer property stack as...')
+        self.layer_property_stack_save_action.triggered.connect(self._on_save_layer_property_stack)
+        self.layer_property_stack_load_action = Qt.QAction(self)
+        self.layer_property_stack_load_action.setText('Load layer property stack from file...')
+        self.layer_property_stack_load_action.triggered.connect(self._on_load_layer_property_stack)
+        if sys.platform == 'darwin':
+            self.exit_fullscreen_action = Qt.QAction(self)
+            # If self.exit_fullscreen_action's text were "Exit Full Screen Mode" as we desire,
+            # we would not be able to add it as a menu entry (http://doc.qt.io/qt-5/qmenubar.html#qmenubar-on-os-x).
+            # "Leave Full Screen Mode" is a compromise.
+            self.exit_fullscreen_action.setText('Leave Full Screen Mode')
+            self.exit_fullscreen_action.triggered.connect(self.showNormal)
+            self.exit_fullscreen_action.setShortcut(Qt.Qt.Key_Escape)
+            self.exit_fullscreen_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        self.layer_stack.solo_layer_mode_action.setShortcut(Qt.Qt.Key_Space)
+        self.layer_stack.solo_layer_mode_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        if freeimage is not None:
+            self.snapshot_action = Qt.QAction(self)
+            self.snapshot_action.setText('Snapshot')
+            self.snapshot_action.setToolTip('Save snapshot of displayed image(s).')
+            self.snapshot_action.triggered.connect(self._on_snapshot_action)
+
     def _init_flipbook(self):
         self.flipbook = fb = flipbook.Flipbook(self.layer_stack, self)
         self.flipbook_dock_widget = Qt.QDockWidget('Flipbook', self)
@@ -274,29 +258,13 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_stack_painter = None
         self.layer_stack_painter_dock_widget.toggleViewAction().toggled.connect(self._on_layer_stack_painter_dock_widget_visibility_toggled)
 
-    def _on_layer_stack_painter_dock_widget_visibility_toggled(self, is_visible):
-        if is_visible:
-            if self.layer_stack_painter is None:
-                self.layer_stack_painter = layer_stack_painter.LayerStackPainter(self.main_scene.layer_stack_item)
-                self.layer_stack_painter_dock_widget.setWidget(self.layer_stack_painter)
-        else:
-            if self.layer_stack_painter is not None:
-                self.main_scene.removeItem(self.layer_stack_painter.painter_item)
-                self.layer_stack_painter = None
-
     def _init_toolbars(self):
         self.main_view_toolbar = self.addToolBar('Main View')
-        self.main_view_zoom_combo = Qt.QComboBox(self)
-        self.main_view_toolbar.addWidget(self.main_view_zoom_combo)
-        self.main_view_zoom_combo.setEditable(True)
-        self.main_view_zoom_combo.setInsertPolicy(Qt.QComboBox.NoInsert)
-        self.main_view_zoom_combo.setDuplicatesEnabled(True)
-        self.main_view_zoom_combo.setSizeAdjustPolicy(Qt.QComboBox.AdjustToContents)
-        for zoom in general_view.GeneralView._ZOOM_PRESETS:
-            self.main_view_zoom_combo.addItem(self._format_zoom(zoom * 100) + '%')
-        self.main_view_zoom_combo.setCurrentIndex(general_view.GeneralView._ZOOM_ONE_TO_ONE_PRESET_IDX)
-        self.main_view_zoom_combo.activated[int].connect(self._main_view_zoom_combo_changed)
-        self.main_view_zoom_combo.lineEdit().returnPressed.connect(self._main_view_zoom_combo_custom_value_entered)
+        self.zoom_editor = Qt.QLineEdit()
+        self.zoom_editor.setFixedWidth(68)
+        self.zoom_editor.editingFinished.connect(self._on_zoom_editing_finished)
+        self.zoom_editor.setAlignment(Qt.Qt.AlignCenter)
+        self.main_view_toolbar.addWidget(self.zoom_editor)
         self.main_view.zoom_changed.connect(self._main_view_zoom_changed)
         self.main_view_toolbar.addAction(self.main_view.zoom_to_fit_action)
         self.main_view_toolbar.addAction(self.layer_stack_reset_curr_min_max_action)
@@ -319,9 +287,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         if sys.platform == 'darwin':
             m.addAction(self.exit_fullscreen_action)
             m.addSeparator()
-        m.addAction(self.main_view.zoom_to_fit_action)
-        m.addAction(self.main_view.zoom_one_to_one_action)
-        m.addSeparator()
         m.addAction(self.flipbook_focus_prev_page_action)
         m.addAction(self.flipbook_focus_next_page_action)
         m.addAction(self.flipbook.toggle_playing_action)
@@ -333,6 +298,15 @@ class RisWidgetQtObject(Qt.QMainWindow):
         m.addSeparator()
         m.addAction(self.fps_display_dock_widget.toggleViewAction())
 
+    def _on_layer_stack_painter_dock_widget_visibility_toggled(self, is_visible):
+        if is_visible:
+            if self.layer_stack_painter is None:
+                self.layer_stack_painter = layer_stack_painter.LayerStackPainter(self.main_scene.layer_stack_item)
+                self.layer_stack_painter_dock_widget.setWidget(self.layer_stack_painter)
+        else:
+            if self.layer_stack_painter is not None:
+                self.main_scene.removeItem(self.layer_stack_painter.painter_item)
+                self.layer_stack_painter = None
 
     def showEvent(self, event):
         if self.app_prefs_name and not self._shown:
@@ -425,31 +399,21 @@ class RisWidgetQtObject(Qt.QMainWindow):
         # elif not multilayer and visible:
         #     self.layer_table_dock_widget.hide()
 
+    def _main_view_zoom_changed(self, zoom):
+        zoom = format(100*zoom, '.1f').rstrip('0').rstrip('.') + '%'
+        self.zoom_editor.setText(zoom)
 
-    def _main_view_zoom_changed(self, zoom_preset_idx, custom_zoom):
-        assert zoom_preset_idx == -1 and custom_zoom != 0 or zoom_preset_idx != -1 and custom_zoom == 0, \
-               'zoom_preset_idx XOR custom_zoom must be set.'
-        if zoom_preset_idx == -1:
-            self.main_view_zoom_combo.lineEdit().setText(self._format_zoom(custom_zoom * 100) + '%')
-        else:
-            self.main_view_zoom_combo.setCurrentIndex(zoom_preset_idx)
-
-    def _main_view_zoom_combo_changed(self, idx):
-        self.main_view.zoom_preset_idx = idx
-
-    def _main_view_zoom_combo_custom_value_entered(self):
-        txt = self.main_view_zoom_combo.lineEdit().text()
-        percent_pos = txt.find('%')
-        scale_txt = txt if percent_pos == -1 else txt[:percent_pos]
+    def _on_zoom_editing_finished(self):
+        zoom = self.zoom_editor.text().rstrip('%')
         try:
-            self.main_view.custom_zoom = float(scale_txt) * 0.01
+            zoom = float(zoom) / 100
         except ValueError:
-            e = 'Please enter a number between {} and {}.'.format(
-                self._format_zoom(general_view.GeneralView._ZOOM_MIN_MAX[0] * 100),
-                self._format_zoom(general_view.GeneralView._ZOOM_MIN_MAX[1] * 100))
-            Qt.QMessageBox.information(self, self.windowTitle() + ' Input Error', e)
-            self.main_view_zoom_combo.setFocus()
-            self.main_view_zoom_combo.lineEdit().selectAll()
+            # reset the text to the current zoom
+            self._main_view_zoom_changed(self.main_view.zoom)
+            self.zoom_editor.setFocus()
+            self.zoom_editor.selectAll()
+        else:
+            self.main_view.zoom = zoom
 
     def _on_reset_min_max(self):
         layer = self.focused_layer

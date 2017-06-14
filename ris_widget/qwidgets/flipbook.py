@@ -75,41 +75,6 @@ _FLIPBOOK_PAGES_DOCSTRING = ("""
     and 3D array-like objects (typically numpy.ndarray instances) inserted are always wrapped
     or copied into a new Image (an ndarray with appropriate striding and dtype is wrapped rather
     than copied).
-
-    Ex:
-
-    import numpy
-    from ris_widget.ris_widget import RisWidget
-    rw = RisWidget()
-    rw.show()
-
-    print(rw.flipbook.pages)
-    # <ris_widget.qwidgets.flipbook.PageList object at 0x7fa93e38f678>
-
-    rw.flipbook.pages.append(numpy.zeros((600,800), dtype=numpy.uint8).T)
-    print(rw.flipbook.pages)
-    # <ris_widget.qwidgets.flipbook.PageList object at 0x7fa93e38f678
-    # [
-    #         <ris_widget.qwidgets.flipbook.ImageList object at 0x7fa93e399b88
-    #     [
-    #         <ris_widget.image.Image object at 0x7fa93e399d38; unnamed, 800x600, 1 channel (G)>
-    #     ]>
-    # ]>
-
-    print(rw.flipbook.pages)
-    # <ris_widget.qwidgets.flipbook.PageList object at 0x7fa93e38f678
-    # [
-    #         <ris_widget.qwidgets.flipbook.ImageList object at 0x7fa93e399b88
-    #     [
-    #         <ris_widget.image.Image object at 0x7fa93e399d38; unnamed, 800x600, 1 channel (G)>
-    #     ]>,
-    #         <ris_widget.qwidgets.flipbook.ImageList object at 0x7fa945dd6048
-    #     [
-    #         <ris_widget.image.Image object at 0x7fa945dd60d8; unnamed, 640x480, 1 channel (G)>,
-    #         <ris_widget.image.Image object at 0x7fa945dd6168; unnamed, 320x200, 1 channel (G)>
-    #     ]>
-    # ]>
-
     """)
 
 class ActionButton(Qt.QPushButton):
@@ -286,8 +251,11 @@ class Flipbook(Qt.QWidget):
             for subpaths in paths:
                 abspaths.append([pp.resolve() for pp in subpaths])
                 flat_abspaths.extend(abspaths[-1])
-            root = os.path.commonpath(flat_abspaths)
-            page_names = [', '.join(str(p.relative_to(root)) for p in subpaths) for subpaths in abspaths]
+            if len(flat_abspaths) > 1:
+                root = os.path.commonpath(flat_abspaths)
+                page_names = [', '.join(str(p.relative_to(root)) for p in subpaths) for subpaths in abspaths]
+            else:
+                page_names = [paths[0][0].name]
 
         if image_names is None:
             image_names = [[str(p) for p in subpaths] for subpaths in paths]
