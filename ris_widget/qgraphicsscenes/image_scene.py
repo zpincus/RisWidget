@@ -26,7 +26,7 @@ from PyQt5 import Qt
 from . import base_scene
 from ..qgraphicsitems import layer_stack_item
 
-class GeneralScene(base_scene.BaseScene):
+class ImageScene(base_scene.BaseScene):
     def __init__(self, parent, layer_stack):
         super().__init__(parent)
         self.layer_stack_item = layer_stack_item.LayerStackItem(layer_stack=layer_stack)
@@ -35,5 +35,6 @@ class GeneralScene(base_scene.BaseScene):
 
     def _on_layer_stack_item_bounding_rect_changed(self):
         self.setSceneRect(self.layer_stack_item.boundingRect())
-        for view in self.views():
-            view._on_layer_stack_item_bounding_rect_changed()
+        view = self.views()[0] # image scenes have only one view
+        self.fill_viewport(view)
+        view._on_layer_stack_item_bounding_rect_changed()

@@ -159,9 +159,9 @@ class PointListPicker(Qt.QGraphicsObject):
     QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
     POINT_LIST_TYPE = PointList
 
-    def __init__(self, general_view, parent_item, points=None):
+    def __init__(self, image_view, parent_item, points=None):
         super().__init__(parent_item)
-        self.view = general_view
+        self.view = image_view
         self.view.viewport_rect_item.size_changed.connect(self._on_viewport_size_changed)
         self.PointListType = self.POINT_LIST_TYPE
         self.pen = Qt.QPen(Qt.Qt.red)

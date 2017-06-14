@@ -29,7 +29,7 @@ from .poly_line_point_picker import PolyLinePointPicker
 class _PointListField(_BaseField):
     def __init__(self, field_tuple, parent):
         self.layer_stack_item = field_tuple[3]
-        self.general_view = field_tuple[4]
+        self.image_view = field_tuple[4]
         super().__init__(field_tuple, parent)
 
     def __del__(self):
@@ -39,7 +39,7 @@ class _PointListField(_BaseField):
             pass
 
     def _init_widget(self):
-        self.picker = PolyLinePointPicker(self.general_view, self.layer_stack_item)
+        self.picker = PolyLinePointPicker(self.image_view, self.layer_stack_item)
         self.widget = PointListPickerTable(self.picker)
         self.picker.point_list_contents_changed.connect(self._on_widget_change)
 

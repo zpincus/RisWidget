@@ -29,12 +29,12 @@ from .simple_point_picker import SimplePointPicker
 class SimplePolyLinePointPicker(SimplePointPicker):
     QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
 
-    def __init__(self, general_view, parent_item, points=None):
+    def __init__(self, image_view, parent_item, points=None):
         self.line_items = []
         self.line_pen = Qt.QPen(Qt.Qt.green)
         self.line_pen.setWidth(5)
         self.line_pen.setCosmetic(True)
-        super().__init__(general_view, parent_item, points)
+        super().__init__(image_view, parent_item, points)
         self.point_item_position_has_changed.connect(self._on_point_item_position_has_changed)
         self.point_item_list_content_reset.connect(self._on_point_item_list_content_reset)
         self._ignore_point_item_position_changed = False

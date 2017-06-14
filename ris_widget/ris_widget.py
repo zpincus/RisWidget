@@ -37,8 +37,8 @@ from .qwidgets import flipbook
 from .qwidgets import fps_display
 from .qwidgets import layer_table
 from .qwidgets import layer_stack_painter
-from .qgraphicsscenes import general_scene
-from .qgraphicsviews import general_view
+from .qgraphicsscenes import image_scene
+from .qgraphicsviews import image_view
 from .qgraphicsscenes import histogram_scene
 from .qgraphicsviews import histogram_view
 
@@ -144,8 +144,8 @@ class RisWidgetQtObject(Qt.QMainWindow):
         atexit.unregister(_atexit_cleanup)
 
     def _init_scenes_and_views(self):
-        self.main_scene = general_scene.GeneralScene(self, self.layer_stack)
-        self.main_view = general_view.GeneralView(self.main_scene, self)
+        self.main_scene = image_scene.ImageScene(self, self.layer_stack)
+        self.main_view = image_view.ImageView(self.main_scene, self)
         self.setCentralWidget(self.main_view)
         self.histogram_scene = histogram_scene.HistogramScene(self, self.layer_stack)
         self.histogram_dock_widget = Qt.QDockWidget('Histogram', self)
@@ -513,8 +513,7 @@ class RisWidget:
         'main_scene',
         'main_view',
         'layer_stack',
-        ('main_scene.viewport_rect_item', 'main_viewport_rect_item'),
-        ('main_scene.layer_stack_item', 'layer_stack_item'),
+        ('main_scene.viewport_rect_item', 'main_viewport'),
         'show',
         'hide',
         'close'

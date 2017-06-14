@@ -28,9 +28,9 @@ from .. import shared_resources
 class VerySimplePolyLinePicker(Qt.QGraphicsObject):
     QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
 
-    def __init__(self, general_view, parent_item):
+    def __init__(self, image_view, parent_item):
         super().__init__(parent_item)
-        self.view = general_view
+        self.view = image_view
         self.path_item = Qt.QGraphicsPathItem(parent_item)
         pen = Qt.QPen(Qt.Qt.green)
         pen.setWidth(5)

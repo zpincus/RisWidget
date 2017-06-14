@@ -32,19 +32,8 @@ from .. import image
 from . import gl_logger
 
 class BaseView(Qt.QGraphicsView):
-    """Instances of BaseView and its subclasses have a .viewport_rect_item attribute, which is an instance of
-    ViewportRectItem, an invisible graphics item.  A BaseView (or subclass) instance resizes and repositions
-    its .viewport_rect_item to exactly fill its viewport.  This can be seen by assigning True to
-    .viewport_rect_item.is_visible.
-
-    So, if you wish for a scene element to remain fixed in scale with respect to the viewport and fixed in
-    position with respect to the top-left corner of the viewport, simply parent the item in question to
-    .viewport_rect_item (.scene().contextual_info_item does this, for example).  To make item placement relative
-    to a viewport anchor that varies with viewport size, such as the bottom-right corner, it must be
-    repositioned in response to emission of the .viewport_rect_item.size_changed signal."""
-
-    def __init__(self, base_scene, parent):
-        super().__init__(base_scene, parent)
+    def __init__(self, scene, parent):
+        super().__init__(scene, parent)
         self.setMouseTracking(True)
         self._background_color = (0.0, 0.0, 0.0)
         gl_widget = _ShaderViewGLViewport(self)
@@ -55,23 +44,22 @@ class BaseView(Qt.QGraphicsView):
         self.setViewport(gl_widget)
         if shared_resources.GL_QSURFACE_FORMAT.samples() > 0:
             self.setRenderHint(Qt.QPainter.Antialiasing)
-        self._update_viewport_rect_item()
+        self.scene().fill_viewport(self)
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
         # In the case of scrollContentsBy(..) execution in response to view resize, self.resizeEvent(..)
         # has not yet had a chance to do its thing, meaning that self.transform() may differ from
-        # the value obtained during painting.  However, self.on_resize_done(..) also calls
-        # _update_viewport_rect_item, at which point self.transform() does return the correct value.
+        # the value obtained during painting.
         # Both happen during the same event loop iteration, and no repaint will occur until the next
-        # iteration, so any incorrect position possibly set in response to _update_viewport_rect_item
-        # here will be corrected in response to resizeEvent(..)'s scene_view_rect_changed emission
-        # before the next repaint.  Thus, nothing repositioned in response to our call should be
+        # iteration, so any incorrect position possibly set in response to scene().fill_viewport()
+        # here will be corrected in response to resizeEvent(..)'s call of the same
+        # before the next repaint. Thus, nothing repositioned in response to our call should be
         # visible to the user in an incorrect position.
-        self._update_viewport_rect_item()
+        self.scene().fill_viewport(self)
 
     def _on_resize(self, size):
-        """_on_resize is called after self.size has been updated and before ._update_viewport_rect_item is
+        """_on_resize is called after self.size has been updated and before .scene().fill_viewport() is
         called, providing an opportunity for subclasses to modify view transform in response to view resize
         without causing incorrect positioning of view-relative items."""
         pass
@@ -79,17 +67,7 @@ class BaseView(Qt.QGraphicsView):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._on_resize(event.size())
-        self._update_viewport_rect_item()
-
-    def _update_viewport_rect_item(self):
-        try:
-            i = self.viewport_rect_item
-        except AttributeError:
-            return
-        i.size = self.size()
-        p = self.mapToScene(0,0)
-        if i.pos() != p:
-            i.setPos(p)
+        self.scene().fill_viewport(self)
 
     def drawBackground(self, p, rect):
         p.beginNativePainting()
@@ -101,7 +79,7 @@ class BaseView(Qt.QGraphicsView):
 
     @property
     def viewport_rect_item(self):
-        return self.scene().viewport_rect_item
+        return
 
     @property
     def background_color(self):

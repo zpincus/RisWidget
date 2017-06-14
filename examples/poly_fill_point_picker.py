@@ -26,8 +26,8 @@ from PyQt5 import Qt
 from ..point_list_picker import PointList, PointListPicker
 
 # class PolyRegionMaskPicker(PointListPicker):
-#     def __init__(self, general_view, parent_item, points=None, PointListType=PointList, parent=None):
-#         super().__init__(general_view, parent_item, points, PointListType, parent)
+#     def __init__(self, image_view, parent_item, points=None, PointListType=PointList, parent=None):
+#         super().__init__(image_view, parent_item, points, PointListType, parent)
 #         self.path_item = Qt.QGraphicsPathItem(parent_item)
 #         pen = Qt.QPen(Qt.Qt.green)
 #         pen.setWidth(5)

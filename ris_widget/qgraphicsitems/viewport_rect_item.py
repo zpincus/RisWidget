@@ -26,11 +26,9 @@ from PyQt5 import Qt
 
 class ViewportRectItem(Qt.QGraphicsObject):
     size_changed = Qt.pyqtSignal(Qt.QSizeF)
-    scene_position_changed = Qt.pyqtSignal(Qt.QPointF)
 
     def __init__(self):
         super().__init__()
-        self._is_visible = False
         self.setFlags(
             Qt.QGraphicsItem.ItemIgnoresTransformations |
             Qt.QGraphicsItem.ItemSendsGeometryChanges |
@@ -40,19 +38,6 @@ class ViewportRectItem(Qt.QGraphicsObject):
         self._size = Qt.QSizeF()
         # Children are generally overlay items that should appear over anything else rather than z-fighting
         self.setZValue(10)
-
-    @property
-    def is_visible(self):
-        return self._is_visible
-
-    @is_visible.setter
-    def is_visible(self, v):
-        v = bool(v)
-        if self._is_visible != v:
-            self.setFlag(Qt.QGraphicsItem.ItemHasNoContents, not v)
-            self.setOpacity(0.25 if v else 1)
-            self._is_visible = v
-            self.update()
 
     @property
     def size(self):
@@ -70,12 +55,3 @@ class ViewportRectItem(Qt.QGraphicsObject):
     def boundingRect(self):
         return Qt.QRectF(Qt.QPointF(), self._size)
 
-    def itemChange(self, change, value):
-        if change == Qt.QGraphicsItem.ItemScenePositionHasChanged:
-            self.scene_position_changed.emit(value)
-            return
-        return super().itemChange(change, value)
-
-    def paint(self, qpainter, option, widget):
-        if self._is_visible:
-            qpainter.fillRect(option.rect, Qt.Qt.white)

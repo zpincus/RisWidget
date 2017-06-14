@@ -29,47 +29,19 @@ from ..qgraphicsitems import contextual_info_item
 class BaseScene(Qt.QGraphicsScene):
     """BaseScene provides for creating and maintaining a ContextualInfoItem (or compatible).
 
+    Instances of BaseScene have a .viewport_rect_item attribute, which is an instance of
+    ViewportRectItem, an invisible graphics item.  The associated view will call fill_viewport()
+    as necessary to ennsure the .viewport_rect_item exactly fills that view's viewport.
+
+    If you wish for a scene element to remain fixed in scale with respect to the viewport and fixed in
+    position with respect to the top-left corner of the viewport, simply parent the item in question to
+    .viewport_rect_item (contextual_info_item does this, for example).  To make item placement relative
+    to a viewport anchor that varies with viewport size, such as the bottom-right corner, it must be
+    repositioned in response to emission of the .viewport_rect_item.size_changed signal.
+
     Although the Qt Graphics View Framework supports multiple views into a single scene, we don't
     have a need for this capability, and we do not go out of our way to make it work correctly (which
-    would entail significant additional code complexity).
-
-    In the past, multiple views into a single scene were supported, and BaseScene had more complexity.
-    All that remains is the call to create the contextual info item and a pair of member functions
-    for setting and clearing it:
-
-    The clear_contextual_info(self, requester) and update_contextual_info(self, text, requester)
-    member functions ensure that a single pair of mouse-exited-so-clear-the-text and
-    mouse-over-new-thing-so-display-some-other-text events are handled in order, even if the
-    associated calls to clear_contextual_info and update_contextual_info occured out of order.
-    The value of the "requester" argument is used to determine the correct order:
-    a clear_contextual_info call or, equivalently, update_contextual_info(None...) with a
-    non-None requester argument is ignored if the current contextual info text was
-    set by a different non-None requester.
-
-    For example, consider the following scenario, on J. Random Platform:
-
-    The mouse pointer enters weather_widget from outside of the application window,
-    causing the following call:
-    s.update_contextual_info('St. Louis, 75F, Sunny', weather_widget)
-    The contextual info text changes to "St. Louis, 75F, Sunny", and it is noted that
-    weather_widget set this text.
-
-    The mouse pointer leaves weather_widget, crossing into planetarium_widget.  On
-    J. Random Platform, entry events always happen before exit events.  Who knows why.
-    (J. Random Platform is win32.)  So,
-    s.update_contextual_info('Polaris', planetarium_widget) is called, the contextual info
-    text changes to 'Polaris', and it is noted that planetarium_widget set this text.
-
-    Belatedly, s.clear_contextual_info(weather_widget) is called.  The current text was
-    set by planetarium_widget, not weather_widget.  Why does weather_widget want to clear
-    planetarium_widget's text?  Well, it doesn't; it wanted to clear its own text, but
-    planetarium_widget intervened and replaced that text before weather_widget got
-    around to clearing it.  Therefore, clear requester does not match current text requester,
-    causing that clear call to be ignored.
-
-    The mouse cursor leaves planetarium_widget, crossing out of the application window entirely.
-    s.clear_contextual_info(planetarium_widget) is called.  planetarium_widget requested
-    the current text, and so, the contextual info text is cleared."""
+    would entail significant additional code complexity)."""
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -77,3 +49,9 @@ class BaseScene(Qt.QGraphicsScene):
         self.addItem(self.viewport_rect_item)
         self.contextual_info_item = contextual_info_item.ContextualInfoItem(self.viewport_rect_item)
         self.contextual_info_item.setPos(10, 5)
+
+    def fill_viewport(self, view):
+        self.viewport_rect_item.size = view.size()
+        view_origin = view.mapToScene(0,0)
+        if self.viewport_rect_item.pos() != view_origin:
+            self.viewport_rect_item.setPos(view_origin)

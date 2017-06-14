@@ -29,13 +29,13 @@ from PyQt5 import Qt
 from . import base_view
 
 
-class GeneralView(base_view.BaseView):
+class ImageView(base_view.BaseView):
     # mouse wheel up/down changes the zoom among values of 2**(i*ZOOM_EXPONENT) where i is an integer
     ZOOM_EXPONENT = 0.125
     zoom_changed = Qt.pyqtSignal(float)
 
-    def __init__(self, base_scene, parent):
-        super().__init__(base_scene, parent)
+    def __init__(self, scene, parent):
+        super().__init__(scene, parent)
         self.setMinimumSize(Qt.QSize(100,100))
         self._zoom = 1
         self.zoom_to_fit_action = Qt.QAction('Zoom to Fit', self)
@@ -43,6 +43,7 @@ class GeneralView(base_view.BaseView):
         self.zoom_to_fit_action.setChecked(True)
         self._ignore_zoom_to_fit_action_toggle = False
         self.zoom_to_fit_action.toggled.connect(self.on_zoom_to_fit_action_toggled)
+        self.zoom_changed.connect(self._on_zoom_changed)
         # Calling self.setDragMode(Qt.QGraphicsView.ScrollHandDrag) would enable QGraphicsView's built-in
         # click-drag panning, saving us from having to implement it.  However, QGraphicsView is very
         # insistent about setting the mouse cursor to the hand icon in ScrollHandDragMode.  It does this
@@ -64,12 +65,13 @@ class GeneralView(base_view.BaseView):
     def _on_layer_stack_item_bounding_rect_changed(self):
         if self.zoom_to_fit:
             self._apply_zoom()
-        else:
-            self._update_viewport_rect_item()
 
     def _on_resize(self, size):
         if self.zoom_to_fit:
             self._apply_zoom()
+
+    def _on_zoom_changed(self, zoom):
+        self.scene().fill_viewport(self)
 
     def mousePressEvent(self, event):
         # For our convenience, Qt sets event accepted to true before calling us, so that we don't have to in the common case
@@ -166,7 +168,6 @@ class GeneralView(base_view.BaseView):
             self._ignore_zoom_to_fit_action_toggle = True
             self.zoom_to_fit_action.setChecked(False)
             self._ignore_zoom_to_fit_action_toggle = False
-        self._update_viewport_rect_item()
         self.zoom_changed.emit(self._zoom)
 
     def on_zoom_to_fit_action_toggled(self):
@@ -210,4 +211,3 @@ class GeneralView(base_view.BaseView):
             self.translate(old_transform.dx(), old_transform.dy())
             self.scale(self._zoom, self._zoom)
             self.zoom_changed.emit(self._zoom)
-        self._update_viewport_rect_item()
