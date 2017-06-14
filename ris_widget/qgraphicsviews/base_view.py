@@ -78,10 +78,6 @@ class BaseView(Qt.QGraphicsView):
         p.endNativePainting()
 
     @property
-    def viewport_rect_item(self):
-        return
-
-    @property
     def background_color(self):
         """V.background_color = (R, G, B)
         where R, G, and B, are floating point values in the interval [0, 1]."""

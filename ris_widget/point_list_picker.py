@@ -29,8 +29,6 @@ from . import shared_resources
 
 class Point(Qt.QObject):
     changed = Qt.pyqtSignal(object)
-    x_changed = Qt.pyqtSignal(object)
-    y_changed = Qt.pyqtSignal(object)
 
     def __init__(self, x=0.0, y=0.0, parent=None):
         super().__init__(parent)
@@ -49,7 +47,6 @@ class Point(Qt.QObject):
         x = float(x)
         if x != self._x:
             self._x = x
-            self.x_changed.emit(self)
             self.changed.emit(self)
 
     @property
@@ -61,7 +58,6 @@ class Point(Qt.QObject):
         y = float(y)
         if y != self._y:
             self._y = y
-            self.y_changed.emit(self)
             self.changed.emit(self)
 
 class PointList(uniform_signaling_list.UniformSignalingList):
@@ -162,7 +158,7 @@ class PointListPicker(Qt.QGraphicsObject):
     def __init__(self, image_view, parent_item, points=None):
         super().__init__(parent_item)
         self.view = image_view
-        self.view.viewport_rect_item.size_changed.connect(self._on_viewport_size_changed)
+        self.view.scene().viewport_rect_item.size_changed.connect(self._on_viewport_size_changed)
         self.PointListType = self.POINT_LIST_TYPE
         self.pen = Qt.QPen(Qt.Qt.red)
         self.pen.setWidth(2)

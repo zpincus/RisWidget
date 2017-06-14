@@ -70,7 +70,7 @@ class SimplePointPicker(Qt.QGraphicsObject):
     def __init__(self, image_view, parent_item, points=None):
         super().__init__(parent_item)
         self.view = image_view
-        self.view.viewport_rect_item.size_changed.connect(self.on_viewport_size_changed)
+        self.view.scene().viewport_rect_item.size_changed.connect(self.on_viewport_size_changed)
         self.point_items = []
         self.pen = Qt.QPen(Qt.Qt.red)
         self.pen.setWidth(2)
