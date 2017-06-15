@@ -45,17 +45,13 @@ class DragDropModelBehavior:
     """DragDropModelBehavior: A mix-in for adding basic row-wise drag-and-drop behavior to any derivative of
     Qt.QAbstractItemModel."""
     def supportedDropActions(self):
-#       print('DragDropModelBehavior supportedDropActions')
         return Qt.Qt.CopyAction | Qt.Qt.LinkAction
 
     def supportedDragActions(self):
-#       print('DragDropModelBehavior supportedDragActions')
         return Qt.Qt.LinkAction
 
     def canDropMimeData(self, mime_data, drop_action, row, column, parent):
-#       print('mime_data.formats()', mime_data.formats())
         rows_drag = self._decode_rows_drag_mime_data(mime_data)
-#       print('canDropMimeData(self, rows_drag={}, drop_action={}, row={}, column={}, parent={})'.format('' if rows_drag is None else rows_drag.rows, drop_action, row, column, parent))
         if rows_drag is not None and len(rows_drag.rows) > 0:
             return self.can_drop_rows(rows_drag.src_model, rows_drag.rows, row, column, parent)
         if mime_data.hasImage():
@@ -72,7 +68,6 @@ class DragDropModelBehavior:
         return False
 
     def dropMimeData(self, mime_data, drop_action, row, column, parent):
-#       print('dropMimeData mime_data.hasImage()', mime_data.hasImage())
         rows_drag = self._decode_rows_drag_mime_data(mime_data)
         if rows_drag is not None and len(rows_drag.rows) > 0:
             return self.handle_dropped_rows(rows_drag.src_model, rows_drag.rows, row, column, parent)

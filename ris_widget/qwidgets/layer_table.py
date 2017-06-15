@@ -156,14 +156,6 @@ class LayerTableDragDropBehavior(drag_drop_model_behavior.DragDropModelBehavior)
     def can_drop_text(self, txt, dst_row, dst_column, dst_parent):
         return bool(layer_stack.LayerList.from_json(txt))
 
-    def handle_dropped_qimage(self, qimage, name, dst_row, dst_column, dst_parent):
-        image = image.Image.from_qimage(qimage)
-        if image is not None:
-            layer = layer.Layer(image=image)
-            self.layer_stack.layers[dst_row:dst_row] = [layer]
-            return True
-        return False
-
     def handle_dropped_files(self, fpaths, dst_row, dst_column, dst_parent):
         if freeimage is None:
             return False

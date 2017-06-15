@@ -36,12 +36,11 @@ class BaseView(Qt.QGraphicsView):
         super().__init__(scene, parent)
         self.setMouseTracking(True)
         self._background_color = (0.0, 0.0, 0.0)
-        gl_widget = _ShaderViewGLViewport(self)
         # It seems necessary to retain this reference.  It is available via self.viewport() after
         # the setViewport call completes, suggesting that PyQt keeps a reference to it, but this
         # reference is evidentally weak or perhaps just a pointer.
-        self.gl_widget = gl_widget
-        self.setViewport(gl_widget)
+        self.gl_widget = _ShaderViewGLViewport(self)
+        self.setViewport(self.gl_widget)
         if shared_resources.GL_QSURFACE_FORMAT.samples() > 0:
             self.setRenderHint(Qt.QPainter.Antialiasing)
         self.scene().fill_viewport(self)
@@ -56,7 +55,12 @@ class BaseView(Qt.QGraphicsView):
         # here will be corrected in response to resizeEvent(..)'s call of the same
         # before the next repaint. Thus, nothing repositioned in response to our call should be
         # visible to the user in an incorrect position.
-        self.scene().fill_viewport(self)
+        self._fill_viewport_if_scene()
+
+    def _fill_viewport_if_scene(self):
+        scene = self.scene()
+        if scene is not None: # may be None during object destruction
+            scene.fill_viewport(self)
 
     def _on_resize(self, size):
         """_on_resize is called after self.size has been updated and before .scene().fill_viewport() is
@@ -67,7 +71,7 @@ class BaseView(Qt.QGraphicsView):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._on_resize(event.size())
-        self.scene().fill_viewport(self)
+        self._fill_viewport_if_scene()
 
     def drawBackground(self, p, rect):
         p.beginNativePainting()
@@ -89,15 +93,9 @@ class BaseView(Qt.QGraphicsView):
         if len(v) != 3 or not all(map(lambda v_: 0 <= v_ <= 1, v)):
             raise ValueError('The iteraterable assigned to .background_color must represent 3 real numbers in the interval [0, 1].')
         self._background_color = v
-        s = self.scene()
-        if s:
-            s.invalidate()
+        self.scene().invalidate()
 
     def snapshot(self, scene_rect=None, size=None, msaa_sample_count=16):
-        scene = self.scene()
-        gl_widget = self.gl_widget
-        if None in (gl_widget, scene):
-            return
         if scene_rect is None:
             scene_rect = self.sceneRect()
         dpi_ratio = gl_widget.devicePixelRatio()
@@ -109,11 +107,11 @@ class BaseView(Qt.QGraphicsView):
             # This is an idiotic workaround, but work it does
             size = Qt.QSize(size.width() * dpi_ratio, size.height() * dpi_ratio)
         with ExitStack() as estack:
-            if hasattr(self.scene(), 'contextual_info_item') and self.scene().contextual_info_item.isVisible():
+            if self.scene().contextual_info_item.isVisible():
                 self.scene().contextual_info_item.hide()
                 estack.callback(self.scene().contextual_info_item.show)
-            gl_widget.makeCurrent()
-            estack.callback(gl_widget.doneCurrent)
+            self.gl_widget.makeCurrent()
+            estack.callback(self.gl_widget.doneCurrent)
             GL = shared_resources.QGL()
             fbo_format = Qt.QOpenGLFramebufferObjectFormat()
             fbo_format.setInternalTextureFormat(GL.GL_RGBA8)
@@ -130,9 +128,9 @@ class BaseView(Qt.QGraphicsView):
             p.begin(glpd)
             estack.callback(p.end)
             p.setRenderHints(Qt.QPainter.Antialiasing | Qt.QPainter.HighQualityAntialiasing)
-            scene.render(p, Qt.QRectF(0,0,size.width(),size.height()), scene_rect)
+            self.scene().render(p, Qt.QRectF(0,0,size.width(),size.height()), scene_rect)
             qimage = fbo.toImage()
-        return image.Image.from_qimage(qimage).data
+        return image.array_from_qimage(qimage)
 
 class _ShaderViewGLViewport(Qt.QOpenGLWidget):
     context_about_to_change = Qt.pyqtSignal(Qt.QOpenGLWidget)
