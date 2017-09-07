@@ -28,11 +28,13 @@ from PyQt5 import Qt
 
 from . import base_view
 
-
 class ImageView(base_view.BaseView):
     # mouse wheel up/down changes the zoom among values of 2**(i*ZOOM_EXPONENT) where i is an integer
     ZOOM_EXPONENT = 0.125
     zoom_changed = Qt.pyqtSignal(float)
+    # mouse_release: signal emitted after a mouse-release event (that doesn't end a drag to scroll the image)
+    # The signal contains the position of the mouse, in image coordinates
+    mouse_release = Qt.pyqtSignal(Qt.QPointF)
 
     def __init__(self, scene, parent):
         super().__init__(scene, parent)
@@ -50,16 +52,8 @@ class ImageView(base_view.BaseView):
         # in a number of places that would have to be invidually overridden, making it much simpler to
         # implement click-drag panning ourselves.
         self.setDragMode(Qt.QGraphicsView.NoDrag)
-        self._panning = False
+        self.panning = False
         self.setAcceptDrops(True)
-        # Mouse tracking generally seems to be enabled for QGraphicsViews, but the documentation does
-        # not state that this is always the case, and in fact, does state that mouse tracking defaults
-        # to disabled for QWidgets - and QGraphicsView has QWidget as a base class.  With mouse tracking
-        # disabled, we would receive mouse movement events only while a mouse button is held down.  This
-        # is not desirable: the user may depend on mouse_movement_signal for in order to implement a hover
-        # behavior, and this signal is emitted upon reception of a mouse movement event.  So, to be safe,
-        # we explicitly enable mouse tracking.
-        self.setMouseTracking(True)
         self.background_color = .5, .5, .5
 
     def _on_layer_stack_item_bounding_rect_changed(self):
@@ -75,45 +69,57 @@ class ImageView(base_view.BaseView):
 
     def mousePressEvent(self, event):
         # For our convenience, Qt sets event accepted to true before calling us, so that we don't have to in the common case
-        # where a handler handles the event and the event should be considered handled.  (Some unhandled events propagate
+        # where a handler handles the event and the event should be considered handled. (Some unhandled events propagate
         # to parent widgets, so this can be important)
         event.setAccepted(False)
-        # However, Qt's handlers are generally good citizens and will, often redundantly, set accepted to true
-        # if they recognize and respond to an event.  QGraphicsView.mousePressEvent(..) is such a handler.
+        # Now call the superclass handler, which will ask items in the graphics scene if they wanted the event.
         super().mousePressEvent(event)
         if event.isAccepted():
             return
         # If the mouse click landed on an interactive scene item, super().mousePressEvent(event) would have set
-        # event to accepted.  So, neither the view nor the scene wanted this mouse click, and we check if it is perhaps
-        # a click-drag pan initiation - or even a right click, in which case we emit a signal for use by the user
-        # (for example, in order to create a new item at a right-clicked location for a point picker).
+        # event to accepted. So, neither the view nor the scene wanted this mouse click. It may thus be a
+        # drag-pan initiation event:
         if event.button() == Qt.Qt.LeftButton:
             # It is, and we're handling this event
-            self._panning = True
             self._panning_prev_mouse_pos = event.pos()
+            self.panning = 'clicked'
             event.setAccepted(True)
 
     def mouseReleaseEvent(self, event):
         event.setAccepted(False)
-        if event.button() == Qt.Qt.LeftButton and self._panning:
-            self._panning = False
-            del self._panning_prev_mouse_pos
-            event.setAccepted(True)
-            return
         super().mouseReleaseEvent(event)
+        if event.isAccepted():
+            return
+        if event.button() == Qt.Qt.LeftButton:
+            if self.panning:
+                if self.panning != 'dragging':
+                    # if this release doesn't terminate a panning drag, then emit
+                    # a mouse-release signal for those interested.
+                    self.mouse_release.emit(self.mapToScene(event.pos()))
+                event.setAccepted(True)
+                self.panning = False
 
     def mouseMoveEvent(self, event):
         event.setAccepted(False)
         super().mouseMoveEvent(event)
         if event.isAccepted():
             return
-        if self._panning:
+        # Note: we will receive mouse move events even in the case that a QGraphicsItem
+        # is being dragged. While a QGraphicsItem that is clicked on will accept the click,
+        # so that we can distinguish between a click on an item and a click on the scene
+        # itself, for some reason QGraphicsItems that are dragged do not accept the
+        # mouseMoveEvent (indeed, the docs state that these events can't be accepted
+        # by QGraphicsItems...)
+        # So instead, we need to see if this View had previously accepted a pan-starting
+        # mouse click, or if it did not receive the click that initiated this drag.
+        if self.panning and event.buttons() & Qt.Qt.LeftButton:
+            self.panning = 'dragging'
             # This block more or less borrowed from QGraphicsView::mouseMoveEvent(QMouseEvent *event), found in
             # qtbase/src/widgets/graphicsview/qgraphicsview.cpp
             hbar, vbar = self.horizontalScrollBar(), self.verticalScrollBar()
             pos = event.pos()
             delta = pos - self._panning_prev_mouse_pos
-            hbar.setValue(hbar.value() + (delta.x() if self.isRightToLeft() else -delta.x()))
+            hbar.setValue(hbar.value() - (delta.x() if self.isLeftToRight() else -delta.x()))
             vbar.setValue(vbar.value() - delta.y())
             self._panning_prev_mouse_pos = pos
 

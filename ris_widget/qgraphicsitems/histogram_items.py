@@ -36,6 +36,7 @@ class HistogramItem(shader_item.ShaderItem):
 
     def __init__(self, layer_stack, graphics_item_parent=None):
         super().__init__(graphics_item_parent)
+        self.setAcceptHoverEvents(True)
         self.contextual_info_pos = None
         self.layer_stack = layer_stack
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)

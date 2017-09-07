@@ -97,6 +97,8 @@ class LayerStackItem(shader_item.ShaderItem):
 
     def __init__(self, layer_stack, parent_item=None):
         super().__init__(parent_item)
+        self.setAcceptHoverEvents(True)
+        self.setFlag(Qt.QGraphicsItem.ItemIsFocusable)
         self.contextual_info_pos = None
         self._bounding_rect = Qt.QRectF(self.DEFAULT_BOUNDING_RECT)
         self.layer_stack = layer_stack
@@ -256,7 +258,7 @@ class LayerStackItem(shader_item.ShaderItem):
 
     def hoverMoveEvent(self, event):
         # NB: contextual info overlay will only be correct for the first view containing this item.
-        self.contextual_info_pos = self.scene().views()[0].mapFromScene(event.scenePos())
+        self.contextual_info_pos = event.pos()
         self._update_contextual_info()
 
     def hoverLeaveEvent(self, event):
@@ -274,15 +276,8 @@ class LayerStackItem(shader_item.ShaderItem):
         if not visible_idxs or self.contextual_info_pos is None or self.scene() is None or not self.scene().views():
             self.scene().contextual_info_item.set_info_text(None)
             return
-        fpos = self.scene().views()[0].mapToScene(self.contextual_info_pos)
-        # NB: fpos is a QPointF, and one may call QPointF.toPoint(), as in the following line,
-        # to get a QPoint from it.  However, toPoint() rounds x and y coordinates to the nearest int,
-        # which would cause us to erroneously report mouse position as being over the pixel to the
-        # right and/or below if the view with the mouse cursor is zoomed in such that an layer pixel
-        # occupies more than one screen pixel and the cursor is over the right and/or bottom half
-        # of a pixel.
-        # ipos = fpos.toPoint()
-        ipos = Qt.QPoint(fpos.x(), fpos.y())
+        fpos = self.contextual_info_pos
+        ipos = Qt.QPoint(fpos.x(), fpos.y()) # don't use fpos.toPoint(): it rounds, but we need to truncate to get the right pixel if zoomed in
         cis = []
         it = iter((idx, self.layer_stack.layers[idx]) for idx in visible_idxs)
         idx, layer = next(it)

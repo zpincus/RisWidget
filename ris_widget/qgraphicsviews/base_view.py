@@ -34,7 +34,6 @@ from . import gl_logger
 class BaseView(Qt.QGraphicsView):
     def __init__(self, scene, parent):
         super().__init__(scene, parent)
-        self.setMouseTracking(True)
         self._background_color = (0.0, 0.0, 0.0)
         # It seems necessary to retain this reference.  It is available via self.viewport() after
         # the setViewport call completes, suggesting that PyQt keeps a reference to it, but this

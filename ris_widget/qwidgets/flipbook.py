@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Authors: Erik Hvatum <ice.rikh@gmail.com>
+# Authors: Erik Hvatum <ice.rikh@gmail.com>, Zach Pincus
 
 import numpy
 import pathlib
@@ -224,15 +224,22 @@ class Flipbook(Qt.QWidget):
             self._attached_page.replaced.disconnect(self.apply)
             self._attached_page = None
 
-    def add_image_files(self, image_fpaths, page_names=None, image_names=None, insertion_point=-1):
-        """image_fpaths: An iterable of filenames and/or iterables of filenames, with
-        a filename being either a pathlib.Path object or a string.
+    def add_image_files(self, image_paths, page_names=None, image_names=None, insertion_point=None):
+        """Add image files (or stacks of image files) to the flipbook.
 
-        page_names: iterable of same length as image_fpaths, containing
-            names for each entry to display in the flipbook. Optional.
-
-        image_names: iterable of same structure as image_fpaths, containing
-            the desired image name for each loaded image. Optional.
+        Parameters:
+            image_paths: A list containing filenames and/or lists of filenames,
+                where a filename is either a pathlib.Path object or a string.
+            page_names: A list of the same length as image_paths, containing
+                names for each entry to display in the flipbook. If not
+                specified, the page names will be derived from the unique
+                components of each entry image_paths.
+            image_names: A list of same structure as image_paths, containing
+                the desired image name for each loaded image. If not specified,
+                the image name will be the full path to each image.
+            insertion_point: numerical index before which to insert the images
+                in the flipbook (negative values permitted). If not specified,
+                images will be inserted after the last entry.
 
         Returns list of futures objects corresponding to the page-IO tasks.
         To wait until read is done, call concurrent.futures.wait() on this list.
@@ -240,7 +247,7 @@ class Flipbook(Qt.QWidget):
         if freeimage is None:
             raise RuntimeError('Could not import freeimage module for image IO')
         paths = []
-        for p in image_fpaths:
+        for p in image_paths:
             if isinstance(p, (str, pathlib.Path)):
                 p = [p]
             paths.append([pathlib.Path(pp) for pp in p])
@@ -269,6 +276,9 @@ class Flipbook(Qt.QWidget):
             task_page.im_fpaths = file_paths
             assert len(task_page.im_names) == len(task_page.im_fpaths)
             task_pages.append(task_page)
+
+        if insertion_point is None:
+            insertion_point = len(self.pages)
         return self.queue_page_creation_tasks(insertion_point, task_pages)
 
 

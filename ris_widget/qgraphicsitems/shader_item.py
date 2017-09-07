@@ -33,7 +33,6 @@ class ShaderItem(Qt.QGraphicsObject):
     def __init__(self, parent=None):
         Qt.QGraphicsObject.__init__(self, parent)
         self.progs = {}
-        self.setAcceptHoverEvents(True)
 
     def type(self):
         raise NotImplementedError()

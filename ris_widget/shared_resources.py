@@ -97,11 +97,9 @@ def QGL():
     if not GL.initializeOpenGLFunctions():
         raise RuntimeError('Failed to initialize OpenGL wrapper namespace.')
     _GL_CACHE[context] = GL
-    context.destroyed[Qt.QObject].connect(_on_destruction_of_context_with_cached_gl)
+    context.aboutToBeDestroyed.connect(lambda: _GL_CACHE.pop(context))
     return GL
 
-def _on_destruction_of_context_with_cached_gl(context):
-    del _GL_CACHE[context]
 
 _GL_EXTS_QUERIED = False
 NV_PATH_RENDERING_AVAILABLE = False

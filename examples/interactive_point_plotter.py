@@ -17,6 +17,6 @@ def plot(positions, values, radius, rw):
     colors = colorize.color_map(colorize.scale(values, output_max=1))
     circles = [Circle(x, y, radius, color, metadata=(x, y, value)) for (x, y), color, value in zip(positions, colors, values)]
     for c in circles:
-        rw.main_scene.addItem(c)
+        rw.image_scene.addItem(c)
     return circles
 

@@ -37,9 +37,8 @@ from .qwidgets import flipbook
 from .qwidgets import fps_display
 from .qwidgets import layer_table
 from .qwidgets import layer_stack_painter
-from .qgraphicsscenes import image_scene
+from . import qgraphicsscenes
 from .qgraphicsviews import image_view
-from .qgraphicsscenes import histogram_scene
 from .qgraphicsviews import histogram_view
 
 try:
@@ -70,8 +69,8 @@ def _atexit_cleanup():
     app = Qt.QApplication.instance()
     if app is None:
         return
-    for context in shared_resources._GL_CACHE.keys():
-        context.destroyed[Qt.QObject].disconnect(shared_resources._on_destruction_of_context_with_cached_gl)
+    # for context in shared_resources._GL_CACHE.keys():
+    #     context.destroyed[Qt.QObject].disconnect(shared_resources._on_destruction_of_context_with_cached_gl)
     app.aboutToQuit.emit()
 
 _QAPPLICATION = None
@@ -94,19 +93,13 @@ def _init_qapplication():
             pass
 
 class RisWidgetQtObject(Qt.QMainWindow):
-    main_view_change_signal = Qt.pyqtSignal(Qt.QTransform, Qt.QRectF)
+    image_view_change_signal = Qt.pyqtSignal(Qt.QTransform, Qt.QRectF)
 
-    def __init__(
-            self,
-            app_prefs_name=None,
-            window_title='RisWidget',
-            parent=None,
-            window_flags=Qt.Qt.WindowFlags(0),
-            layers=tuple()):
+    def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
 
         _init_qapplication()
 
-        super().__init__(parent, window_flags)
+        super().__init__(parent)
         self.app_prefs_name = app_prefs_name
         self._shown = False
         # TODO: is below workaround still necessary?
@@ -128,8 +121,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self._init_actions()
         self._init_toolbars()
         self._init_menus()
-        if layers:
-            self.layer_stack.layers = layers
         # RisWidgetQtObject's C++ personality is the QObject-N-parent of lots of Qt stuff that does not appreciate
         # being destroyed by Python's last-pass garbage collection or even simply when no QApplication is running.
         # Therefore, we connect the running QApplication's about to quit signal to our own C++ personality's
@@ -144,10 +135,10 @@ class RisWidgetQtObject(Qt.QMainWindow):
         atexit.unregister(_atexit_cleanup)
 
     def _init_scenes_and_views(self):
-        self.main_scene = image_scene.ImageScene(self, self.layer_stack)
-        self.main_view = image_view.ImageView(self.main_scene, self)
-        self.setCentralWidget(self.main_view)
-        self.histogram_scene = histogram_scene.HistogramScene(self, self.layer_stack)
+        self.image_scene = qgraphicsscenes.ImageScene(self, self.layer_stack)
+        self.image_view = image_view.ImageView(self.image_scene, self)
+        self.setCentralWidget(self.image_view)
+        self.histogram_scene = qgraphicsscenes.HistogramScene(self, self.layer_stack)
         self.histogram_dock_widget = Qt.QDockWidget('Histogram', self)
         self.histogram_view, self._histogram_frame = histogram_view.HistogramView.make_histogram_view_and_frame(self.histogram_scene, self.histogram_dock_widget)
         self.histogram_dock_widget.setWidget(self._histogram_frame)
@@ -180,7 +171,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_table_dock_widget.hide()
         self.fps_display_dock_widget = Qt.QDockWidget('FPS', self)
         self.fps_display = fps_display.FPSDisplay()
-        self.main_scene.layer_stack_item.painted.connect(self.fps_display.notify)
+        self.image_scene.layer_stack_item.painted.connect(self.fps_display.notify)
         self.fps_display_dock_widget.setWidget(self.fps_display)
         self.fps_display_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
         self.fps_display_dock_widget.setFeatures(
@@ -193,12 +184,12 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.flipbook_focus_prev_page_action.setText('Previous Page')
         self.flipbook_focus_prev_page_action.setShortcut(Qt.Qt.Key_PageUp)
         self.flipbook_focus_prev_page_action.triggered.connect(self.flipbook.focus_prev_page)
-        self.flipbook_focus_prev_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        # self.flipbook_focus_prev_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.flipbook_focus_next_page_action = Qt.QAction(self)
         self.flipbook_focus_next_page_action.setText('Next Page')
         self.flipbook_focus_next_page_action.setShortcut(Qt.Qt.Key_PageDown)
         self.flipbook_focus_next_page_action.triggered.connect(self.flipbook.focus_next_page)
-        self.flipbook_focus_next_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        # self.flipbook_focus_next_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.layer_stack_reset_curr_min_max_action = Qt.QAction(self)
         self.layer_stack_reset_curr_min_max_action.setText('Reset Min/Max')
         self.layer_stack_reset_curr_min_max_action.triggered.connect(self._on_reset_min_max)
@@ -215,15 +206,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_property_stack_load_action = Qt.QAction(self)
         self.layer_property_stack_load_action.setText('Load layer property stack from file...')
         self.layer_property_stack_load_action.triggered.connect(self._on_load_layer_property_stack)
-        if sys.platform == 'darwin':
-            self.exit_fullscreen_action = Qt.QAction(self)
-            # If self.exit_fullscreen_action's text were "Exit Full Screen Mode" as we desire,
-            # we would not be able to add it as a menu entry (http://doc.qt.io/qt-5/qmenubar.html#qmenubar-on-os-x).
-            # "Leave Full Screen Mode" is a compromise.
-            self.exit_fullscreen_action.setText('Leave Full Screen Mode')
-            self.exit_fullscreen_action.triggered.connect(self.showNormal)
-            self.exit_fullscreen_action.setShortcut(Qt.Qt.Key_Escape)
-            self.exit_fullscreen_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.layer_stack.solo_layer_mode_action.setShortcut(Qt.Qt.Key_Space)
         self.layer_stack.solo_layer_mode_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         if freeimage is not None:
@@ -259,14 +241,14 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_stack_painter_dock_widget.toggleViewAction().toggled.connect(self._on_layer_stack_painter_dock_widget_visibility_toggled)
 
     def _init_toolbars(self):
-        self.main_view_toolbar = self.addToolBar('Main View')
+        self.main_view_toolbar = self.addToolBar('Image')
         self.zoom_editor = Qt.QLineEdit()
         self.zoom_editor.setFixedWidth(68)
         self.zoom_editor.editingFinished.connect(self._on_zoom_editing_finished)
         self.zoom_editor.setAlignment(Qt.Qt.AlignCenter)
         self.main_view_toolbar.addWidget(self.zoom_editor)
-        self.main_view.zoom_changed.connect(self._main_view_zoom_changed)
-        self.main_view_toolbar.addAction(self.main_view.zoom_to_fit_action)
+        self.image_view.zoom_changed.connect(self._image_view_zoom_changed)
+        self.main_view_toolbar.addAction(self.image_view.zoom_to_fit_action)
         self.main_view_toolbar.addAction(self.layer_stack_reset_curr_min_max_action)
         self.main_view_toolbar.addAction(self.layer_stack_reset_curr_gamma_action)
         self.main_view_toolbar.addAction(self.layer_stack.auto_min_max_all_action)
@@ -284,9 +266,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         m.addAction(self.layer_property_stack_save_action)
         m.addAction(self.layer_property_stack_load_action)
         m = mb.addMenu('View')
-        if sys.platform == 'darwin':
-            m.addAction(self.exit_fullscreen_action)
-            m.addSeparator()
         m.addAction(self.flipbook_focus_prev_page_action)
         m.addAction(self.flipbook_focus_next_page_action)
         m.addAction(self.flipbook.toggle_playing_action)
@@ -301,11 +280,11 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def _on_layer_stack_painter_dock_widget_visibility_toggled(self, is_visible):
         if is_visible:
             if self.layer_stack_painter is None:
-                self.layer_stack_painter = layer_stack_painter.LayerStackPainter(self.main_scene.layer_stack_item)
+                self.layer_stack_painter = layer_stack_painter.LayerStackPainter(self.image_scene.layer_stack_item)
                 self.layer_stack_painter_dock_widget.setWidget(self.layer_stack_painter)
         else:
             if self.layer_stack_painter is not None:
-                self.main_scene.removeItem(self.layer_stack_painter.painter_item)
+                self.image_scene.removeItem(self.layer_stack_painter.painter_item)
                 self.layer_stack_painter = None
 
     def showEvent(self, event):
@@ -399,7 +378,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         # elif not multilayer and visible:
         #     self.layer_table_dock_widget.hide()
 
-    def _main_view_zoom_changed(self, zoom):
+    def _image_view_zoom_changed(self, zoom):
         zoom = format(100*zoom, '.1f').rstrip('0').rstrip('.') + '%'
         self.zoom_editor.setText(zoom)
 
@@ -409,11 +388,11 @@ class RisWidgetQtObject(Qt.QMainWindow):
             zoom = float(zoom) / 100
         except ValueError:
             # reset the text to the current zoom
-            self._main_view_zoom_changed(self.main_view.zoom)
+            self._image_view_zoom_changed(self.image_view.zoom)
             self.zoom_editor.setFocus()
             self.zoom_editor.selectAll()
         else:
-            self.main_view.zoom = zoom
+            self.image_view.zoom = zoom
 
     def _on_reset_min_max(self):
         layer = self.focused_layer
@@ -444,7 +423,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Snapshot', filter='Images (*.png *.jpg *.tiff *.tif)')
 
         if fn:
-            freeimage.write(self.main_view.snapshot(), fn)
+            freeimage.write(self.image_view.snapshot(), fn)
 
     def _on_save_layer_property_stack(self):
         # if sys.platform == 'darwin':
@@ -496,53 +475,30 @@ class ProxyProperty(property):
         self.proxied_property.fdel(getattr(obj, self.owner_name))
 
 class RisWidget:
-    """RisWidget: A window for viewing images and image stacks from files and live data sources, containing
-    an interactive histogram, list view of loaded images and image stacks, and an extensible graphics view.
-    The RisWidget class itself presents a handful of properties and attributes, signals, and methods that tend
-    to be the most used for day-to-day tasks.  These are proxies back to the their implementations in
-    RisWidgetQtObject and its constituent components.  The wrapped RisWidgetQtObject is available as
-    .qt_object (eg, rw.qt_object, where rw is a RisWidget instance).
-
-    Signals:
-    * main_view_mouse_movement_signal(view_coordinate, scene_coordinate)
-    * main_view_right_click_signal(view_coordinate, scene_coordinate)"""
-    # TODO: clarify main scene / view / layer stack etc.
-    APP_PREFS_NAME = "RisWidget"
-    COPY_REFS = [
-        'flipbook',
-        'main_scene',
-        'main_view',
-        'layer_stack',
-        ('main_scene.viewport_rect_item', 'main_viewport'),
-        'show',
-        'hide',
-        'close'
-    ]
-    QT_OBJECT_CLASS = RisWidgetQtObject
-
-    def __init__(self, window_title='RisWidget', parent=None, window_flags=Qt.Qt.WindowFlags(0), show=True, layers=tuple(), **kw):
-        self.qt_object = self.QT_OBJECT_CLASS(
-            app_prefs_name=self.APP_PREFS_NAME,
-            window_title=window_title,
-            parent=parent,
-            window_flags=window_flags,
-            layers=layers,
-            **kw)
-        self.main_view_change_signal = self.qt_object.main_view_change_signal
-        for refdesc in self.COPY_REFS:
-            if isinstance(refdesc, str):
-                path, name = refdesc, refdesc
-            else:
-                path, name = refdesc
-                obj = self.qt_object
-            obj = self.qt_object
-            for element in path.split('.'):
-                obj = getattr(obj, element)
-            setattr(self, name, obj)
+    def __init__(self, window_title='RisWidget'):
+        self.qt_object = RisWidgetQtObject(app_prefs_name='RisWidget', window_title=window_title)
+        qo = self.qt_object
+        self.image_view_change_signal = qo.image_view_change_signal
+        self.flipbook = qo.flipbook
+        self.image_scene = qo.image_scene
+        self.image_view = qo.image_view
+        self.image_viewport = qo.image_scene.viewport_rect_item
+        self.layer_stack = qo.layer_stack
+        self.show = qo.show
+        self.hide = qo.hide
+        self.close = qo.close
         self.add_image_files_to_flipbook = self.flipbook.add_image_files
-        self.snapshot = self.qt_object.main_view.snapshot
-        if show:
-            self.show()
+        self.snapshot = self.qt_object.image_view.snapshot
+        self.actions = {}
+        self.show()
+
+    def add_action(self, name, shortcut_key, function):
+        action = Qt.QAction(name, self.qt_object)
+        action.setShortcut(shortcut_key)
+        action.triggered.connect(function)
+        self.qt_object.addAction(action)
+        self.actions[name] = action
+        return action
 
     def update(self):
         """Calling this method on the main thread updates all Qt widgets immediately, without requiring

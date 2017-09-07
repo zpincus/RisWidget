@@ -73,7 +73,7 @@ class FlipbookPagePolyLineAnnotator(FlipbookPageAnnotator):
             ('baz', float, -1.1, -1000, 1101.111),
             ('choice', tuple, 'za', list('aaaa basd casder eadf ZZza aasdfer lo ad bas za e12 1'.split())),
             ('toggle', bool, False),
-            ('line_points', PolyLinePointPicker.POINT_LIST_TYPE, [(10,100),(100,10)], rw.main_scene.layer_stack_item, rw.main_view)
+            ('line_points', PolyLinePointPicker.POINT_LIST_TYPE, [(10,100),(100,10)], rw.image_scene.layer_stack_item, rw.image_view)
         )
     )
     fpa.show()"""

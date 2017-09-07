@@ -20,11 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Authors: Erik Hvatum <ice.rikh@gmail.com>
+# Authors: Erik Hvatum <ice.rikh@gmail.com>, Zach Pincus
 
 from PyQt5 import Qt
-from ..qgraphicsitems import viewport_rect_item
-from ..qgraphicsitems import contextual_info_item
+from .qgraphicsitems import viewport_rect_item
+from .qgraphicsitems import contextual_info_item
+from .qgraphicsitems import layer_stack_item
+from .qgraphicsitems import histogram_items
 
 class BaseScene(Qt.QGraphicsScene):
     """BaseScene provides for creating and maintaining a ContextualInfoItem (or compatible).
@@ -55,3 +57,26 @@ class BaseScene(Qt.QGraphicsScene):
         view_origin = view.mapToScene(0,0)
         if self.viewport_rect_item.pos() != view_origin:
             self.viewport_rect_item.setPos(view_origin)
+
+
+class ImageScene(BaseScene):
+    def __init__(self, parent, layer_stack):
+        super().__init__(parent)
+        self.layer_stack_item = layer_stack_item.LayerStackItem(layer_stack=layer_stack)
+        self.layer_stack_item.bounding_rect_changed.connect(self._on_layer_stack_item_bounding_rect_changed)
+        self.addItem(self.layer_stack_item)
+
+    def _on_layer_stack_item_bounding_rect_changed(self):
+        self.setSceneRect(self.layer_stack_item.boundingRect())
+        view = self.views()[0] # image scenes have only one view
+        self.fill_viewport(view)
+        view._on_layer_stack_item_bounding_rect_changed()
+
+
+class HistogramScene(BaseScene):
+    def __init__(self, parent, layer_stack):
+        super().__init__(parent)
+        self.setSceneRect(0, 0, 1, 1)
+        self.histogram_item = histogram_items.HistogramItem(layer_stack=layer_stack)
+        self.addItem(self.histogram_item)
+

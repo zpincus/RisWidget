@@ -61,7 +61,7 @@ class SimplePointPicker(Qt.QGraphicsObject):
     from ris_widget.ris_widget import RisWidget
     from ris_widget.examples.simple_point_picker import SimplePointPicker
     rw = RisWidget()
-    simple_point_picker = SimplePointPicker(rw.main_view, rw.main_scene.layer_stack_item)"""
+    simple_point_picker = SimplePointPicker(rw.image_view, rw.image_scene.layer_stack_item)"""
     QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
 
     point_item_position_has_changed = Qt.pyqtSignal(PointItem)

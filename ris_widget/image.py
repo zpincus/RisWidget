@@ -113,7 +113,7 @@ class Image(Qt.QObject):
         """
         The .refresh method should be called after modifying the contents of .data.
 
-        The .refresh method is primarily useful to cause a user interface to update in response to data changes caused by manipulation of .data.data or
+        The .refresh method is primarily useful to cause a user interface to update in response to data changes caused by manipulation of .data or
         another numpy view of the same memory."""
         self.async_texture = async_texture.AsyncTexture(
             self._data,

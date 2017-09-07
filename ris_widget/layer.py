@@ -204,6 +204,12 @@ class Layer(qt_property.QtPropertyOwner):
                 self._image.changed.disconnect(self._on_image_changed)
             self._image = v
             if v is not None:
+                min, max = self._image.valid_range
+                if not (min <= self.histogram_min <= max):
+                    del self.histogram_min # reset histogram min (delattr on the qt_property returns it to the default)
+                if not (min <= self.histogram_max <= max):
+                    del self.histogram_max # reset histogram min (delattr on the qt_property returns it to the default)
+
                 self.dtype = v.data.dtype
                 self.type = v.type
                 self.size = v.size
