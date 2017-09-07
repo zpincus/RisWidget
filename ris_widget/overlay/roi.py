@@ -115,6 +115,7 @@ class _ROIMixin:
         scene = self.rw.image_scene
         scene.removeItem(self)
         scene.layer_stack_item.removeSceneEventFilter(self)
+        del self.rw
 
     def shape(self):
         s = Qt.QPainterPathStroker()
@@ -242,7 +243,11 @@ class EllipseROI(_ROIMixin, Qt.QGraphicsEllipseItem):
 
 class _ResizeHandle(Qt.QGraphicsRectItem):
     def __init__(self, parent, color):
-        super().__init__(-3, -3, 6, 6, parent)
+        super().__init__(-3, -3, 6, 6)
+        # TODO: WTF with PyQt5 v. 5.9 on Linux, core is dumped if the parent
+        # is set in the constructor above. (Only if the parent is a subclass
+        # of _ROIMixin?!) But parenting later works fine.
+        self.setParentItem(parent)
         view = self.scene().views()[0]
         self._zoom_changed(view.zoom)
         view.zoom_changed.connect(self._zoom_changed)
