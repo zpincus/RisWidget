@@ -27,6 +27,7 @@ import math
 from PyQt5 import Qt
 
 from . import base_view
+from .. import internal_util
 
 class ImageView(base_view.BaseView):
     # mouse wheel up/down changes the zoom among values of 2**(i*ZOOM_EXPONENT) where i is an integer
@@ -43,7 +44,7 @@ class ImageView(base_view.BaseView):
         self.zoom_to_fit_action = Qt.QAction('Zoom to Fit', self)
         self.zoom_to_fit_action.setCheckable(True)
         self.zoom_to_fit_action.setChecked(True)
-        self._ignore_zoom_to_fit_action_toggle = False
+        self._ignore_zoom_to_fit_action_toggle = internal_util.Condition()
         self.zoom_to_fit_action.toggled.connect(self.on_zoom_to_fit_action_toggled)
         self.zoom_changed.connect(self._on_zoom_changed)
         # Calling self.setDragMode(Qt.QGraphicsView.ScrollHandDrag) would enable QGraphicsView's built-in
@@ -171,9 +172,8 @@ class ImageView(base_view.BaseView):
         self.scale(scale_zoom, scale_zoom)
         self.setTransformationAnchor(Qt.QGraphicsView.AnchorViewCenter)
         if self.zoom_to_fit:
-            self._ignore_zoom_to_fit_action_toggle = True
-            self.zoom_to_fit_action.setChecked(False)
-            self._ignore_zoom_to_fit_action_toggle = False
+            with self._ignore_zoom_to_fit_action_toggle:
+                self.zoom_to_fit_action.setChecked(False)
         self.zoom_changed.emit(self._zoom)
 
     def on_zoom_to_fit_action_toggled(self):
@@ -199,9 +199,8 @@ class ImageView(base_view.BaseView):
     def zoom(self, zoom):
         self._zoom = zoom
         if self.zoom_to_fit:
-            self._ignore_zoom_to_fit_action_toggle = True
-            self.zoom_to_fit_action.setChecked(False)
-            self._ignore_zoom_to_fit_action_toggle = False
+            with self._ignore_zoom_to_fit_action_toggle:
+                self.zoom_to_fit_action.setChecked(False)
         self._apply_zoom()
 
     def _apply_zoom(self):

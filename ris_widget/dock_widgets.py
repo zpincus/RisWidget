@@ -1,5 +1,6 @@
 from PyQt5 import Qt
 
+from . import internal_util
 from .qwidgets import layer_stack_painter
 from .qwidgets import annotator
 
@@ -36,13 +37,7 @@ class Annotator(_RWDockWidget):
     def _init_widget(self, rw):
         self.widget = annotator.Annotator(rw, self.fields, parent=self)
 
-    @property
-    def all_annotations(self):
-        return self.widget.all_annotations
-
-    @all_annotations.setter
-    def all_annotations(self, v):
-        self.widget.all_annotations = v
+    all_annotations = internal_util.ProxyProperty('widget', annotator.Annotator.all_annotations)
 
     @property
     def current_annotations(self):

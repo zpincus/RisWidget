@@ -30,6 +30,7 @@ from PyQt5 import Qt
 import sys
 
 from . import shared_resources
+from . import internal_util
 from . import async_texture
 from . import layer
 from . import layer_stack
@@ -331,14 +332,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def image(self, v):
         self.layer.image = v
 
-    @property
-    def mask(self):
-        return self.layer_stack.imposed_image_mask
-
-    @mask.setter
-    def mask(self, v):
-        self.layer_stack.imposed_image_mask = v
-
     def _update_flipbook_visibility(self):
         visible = self.flipbook_dock_widget.isVisible()
         has_pages = len(self.flipbook.pages) > 0
@@ -435,23 +428,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
                 if l is not None:
                     self.layers = l
 
-class ProxyProperty(property):
-    def __init__(self, name, owner_name, owner_type):
-        self.owner_name = owner_name
-        self.proxied_property = getattr(owner_type, name)
-        self.__doc__ = getattr(owner_type, '__doc__')
-
-    def __get__(self, obj, _=None):
-        if obj is None:
-            return self.proxied_property
-        return self.proxied_property.fget(getattr(obj, self.owner_name))
-
-    def __set__(self, obj, v):
-        self.proxied_property.fset(getattr(obj, self.owner_name), v)
-
-    def __delete__(self, obj):
-        self.proxied_property.fdel(getattr(obj, self.owner_name))
-
 class RisWidget:
     def __init__(self, window_title='RisWidget'):
         self.qt_object = RisWidgetQtObject(app_prefs_name='RisWidget', window_title=window_title)
@@ -508,14 +484,13 @@ class RisWidget:
         """
         Qt.QApplication.processEvents()
 
-    image = ProxyProperty('image', 'qt_object', RisWidgetQtObject)
-    layer = ProxyProperty('layer', 'qt_object', RisWidgetQtObject)
-    focused_layer = ProxyProperty('focused_layer', 'qt_object', RisWidgetQtObject)
-    layers = ProxyProperty('layers', 'qt_object', RisWidgetQtObject)
-    mask = ProxyProperty('mask', 'qt_object', RisWidgetQtObject)
+    image = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.image)
+    layer = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.layer)
+    focused_layer = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.focused_layer)
+    layers = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.layers)
     # It is not easy to spot the pages property of a flipbook amongst the many possibilities visibile in dir(Flipbook).  So,
     # although flipbook_pages saves no characters compared to flipbook.pages, flipbook_pages is nice to have.
-    flipbook_pages = ProxyProperty('pages', 'flipbook', flipbook.Flipbook)
+    flipbook_pages = internal_util.ProxyProperty('flipbook', flipbook.Flipbook.pages)
 
 if __name__ == '__main__':
     import sys

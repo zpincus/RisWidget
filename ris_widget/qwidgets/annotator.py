@@ -29,7 +29,6 @@ class AnnotationField:
         self.init_widget()
         self.widget.setEnabled(False)
         self.default = default
-        self._gui_changing = False
 
     def init_widget(self):
         """Overrride in subclass to initialize widget."""
@@ -38,25 +37,24 @@ class AnnotationField:
     def set_annotations(self, annotations):
         """Receive a new annotation dictionary, which may be None to indicate
         an invalid state where the widget should be disabled."""
-        self._gui_changing = True
+        self.annotations = annotations
         if annotations is None:
             self.widget.setEnabled(False)
             self.update_widget(None)
         else:
             if self.enablable:
                 self.widget.setEnabled(True)
-            self.annotations = annotations
             self.update_widget(annotations.setdefault(self.name, self.default))
-        self._gui_changing = False
 
     def update_annotation_data(self, value):
         """Call from subclass when there is a new value from the GUI."""
-        if not self._gui_changing:
+        if self.annotations is not None:
             self.annotations[self.name] = value
 
     def update_widget(self, value):
         """Override in subclasses to give widget new data on page change. Must accept None."""
         raise NotImplementedError
+
 
 class BoolField(AnnotationField):
     def __init__(self, name, default=False):
@@ -87,7 +85,8 @@ class NonWidgetAnnotation(AnnotationField):
     def update_widget(self, value):
         self.widget.setChecked(value is not None)
 
-class OverlapAnnotation(NonWidgetAnnotation):
+
+class OverlayAnnotation(NonWidgetAnnotation):
     def __init__(self, name, overlay, default=None):
         super().__init__(name, default)
         self.overlay = overlay

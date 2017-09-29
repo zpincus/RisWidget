@@ -28,8 +28,10 @@ import numpy
 import OpenGL
 import OpenGL.GL as PyGL
 from PyQt5 import Qt
+
 from . import shader_item
 from .. import shared_resources
+from .. import internal_util
 
 class HistogramItem(shader_item.ShaderItem):
     QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
@@ -264,7 +266,7 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
         # selected items if their viewport has focus (viewport focus is also not indicated).
         # Items are non-selectable by default; the following line is present only to make intent clear.
         #self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, False)
-        self._ignore_x_change = False
+        self._ignore_x_change = internal_util.Condition()
         self.setY(0.5)
         self.xChanged.connect(self._on_x_changed)
         self.yChanged.connect(self._on_y_changed)
@@ -311,13 +313,10 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
             self.setY(0.5)
 
     def _on_value_changed(self):
-        self._ignore_x_change = True
-        try:
+        with self._ignore_x_change:
             layer = self.parentItem().layer
             r = layer.histogram_min, layer.histogram_max
             self.setX( (getattr(layer, self.name) - r[0]) / (r[1] - r[0]) )
-        finally:
-            self._ignore_x_change = False
 
 class GammaItem(Qt.QGraphicsObject):
     QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
