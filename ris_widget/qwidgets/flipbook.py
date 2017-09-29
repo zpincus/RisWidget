@@ -466,36 +466,17 @@ class Flipbook(Qt.QWidget):
 
     @selected_page_idxs.setter
     def selected_page_idxs(self, idxs):
-        idxs = sorted(idxs)
-        if not idxs:
-            self.pages_view.selectionModel().clearSelection()
-            return
-        page_count = len(self.pages)
-        idxs = [idx for idx in sorted(idxs) if 0 <= idx < page_count]
-        # "run" as in consecutive indexes specified as range rather than individually
-        run_start_idx = idxs[0]
-        run_end_idx = idxs[0]
-        runs = []
-        for idx in idxs[1:]:
-            if idx == run_end_idx + 1:
-                run_end_idx = idx
-            else:
-                runs.append((run_start_idx, run_end_idx))
-                run_end_idx = run_start_idx = idx
-        runs.append((run_start_idx, run_end_idx))
-        m = self.pages_model
         item_selection = Qt.QItemSelection()
-        for run_start_idx, run_end_idx in runs:
-            item_selection.append(Qt.QItemSelectionRange(m.index(run_start_idx, 0), m.index(run_end_idx, 0)))
+        for idx in idxs:
+            item_selection.append(Qt.QItemSelectionRange(self.pages_model.index(idx, 0)))
         sm = self.pages_view.selectionModel()
         sm.select(item_selection, Qt.QItemSelectionModel.ClearAndSelect)
-        if self.focused_page_idx not in idxs:
-            sm.setCurrentIndex(m.index(idxs[0], 0), Qt.QItemSelectionModel.Current)
+        if idxs and self.focused_page_idx not in idxs:
+            sm.setCurrentIndex(self.pages_model.index(idxs[0], 0), Qt.QItemSelectionModel.Current)
 
     @property
     def selected_pages(self):
-        pages = self.pages
-        return [pages[idx] for idx in self.selected_page_idxs]
+        return [self.pages[idx] for idx in self.selected_page_idxs]
 
     def ensure_page_focused(self):
         """If no page is selected and .pages is not empty:

@@ -65,43 +65,47 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         return self._boundingRect
 
     def sceneEventFilter(self, watched, event):
-        if (self.target_image is not None and
-            watched is self.parentItem() and
-            event.type() in (Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove) and
-            event.buttons() == Qt.Qt.RightButton and
-            event.modifiers() in (Qt.Qt.ShiftModifier, Qt.Qt.NoModifier)
-        ):
-            brush = self.brush if event.modifiers() == Qt.Qt.NoModifier else self.alternate_brush
-            if brush is None:
-                return False
-            p = self.mapFromScene(event.scenePos())
-            br_sz, ti_sz = self._boundingRect.toRect().size(), self.target_image.size
-            if br_sz != ti_sz:
-                p.setX(p.x() * ti_sz.width()/br_sz.width())
-                p.setY(p.y() * ti_sz.height()/br_sz.height())
-            p = Qt.QPoint(p.x(), p.y())
-            im = self.target_image
-            r = Qt.QRect(p.x(), p.y(), *brush.mask.shape)
-            r.translate(-brush.center[0], -brush.center[1])
-            if not r.intersects(Qt.QRect(Qt.QPoint(), im.size)):
-                return False
-            br = Qt.QRect(0, 0, *brush.mask.shape)
-            if r.left() < 0:
-                br.setLeft(-r.x())
-                r.setLeft(0)
-            if r.top() < 0:
-                br.setTop(-r.y())
-                r.setTop(0)
-            if r.right() >= im.size.width():
-                br.setRight(br.right() - (r.right() - im.size.width() + 1))
-                r.setRight(im.size.width() - 1)
-            if r.bottom() >= im.size.height():
-                br.setBottom(br.bottom() - (r.bottom() - im.size.height() + 1))
-                r.setBottom(im.size.height() - 1)
-            brush.apply(im.data[r.left():r.right()+1,r.top():r.bottom()+1], br)
-            self.target_image.refresh()
-            return True
-        return False
+        if not (self.isVisible()
+                and self.target_image is not None
+                and event.type() in {Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove}
+                and event.buttons() == Qt.Qt.RightButton
+                and event.modifiers() in (Qt.Qt.ShiftModifier, Qt.Qt.NoModifier)):
+            return False
+
+        brush = self.brush if event.modifiers() == Qt.Qt.NoModifier else self.alternate_brush
+        if brush is None:
+            return False
+
+        p = self.mapFromScene(event.scenePos())
+        target_size = self.target_image.size
+        target_width = target_size.width()
+        target_height = target_size.height()
+        if self._boundingRect.toRect().size() != target_size:
+            p.setX(p.x() * target_width / bounding_size.width())
+            p.setY(p.y() * target_height / bounding_size.height())
+
+        p = Qt.QPoint(p.x(), p.y())
+        r = Qt.QRect(p.x(), p.y(), *brush.mask.shape)
+        r.translate(-brush.center[0], -brush.center[1])
+        if not r.intersects(Qt.QRect(Qt.QPoint(), target_size)):
+            return False
+
+        br = Qt.QRect(0, 0, *brush.mask.shape)
+        if r.left() < 0:
+            br.setLeft(-r.x())
+            r.setLeft(0)
+        if r.top() < 0:
+            br.setTop(-r.y())
+            r.setTop(0)
+        if r.right() >= target_width:
+            br.setRight(br.right() - (r.right() - target_width + 1))
+            r.setRight(target_width - 1)
+        if r.bottom() >= target_height:
+            br.setBottom(br.bottom() - (r.bottom() - target_height + 1))
+            r.setBottom(target_height - 1)
+        brush.apply(self.target_image.data[r.left():r.right()+1, r.top():r.bottom()+1], br)
+        self.target_image.refresh()
+        return True
 
     def _on_layer_stack_item_bounding_rect_changed(self):
         self.prepareGeometryChange()

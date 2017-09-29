@@ -117,7 +117,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_stack = layer_stack.LayerStack()
         self._init_scenes_and_views()
         self._init_flipbook()
-        self._init_layer_stack_painter()
         self._init_actions()
         self._init_toolbars()
         self._init_menus()
@@ -182,14 +181,14 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def _init_actions(self):
         self.flipbook_focus_prev_page_action = Qt.QAction(self)
         self.flipbook_focus_prev_page_action.setText('Previous Page')
-        self.flipbook_focus_prev_page_action.setShortcut(Qt.Qt.Key_PageUp)
+        self.flipbook_focus_prev_page_action.setShortcut(Qt.Qt.Key_Up)
         self.flipbook_focus_prev_page_action.triggered.connect(self.flipbook.focus_prev_page)
-        # self.flipbook_focus_prev_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        self.flipbook_focus_prev_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.flipbook_focus_next_page_action = Qt.QAction(self)
         self.flipbook_focus_next_page_action.setText('Next Page')
-        self.flipbook_focus_next_page_action.setShortcut(Qt.Qt.Key_PageDown)
+        self.flipbook_focus_next_page_action.setShortcut(Qt.Qt.Key_Down)
         self.flipbook_focus_next_page_action.triggered.connect(self.flipbook.focus_next_page)
-        # self.flipbook_focus_next_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
+        self.flipbook_focus_next_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.layer_stack_reset_curr_min_max_action = Qt.QAction(self)
         self.layer_stack_reset_curr_min_max_action.setText('Reset Min/Max')
         self.layer_stack_reset_curr_min_max_action.triggered.connect(self._on_reset_min_max)
@@ -230,16 +229,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.dragMoveEvent = self.flipbook.pages_view.dragMoveEvent
         self.dropEvent = self.flipbook.pages_view.dropEvent
 
-    def _init_layer_stack_painter(self):
-        self.layer_stack_painter_dock_widget = Qt.QDockWidget('Painter', self)
-        self.layer_stack_painter_dock_widget.setAllowedAreas(Qt.Qt.RightDockWidgetArea | Qt.Qt.LeftDockWidgetArea)
-        self.layer_stack_painter_dock_widget.setFeatures(
-            Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
-        self.addDockWidget(Qt.Qt.RightDockWidgetArea, self.layer_stack_painter_dock_widget)
-        self.layer_stack_painter_dock_widget.hide()
-        self.layer_stack_painter = None
-        self.layer_stack_painter_dock_widget.toggleViewAction().toggled.connect(self._on_layer_stack_painter_dock_widget_visibility_toggled)
-
     def _init_toolbars(self):
         self.main_view_toolbar = self.addToolBar('Image')
         self.zoom_editor = Qt.QLineEdit()
@@ -256,7 +245,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.main_view_toolbar.addAction(self.snapshot_action)
         self.dock_widget_visibility_toolbar = self.addToolBar('Dock Widget Visibility')
         self.dock_widget_visibility_toolbar.addAction(self.layer_table_dock_widget.toggleViewAction())
-        self.dock_widget_visibility_toolbar.addAction(self.layer_stack_painter_dock_widget.toggleViewAction())
         self.dock_widget_visibility_toolbar.addAction(self.histogram_dock_widget.toggleViewAction())
         self.dock_widget_visibility_toolbar.addAction(self.flipbook_dock_widget.toggleViewAction())
 
@@ -276,16 +264,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         m.addAction(self.layer_stack.solo_layer_mode_action)
         m.addSeparator()
         m.addAction(self.fps_display_dock_widget.toggleViewAction())
-
-    def _on_layer_stack_painter_dock_widget_visibility_toggled(self, is_visible):
-        if is_visible:
-            if self.layer_stack_painter is None:
-                self.layer_stack_painter = layer_stack_painter.LayerStackPainter(self.image_scene.layer_stack_item)
-                self.layer_stack_painter_dock_widget.setWidget(self.layer_stack_painter)
-        else:
-            if self.layer_stack_painter is not None:
-                self.image_scene.removeItem(self.layer_stack_painter.painter_item)
-                self.layer_stack_painter = None
 
     def showEvent(self, event):
         if self.app_prefs_name and not self._shown:
@@ -541,7 +519,5 @@ class RisWidget:
 
 if __name__ == '__main__':
     import sys
-    app = Qt.QApplication(sys.argv)
     rw = RisWidget()
-    rw.show()
-    app.exec_()
+    _QAPPLICATION.exec_()

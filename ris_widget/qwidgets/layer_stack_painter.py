@@ -151,11 +151,10 @@ class ImageValEdit(LabelEdit):
             return str(value[0])
 
 class LayerStackPainter(Qt.QWidget):
-    def __init__(self, layer_stack_item, parent=None):
+    def __init__(self, rw, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Layer Painter')
-        self.painter_item = layer_stack_painter_item.LayerStackPainterItem(layer_stack_item)
-        self.layer_stack = layer_stack_item.layer_stack
+        self.painter_item = layer_stack_painter_item.LayerStackPainterItem(rw.image_scene.layer_stack_item)
         widget_layout = Qt.QVBoxLayout()
         self.setLayout(widget_layout)
         self.brush_size = BrushSizeEdit(widget_layout, 'Brush size')
@@ -168,6 +167,15 @@ class LayerStackPainter(Qt.QWidget):
         self.brush_val.value_changed.connect(self._on_brush_changed)
         self.alt_brush_val.value_changed.connect(self._on_alt_brush_changed)
         self._on_target_image_changed()
+
+    def showEvent(self, event):
+        if not event.spontaneous(): # event is from Qt and widget became visible
+            self.painter_item.show()
+
+    def hideEvent(self, event):
+        if not event.spontaneous(): # event is from Qt and widget became invisible
+            # tell painter to deactivate
+            self.painter_item.hide()
 
     def _on_target_image_changed(self):
         self.brush_size.setEnabled(self.painter_item.target_image is not None)
