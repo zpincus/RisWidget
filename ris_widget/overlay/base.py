@@ -6,27 +6,41 @@ class RWGeometryItemMixin:
 
         To remove from the ris_widget, call remove().
 
-        Subclasses must implement a geometry property that calls on_geometry_change.
+        Subclasses must implement a geometry property that calls _geometry_changed(),
+        which takes care of calling on_geometry_change if it is defined.
 
         Parameters:
-            ris_widget: a ris_widget instance to draw an ROI on
-            color: a Qt color for the ROI
+            ris_widget: a ris_widget instance to draw geometry on
+            color: a Qt color for the geometry
             geometry: list of (x,y) coordinate pairs.
             on_geometry_change: callback that will be called with new geometry,
                 or None if the geometry is deleted.
         """
         layer_stack = ris_widget.image_scene.layer_stack_item
         self._mouse_connected = False
-        super().__init__(layer_stack)
         self.display_pen = Qt.QPen(color)
         self.on_geometry_change = on_geometry_change
         self.display_pen.setWidth(2)
         self.display_pen.setCosmetic(True)
-        self.setPen(self.display_pen)
         self.selected_pen = Qt.QPen(self.display_pen)
         self.selected_pen.setColor(Qt.Qt.red)
         self.rw = ris_widget
+        super().__init__(layer_stack)
+        self.setPen(self.display_pen)
         self.geometry = geometry
+
+    # all subclasses must define their own unique QGRAPHICSITEM_TYPE
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+    def type(self):
+        return self.QGRAPHICSITEM_TYPE
+
+    def _set_active(self, active):
+        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, active)
+        self.setFlag(Qt.QGraphicsItem.ItemIsFocusable, active)
+
+    def _geometry_changed(self):
+        if self.on_geometry_change:
+            self.on_geometry_change(self.geometry)
 
     def remove(self):
         if self._mouse_connected:
@@ -35,11 +49,13 @@ class RWGeometryItemMixin:
         del self.rw
 
     def shape(self):
+        # make the shape larger than the visible lines to make it easier to click on
         s = Qt.QPainterPathStroker()
-        s.setWidth(8/self.scene().views()[0].zoom)
+        s.setWidth(12/self.scene().views()[0].zoom)
         return s.createStroke(super().shape())
 
     def boundingRect(self):
+        # need to return a bounding rect around the enlarged shape
         return self.shape().boundingRect()
 
     def paint(self, painter, option, widget):
@@ -79,10 +95,21 @@ class RWGeometryItemMixin:
     def _deselected(self):
         self.setPen(self.display_pen)
 
+    def focusOutEvent(self, event):
+        self.setSelected(False)
+
+    def focusInEvent(self, event):
+        self.setSelected(True)
+
+    def keyPressEvent(self, event):
+        if self.isSelected() and event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}:
+            self.geometry = None
+
 
 class Handle(Qt.QGraphicsRectItem):
+    RECT = (-3, -3, 6, 6)
     def __init__(self, parent, color):
-        super().__init__(-4, -4, 8, 8)
+        super().__init__(*self.RECT)
         # TODO: WTF with PyQt5 v. 5.9 on Linux, core is dumped if the parent
         # is set in the constructor above. (Only if the parent is a subclass
         # of _ROIMixin?!) But parenting later works fine.
@@ -95,7 +122,46 @@ class Handle(Qt.QGraphicsRectItem):
         self.setFlag(Qt.QGraphicsItem.ItemIsMovable)
 
     def remove(self):
-        self.scene().views()[0].zoom_changed.disconnect(self._zoom_changed)
+        scene = self.scene()
+        scene.views()[0].zoom_changed.disconnect(self._zoom_changed)
+        scene.removeItem(self)
 
     def _zoom_changed(self, z):
         self.setScale(1/z)
+
+    def shape(self):
+        # make the shape larger than the visible rect to make it easier to click on
+        path = Qt.QPainterPath()
+        path.addRect(self.rect().adjusted(-4, -4, 4, 4))
+        return path
+
+    def boundingRect(self):
+        # need to return a bounding rect around the enlarged shape
+        return self.shape().boundingRect()
+
+
+class SelectableHandle(Handle):
+    def __init__(self, parent, color):
+        super().__init__(parent, color)
+        self.display_brush = self.brush() # set in superclass init
+        self.selected_brush = Qt.QBrush(Qt.Qt.red)
+        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
+
+    def itemChange(self, change, value):
+        if change == Qt.QGraphicsItem.ItemSelectedHasChanged:
+            if value:
+                self._selected()
+            else:
+                self._deselected()
+        return value
+
+    def paint(self, painter, option, widget):
+        option = Qt.QStyleOptionGraphicsItem(option)
+        option.state &= ~Qt.QStyle.State_Selected
+        super().paint(painter, option, widget)
+
+    def _selected(self):
+        self.setBrush(self.selected_brush)
+
+    def _deselected(self):
+        self.setBrush(self.display_brush)

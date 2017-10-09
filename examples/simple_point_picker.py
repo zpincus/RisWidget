@@ -29,7 +29,7 @@ class PointItem(Qt.QGraphicsRectItem):
     # Omitting .type() or failing to return a unique causes PyQt to return a wrapper of the wrong type when retrieving an instance of this item as a base
     # class pointer from C++.  For example, if this item has a child and that child calls self.parentItem(), it would receive a Python object of type
     # Qt.QGraphicsRectItem rather than PointItem unless PointItem has a correct .type() implementation.
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
     def __init__(self, picker, x, y, w, h, parent_item):
         super().__init__(x, y, w, h, parent_item)
@@ -62,7 +62,7 @@ class SimplePointPicker(Qt.QGraphicsObject):
     from ris_widget.examples.simple_point_picker import SimplePointPicker
     rw = RisWidget()
     simple_point_picker = SimplePointPicker(rw.image_view, rw.image_scene.layer_stack_item)"""
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
     point_item_position_has_changed = Qt.pyqtSignal(PointItem)
     point_item_list_content_reset = Qt.pyqtSignal()

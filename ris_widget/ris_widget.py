@@ -94,12 +94,8 @@ def _init_qapplication():
             pass
 
 class RisWidgetQtObject(Qt.QMainWindow):
-    image_view_change_signal = Qt.pyqtSignal(Qt.QTransform, Qt.QRectF)
-
     def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
-
         _init_qapplication()
-
         super().__init__(parent)
         self.app_prefs_name = app_prefs_name
         self._shown = False
@@ -432,7 +428,6 @@ class RisWidget:
     def __init__(self, window_title='RisWidget'):
         self.qt_object = RisWidgetQtObject(app_prefs_name='RisWidget', window_title=window_title)
         qo = self.qt_object
-        self.image_view_change_signal = qo.image_view_change_signal
         self.flipbook = qo.flipbook
         self.image_scene = qo.image_scene
         self.image_view = qo.image_view

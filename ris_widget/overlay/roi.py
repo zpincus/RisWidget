@@ -32,14 +32,13 @@ Example 2: Pre-set bounds with a specified aspect ratio (width/height):
     roi = EllipseROI(rw, aspect=2, geometry=((200, 400), (600, 500)))
 """
 
-import itertools
 from PyQt5 import Qt
 
 from .. import shared_resources
-from . import shared
+from . import base
 
 
-class _ROIMixin(shared.RWGeometryItemMixin):
+class _ROIMixin(base.RWGeometryItemMixin):
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None,
         on_geometry_change=None, aspect=None):
         """Class for drawing a Region of Interest on a ris_widget.
@@ -105,15 +104,14 @@ class _ROIMixin(shared.RWGeometryItemMixin):
         self.dragging = False
         if geometry is None:
             self.setRect(0, 0, 0, 0)
-            self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, False)
+            self._set_active(False)
         else:
             (x1, y1), (x2, y2) = geometry
             rect = Qt.QRectF()
             rect.setCoords(x1, y1, x2, y2)
             self.setRect(self._aspect_adjusted_rect(rect).normalized())
-            self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
-        if self.on_geometry_change is not None:
-            self.on_geometry_change(geometry)
+            self._set_active(True)
+        self._geometry_changed()
 
     def _aspect_adjusted_rect(self, rect):
         if self.aspect is not None:
@@ -217,20 +215,14 @@ class _ROIMixin(shared.RWGeometryItemMixin):
 
 
 class RectROI(_ROIMixin, Qt.QGraphicsRectItem):
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
-
-    def type(self):
-        return self.QGRAPHICSITEM_TYPE
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
 
 class EllipseROI(_ROIMixin, Qt.QGraphicsEllipseItem):
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
-
-    def type(self):
-        return self.QGRAPHICSITEM_TYPE
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
 
-class _ResizeHandle(shared.Handle):
+class _ResizeHandle(base.Handle):
     def __init__(self, parent, color):
         super().__init__(parent, color)
         self.hide()

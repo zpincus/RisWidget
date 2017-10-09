@@ -111,7 +111,7 @@ class PointItemMixin:
         self.point_list_picker_wr()._on_point_selected_has_changed(self.point_wr(), self.isSelected())
 
 class PointListRectItem(PointItemMixin, Qt.QGraphicsRectItem):
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     def __init__(self, point, point_list_picker, parent_item=None):
         Qt.QGraphicsRectItem.__init__(self, parent_item)
         PointItemMixin.__init__(self, point, point_list_picker)
@@ -152,7 +152,7 @@ class PointListPicker(Qt.QGraphicsObject):
     point_is_selected_changed = Qt.pyqtSignal(object, bool)
     point_focused = Qt.pyqtSignal(object)
 
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     POINT_LIST_TYPE = PointList
 
     def __init__(self, image_view, parent_item, points=None):

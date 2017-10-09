@@ -64,7 +64,7 @@ class LayerStackItem(shader_item.ShaderItem):
     has not been modified, that LayerStackItem instance will be the same width and height in scene units as the first element
     of layer_stack is in pixel units, making the mapping between scene units and pixel units 1:1 for the layer at the bottom
     of the stack (ie, layer_stack[0])."""
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     UNIFORM_SECTION_TEMPLATE = Template(textwrap.dedent("""\
         uniform sampler2D tex_${tidx};
         uniform float rescale_min_${tidx};

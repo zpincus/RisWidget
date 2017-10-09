@@ -34,7 +34,7 @@ from .. import shared_resources
 from .. import internal_util
 
 class HistogramItem(shader_item.ShaderItem):
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
     def __init__(self, layer_stack, graphics_item_parent=None):
         super().__init__(graphics_item_parent)
@@ -218,7 +218,7 @@ class HistogramItem(shader_item.ShaderItem):
         self.update()
 
 class MinMaxItem(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
     def __init__(self, histogram_item, name):
         super().__init__(histogram_item)
@@ -241,7 +241,7 @@ class MinMaxItem(Qt.QGraphicsObject):
         qpainter.drawLine(x, br.top(), x, br.bottom())
 
 class MinMaxArrowItem(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
     def __init__(self, min_max_item, histogram_item, name):
         super().__init__(histogram_item)
@@ -319,7 +319,7 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
             self.setX( (getattr(layer, self.name) - r[0]) / (r[1] - r[0]) )
 
 class GammaItem(Qt.QGraphicsObject):
-    QGRAPHICSITEM_TYPE = shared_resources.UNIQUE_QGRAPHICSITEM_TYPE()
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     CURVE_VERTEX_Y_INCREMENT = 1 / 100
 
     def __init__(self, histogram_item, min_item, max_item):

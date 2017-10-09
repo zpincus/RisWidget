@@ -24,11 +24,13 @@ from PyQt5 import Qt
 
 class AnnotationField:
     enablable = True
-    def __init__(self, name, default=None):
+    def __init__(self, name, default=None, auto_advance=None):
         self.name = name
         self.init_widget()
         self.widget.setEnabled(False)
         self.default = default
+        self.auto_advance = auto_advance
+        self.flipbook = None
 
     def init_widget(self):
         """Overrride in subclass to initialize widget."""
@@ -49,7 +51,15 @@ class AnnotationField:
     def update_annotation_data(self, value):
         """Call from subclass when there is a new value from the GUI."""
         if self.annotations is not None:
+            old_value = self.annotations.get(self.name, None)
             self.annotations[self.name] = value
+        else:
+            old_value = None
+        if self.auto_advance is not None:
+            if self.auto_advance(old_value, value) and self.flipbook is not None:
+                if self.flipbook.focused_page_idx < len(self.flipbook.pages) - 1:
+                    self.flipbook.focused_page_idx += 1
+
 
     def update_widget(self, value):
         """Override in subclasses to give widget new data on page change. Must accept None."""
@@ -88,9 +98,14 @@ class NonWidgetAnnotation(AnnotationField):
 
 class OverlayAnnotation(NonWidgetAnnotation):
     def __init__(self, name, overlay, default=None):
+        """
+        Parameters:
+            overlay: item from ris_widget.overlay
+        """
         super().__init__(name, default)
         self.overlay = overlay
         self.overlay.hide()
+        self.auto_advance = auto_advance
         self.overlay.on_geometry_change = self.on_geometry_change
 
     def on_geometry_change(self, value):
@@ -169,6 +184,7 @@ class Annotator(Qt.QWidget):
         self.fields = fields
         for field in self.fields:
             layout.addRow(field.name, field.widget)
+            field.flipbook = rw.flipbook
         self.flipbook = rw.flipbook
         self.flipbook.page_selection_changed.connect(self.update_fields)
         self.update_fields()

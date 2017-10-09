@@ -27,9 +27,9 @@ import numpy
 from PyQt5 import Qt
 import warnings
 
-_NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType + 1
+_NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType
 
-def UNIQUE_QGRAPHICSITEM_TYPE():
+def generate_unique_qgraphicsitem_type():
     """Returns a value to return from QGraphicsItem.type() overrides (which help
     Qt and PyQt return objects of the right type from any call returning QGraphicsItem
     references; for details see http://www.riverbankcomputing.com/pipermail/pyqt/2015-January/035302.html
@@ -39,9 +39,8 @@ def UNIQUE_QGRAPHICSITEM_TYPE():
     used to generate type values for all custom item classes that may
     have instances in the same scene."""
     global _NEXT_QGRAPHICSITEM_USERTYPE
-    ret = _NEXT_QGRAPHICSITEM_USERTYPE
     _NEXT_QGRAPHICSITEM_USERTYPE += 1
-    return ret
+    return _NEXT_QGRAPHICSITEM_USERTYPE
 
 class NoGLContextIsCurrentError(RuntimeError):
     DEFAULT_MESSAGE = (
