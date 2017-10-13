@@ -4,8 +4,8 @@ from .. import shared_resources
 from . import base
 
 class _PointHandle(base.SelectableHandle):
-    def __init__(self, parent, color):
-        super().__init__(parent, color)
+    def __init__(self, parent, layer_stack, color):
+        super().__init__(parent, layer_stack, color)
         self.setFlag(Qt.QGraphicsItem.ItemIsFocusable) # Necessary in order for item to receive keyboard events
         self.setFlag(Qt.QGraphicsItem.ItemSendsGeometryChanges) # Necessary in order for .itemChange to be called when item is moved
 
@@ -56,7 +56,7 @@ class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _add_point(self, pos, skip_change=False):
         if self.max_points is None or len(self.points) < self.max_points:
-            point = self.POINT_TYPE(self, self.color)
+            point = self.POINT_TYPE(self, self.parentItem(), self.color)
             point.setPos(pos)
             self.points.append(point)
             if not skip_change:

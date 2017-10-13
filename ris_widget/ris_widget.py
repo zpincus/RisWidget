@@ -122,7 +122,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         # Therefore, we connect the running QApplication's about to quit signal to our own C++ personality's
         # deleteLater method (the final thing QApplication does as it quits, after emitting the about to quit signal,
         # is delete everything queued up for deletion by deleteLater calls).  Thus, all of our QObject offspring
-        # are culled long before the Great Garbage Battle prophesied to occur at The End of The Graceful Shutdown.
+        # are culled gracefully after the QApplication exits, before Python starts to tear itself down.
         Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
         atexit.register(_atexit_cleanup)
 

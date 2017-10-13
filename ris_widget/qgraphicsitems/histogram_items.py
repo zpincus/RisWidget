@@ -77,9 +77,6 @@ class HistogramItem(shader_item.ShaderItem):
             self.gamma_item._on_value_changed()
             self._on_layer_histogram_change()
 
-    def type(self):
-        return HistogramItem.QGRAPHICSITEM_TYPE
-
     def boundingRect(self):
         return self._bounding_rect
 
@@ -227,7 +224,7 @@ class MinMaxItem(Qt.QGraphicsObject):
         self.setFlag(Qt.QGraphicsItem.ItemIgnoresParentOpacity)
 
     def type(self):
-        return MinMaxItem.QGRAPHICSITEM_TYPE
+        return self.QGRAPHICSITEM_TYPE
 
     def boundingRect(self):
         return self._bounding_rect
@@ -272,7 +269,7 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
         self.yChanged.connect(self._on_y_changed)
 
     def type(self):
-        return MinMaxArrowItem.QGRAPHICSITEM_TYPE
+        return self.QGRAPHICSITEM_TYPE
 
     def boundingRect(self):
         return self._bounding_rect
@@ -340,7 +337,7 @@ class GammaItem(Qt.QGraphicsObject):
         self.setAcceptedMouseButtons(Qt.Qt.LeftButton)
 
     def type(self):
-        return GammaItem.QGRAPHICSITEM_TYPE
+        return self.QGRAPHICSITEM_TYPE
 
     def boundingRect(self):
         return self._bounding_rect

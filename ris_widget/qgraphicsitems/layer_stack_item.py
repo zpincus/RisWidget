@@ -107,9 +107,6 @@ class LayerStackItem(shader_item.ShaderItem):
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
         layer_stack.solo_layer_mode_action.toggled.connect(self.update)
 
-    def type(self):
-        return LayerStackItem.QGRAPHICSITEM_TYPE
-
     def boundingRect(self):
         return self._bounding_rect
 

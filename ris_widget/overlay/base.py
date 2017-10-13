@@ -1,5 +1,8 @@
 from PyQt5 import Qt
 
+from .. import shared_resources
+
+
 class RWGeometryItemMixin:
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None, on_geometry_change=None):
         """Class for drawing a geometry on a ris_widget.
@@ -96,6 +99,7 @@ class RWGeometryItemMixin:
         self.setPen(self.display_pen)
 
     def focusOutEvent(self, event):
+        # TODO: Figure out why overlays focus out on trackpad taps (not clicks!)??
         self.setSelected(False)
 
     def focusInEvent(self, event):
@@ -108,12 +112,13 @@ class RWGeometryItemMixin:
 
 class Handle(Qt.QGraphicsRectItem):
     RECT = (-3, -3, 6, 6)
-    def __init__(self, parent, color):
+    def __init__(self, parent, layer_stack, color):
         super().__init__(*self.RECT)
         # TODO: WTF with PyQt5 v. 5.9 on Linux, core is dumped if the parent
         # is set in the constructor above. (Only if the parent is a subclass
         # of _ROIMixin?!) But parenting later works fine.
         self.setParentItem(parent)
+        self.layer_stack = layer_stack
         view = self.scene().views()[0]
         self._zoom_changed(view.zoom)
         view.zoom_changed.connect(self._zoom_changed)
@@ -139,10 +144,15 @@ class Handle(Qt.QGraphicsRectItem):
         # need to return a bounding rect around the enlarged shape
         return self.shape().boundingRect()
 
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        self.layer_stack.contextual_info_pos = self.pos()
+        self.layer_stack._update_contextual_info()
+
 
 class SelectableHandle(Handle):
-    def __init__(self, parent, color):
-        super().__init__(parent, color)
+    def __init__(self, parent, layer_stack, color):
+        super().__init__(parent, layer_stack, color)
         self.display_brush = self.brush() # set in superclass init
         self.selected_brush = Qt.QBrush(Qt.Qt.red)
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)

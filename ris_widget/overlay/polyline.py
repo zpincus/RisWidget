@@ -4,12 +4,13 @@ from .. import shared_resources
 from . import point_set
 
 class _PolylinePointHandle(point_set._PointHandle):
-    def __init__(self, parent, color):
-        super().__init__(parent, color)
+    def __init__(self, parent, layer_stack, color):
+        super().__init__(parent, layer_stack, color)
         self._set_active(False)
 
     def _set_active(self, active):
         self.setFlag(Qt.QGraphicsItem.ItemIsMovable, active)
+        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, active)
         self.setFlag(Qt.QGraphicsItem.ItemIsFocusable, active) # Necessary in order for item to receive keyboard events
         self.setFlag(Qt.QGraphicsItem.ItemSendsGeometryChanges, active) # Necessary in order for .itemChange to be called when item is moved
 
@@ -29,34 +30,27 @@ class Polyline(point_set.PointSet):
         point_set.PointSet.geometry.fset(self, geometry)
         # start out in non-drawing state if geometry is defined
         if geometry is None:
-            self._start_drawing()
+            self._set_drawing(True)
         else:
-            self._end_drawing()
+            self._set_drawing(False)
 
     def _generate_path(self):
         if len(self.points) == 0:
             path = Qt.QPainterPath()
         else:
-            path = Qt.QPainterPath(self.points[0])
+            path = Qt.QPainterPath(self.points[0].pos())
             for point in self.points[1:]:
-                path.lineTo(point)
-            if self._last_pos is not None:
-                path.lineTo(last)
+                path.lineTo(point.pos())
+            if self._active_drawing and self._last_pos is not None:
+                path.lineTo(self._last_pos)
         self.setPath(path)
 
-    def _end_drawing(self):
-        self._generate_path()
-        self._set_drawing(False)
-
-    def _start_drawing(self):
-        self._set_drawing(True)
-
     def _set_drawing(self, drawing):
-        self._last_pos = None
         self._active_drawing = drawing
         for point in self.points:
             point._set_active(not drawing)
         self._set_active(not drawing)
+        self._generate_path()
 
     def _view_mouse_release(self, pos):
         # Called when ROI item is visible, and a mouse-up on the underlying
@@ -66,35 +60,59 @@ class Polyline(point_set.PointSet):
                 diff = self.points[-1].pos() - pos
                 sqdist = diff.x()**2 + diff.y()**2
                 if sqdist < 4:
-                    self._end_drawing()
+                    self._set_drawing(False)
                     return
-            self.add_point(pos)
-            self._generate_path()
+            self._add_point(pos)
+
+    def _geometry_changed(self):
+        super()._geometry_changed()
+        self._generate_path()
+
+    def _selected(self):
+        super()._selected()
+        for point in self.points:
+            point.setSelected(True)
+
+    def _deselected(self):
+        super()._deselected()
+        for point in self.points:
+            point.setSelected(False)
+
+    def _delete_selected(self):
+        super()._delete_selected()
+        if len(self.points) == 0:
+            self._set_drawing(True)
 
     def sceneEventFilter(self, watched, event):
+        event_type = event.type()
+        if event_type == Qt.QEvent.GraphicsSceneHoverMove:
+            # record even if not actively drawing, so slash-key press can draw line to
+            # current mouse pos...
+            self._last_pos = event.pos()
         if self._active_drawing:
-            if event.type() == Qt.QEvent.GraphicsSceneHoverMove:
-                self._last_pos = event.pos()
+            if event_type == Qt.QEvent.GraphicsSceneHoverMove:
                 self._generate_path()
+                return False # let the rest of the scene see the hover move too (i.e. update the mouseover text)
+            elif event_type == Qt.QEvent.GraphicsSceneMouseDoubleClick:
+                self._set_drawing(False)
                 return True
-            elif event.type() == Qt.QEvent.KeyPress:
+            elif event_type == Qt.QEvent.KeyPress:
                 key = event.key()
                 if key == Qt.Qt.Key_Escape:
-                    self._end_drawing()
+                    self._set_drawing(False)
                     return True
                 elif key in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}:
-                    self.points.pop()
-                    self._geometry_changed()
-                    if len(self.points) == 0:
-                        self._end_drawing() # calls _generate_path() itself
-                    else:
-                        self._generate_path()
-                    return True
+                    if len(self.points) > 0:
+                        self.points.pop().remove()
+                        if len(self.points) == 0:
+                            self._last_pos = None
+                        self._geometry_changed()
+                        return True
         else: # not active drawing
-            if event.type() == Qt.QEvent.KeyPress:
+            if event_type == Qt.QEvent.KeyPress:
                 key = event.key()
                 if key == Qt.Qt.Key_Slash:
-                    self._start_drawing()
+                    self._set_drawing(True)
 
             # TODO: option / alt click inserts point
             # TODO: +/- for subdivide / downsample

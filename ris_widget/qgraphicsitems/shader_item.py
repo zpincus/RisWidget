@@ -34,8 +34,10 @@ class ShaderItem(Qt.QGraphicsObject):
         Qt.QGraphicsObject.__init__(self, parent)
         self.progs = {}
 
+    # all subclasses MUST define their own unique QGRAPHICSITEM_TYPE
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     def type(self):
-        raise NotImplementedError()
+        return self.QGRAPHICSITEM_TYPE
 
     def build_shader_prog(self, desc, vert_name, frag_name, **frag_template_mapping):
 

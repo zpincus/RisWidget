@@ -69,7 +69,7 @@ class _ROIMixin(base.RWGeometryItemMixin):
         super().__init__(ris_widget, color, geometry, on_geometry_change)
         self.dragging = False
         self.parentItem().installSceneEventFilter(self)
-        self.handles = {_ResizeHandle(self, Qt.Qt.red): coords for coords in [
+        self.handles = {_ResizeHandle(self, self.parentItem(), Qt.Qt.red): coords for coords in [
             (0, 0),
             (0.5, 0),
             (1, 0),
@@ -138,7 +138,7 @@ class _ROIMixin(base.RWGeometryItemMixin):
                 rect = self.rect()
                 rect.setBottomRight(event.pos())
                 self.setRect(self._aspect_adjusted_rect(rect))
-                return True
+                return False # let the rest of the scene see the hover move too (i.e. update the mouseover text)
             elif event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Escape:
                 self.geometry = None # this sets dragging false
                 return True
@@ -223,8 +223,8 @@ class EllipseROI(_ROIMixin, Qt.QGraphicsEllipseItem):
 
 
 class _ResizeHandle(base.Handle):
-    def __init__(self, parent, color):
-        super().__init__(parent, color)
+    def __init__(self, parent, layer_stack, color):
+        super().__init__(parent, layer_stack, color)
         self.hide()
 
     def mouseReleaseEvent(self, event):
@@ -232,5 +232,7 @@ class _ResizeHandle(base.Handle):
 
     def mouseMoveEvent(self, event):
         self.parentItem()._handle_moved(self.mapToParent(event.pos()), self)
+        self.layer_stack.contextual_info_pos = self.pos()
+        self.layer_stack._update_contextual_info()
 
 
