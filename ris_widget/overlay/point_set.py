@@ -18,6 +18,8 @@ class _PointHandle(base.SelectableHandle):
     def keyPressEvent(self, event):
         if event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}:
             self.parentItem()._delete_selected()
+        else:
+            self.parentItem().keyPressEvent(event)
 
 class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
@@ -78,7 +80,7 @@ class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             point.remove()
         super().remove()
 
-    def _view_mouse_release(self, pos):
+    def _view_mouse_release(self, pos, modifiers):
         # Called when ROI item is visible, and a mouse-up on the underlying
         # view occurs. (I.e. not on this item itself)
         if not self._last_click_deselected:

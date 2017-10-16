@@ -66,7 +66,7 @@ class RWGeometryItemMixin:
         option.state &= ~Qt.QStyle.State_Selected
         super().paint(painter, option, widget)
 
-    def _view_mouse_release(self, pos):
+    def _view_mouse_release(self, pos, modifiers):
         # Called when ROI item is visible, and a mouse-up on the underlying
         # view occurs. (I.e. not on this item itself)
         pass

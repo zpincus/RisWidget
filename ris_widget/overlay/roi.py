@@ -119,7 +119,7 @@ class _ROIMixin(base.RWGeometryItemMixin):
             rect.setHeight(desired_height)
         return rect
 
-    def _view_mouse_release(self, pos):
+    def _view_mouse_release(self, pos, modifiers):
         # Called when ROI item is visible, and a mouse-up on the underlying
         # view occurs. (I.e. not on this item itself)
         if not self.rect().isValid():

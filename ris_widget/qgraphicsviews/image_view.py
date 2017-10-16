@@ -35,7 +35,7 @@ class ImageView(base_view.BaseView):
     zoom_changed = Qt.pyqtSignal(float)
     # mouse_release: signal emitted after a mouse-release event (that doesn't end a drag to scroll the image)
     # The signal contains the position of the mouse, in image coordinates
-    mouse_release = Qt.pyqtSignal(Qt.QPointF)
+    mouse_release = Qt.pyqtSignal(Qt.QPointF, Qt.Qt.KeyboardModifiers)
 
     def __init__(self, scene, parent):
         super().__init__(scene, parent)
@@ -96,7 +96,7 @@ class ImageView(base_view.BaseView):
                 if self.panning != 'dragging':
                     # if this release doesn't terminate a panning drag, then emit
                     # a mouse-release signal for those interested.
-                    self.mouse_release.emit(self.mapToScene(event.pos()))
+                    self.mouse_release.emit(self.mapToScene(event.pos()), event.modifiers())
                 event.setAccepted(True)
                 self.panning = False
 

@@ -28,22 +28,33 @@ class Polyline(point_set.PointSet):
     @point_set.PointSet.geometry.setter
     def geometry(self, geometry):
         point_set.PointSet.geometry.fset(self, geometry)
-        # start out in non-drawing state if geometry is defined
+        # start out in non-drawing state if geometry is defined, otherwise start active
         if geometry is None:
             self._set_drawing(True)
         else:
             self._set_drawing(False)
 
     def _generate_path(self):
-        if len(self.points) == 0:
+        positions = []
+        # filter duplicates
+        for point in self.points:
+            pos = point.pos()
+            if len(positions) == 0 or pos != positions[-1]:
+                positions.append(pos)
+        if (self._active_drawing and self._last_pos is not None
+                and len(positions) > 0 and self._last_pos != positions[-1]):
+            positions.append(self._last_pos)
+        self.setPath(self._generate_path_from_positions(positions))
+
+    @staticmethod
+    def _generate_path_from_positions(positions):
+        if len(positions) == 0:
             path = Qt.QPainterPath()
         else:
-            path = Qt.QPainterPath(self.points[0].pos())
-            for point in self.points[1:]:
-                path.lineTo(point.pos())
-            if self._active_drawing and self._last_pos is not None:
-                path.lineTo(self._last_pos)
-        self.setPath(path)
+            path = Qt.QPainterPath(positions[0])
+            for pos in positions[1:]:
+                path.lineTo(pos)
+        return path
 
     def _set_drawing(self, drawing):
         self._active_drawing = drawing
@@ -52,7 +63,11 @@ class Polyline(point_set.PointSet):
         self._set_active(not drawing)
         self._generate_path()
 
-    def _view_mouse_release(self, pos):
+    def _insert_point(self, pos):
+        # TODO: insert point between nearest control points
+        pass
+
+    def _view_mouse_release(self, pos, modifiers):
         # Called when ROI item is visible, and a mouse-up on the underlying
         # view occurs. (I.e. not on this item itself)
         if self._active_drawing:
@@ -63,6 +78,19 @@ class Polyline(point_set.PointSet):
                     self._set_drawing(False)
                     return
             self._add_point(pos)
+        elif modifiers & Qt.Qt.AltModifier:
+            self._insert_point(pos)
+
+    def mousePressEvent(self, event):
+        if event.modifiers() & Qt.Qt.AltModifier:
+            self._insert_point(event.pos())
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        # QGraphicsItem's default mouseReleaseEvent deselects all other items in the scene,
+        # but we want the handles to stay selected.
+        pass
 
     def _geometry_changed(self):
         super()._geometry_changed()
@@ -113,7 +141,5 @@ class Polyline(point_set.PointSet):
                 key = event.key()
                 if key == Qt.Qt.Key_Slash:
                     self._set_drawing(True)
-
-            # TODO: option / alt click inserts point
             # TODO: +/- for subdivide / downsample
         return False
