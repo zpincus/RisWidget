@@ -29,6 +29,7 @@ class RWGeometryItemMixin:
         self.selected_pen.setColor(Qt.Qt.red)
         self.rw = ris_widget
         super().__init__(layer_stack)
+        layer_stack.installSceneEventFilter(self)
         self.setPen(self.display_pen)
         self.geometry = geometry
 
@@ -36,10 +37,6 @@ class RWGeometryItemMixin:
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     def type(self):
         return self.QGRAPHICSITEM_TYPE
-
-    def _set_active(self, active):
-        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, active)
-        self.setFlag(Qt.QGraphicsItem.ItemIsFocusable, active)
 
     def _geometry_changed(self):
         if self.on_geometry_change:
@@ -98,16 +95,12 @@ class RWGeometryItemMixin:
     def _deselected(self):
         self.setPen(self.display_pen)
 
-    def focusOutEvent(self, event):
-        # TODO: Figure out why overlays focus out on trackpad taps (not clicks!)??
-        self.setSelected(False)
-
-    def focusInEvent(self, event):
-        self.setSelected(True)
-
-    def keyPressEvent(self, event):
-        if self.isSelected() and event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}:
+    def sceneEventFilter(self, watched, event):
+        if (event.type() == Qt.QEvent.KeyPress and self.isSelected()
+              and event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}):
             self.geometry = None
+            return True
+        return False
 
 
 class Handle(Qt.QGraphicsRectItem):

@@ -68,7 +68,6 @@ class _ROIMixin(base.RWGeometryItemMixin):
         self.aspect = aspect
         super().__init__(ris_widget, color, geometry, on_geometry_change)
         self.dragging = False
-        self.parentItem().installSceneEventFilter(self)
         self.handles = {_ResizeHandle(self, self.parentItem(), Qt.Qt.red): coords for coords in [
             (0, 0),
             (0.5, 0),
@@ -104,13 +103,13 @@ class _ROIMixin(base.RWGeometryItemMixin):
         self.dragging = False
         if geometry is None:
             self.setRect(0, 0, 0, 0)
-            self._set_active(False)
+            self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, False)
         else:
             (x1, y1), (x2, y2) = geometry
             rect = Qt.QRectF()
             rect.setCoords(x1, y1, x2, y2)
             self.setRect(self._aspect_adjusted_rect(rect).normalized())
-            self._set_active(True)
+            self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
         self._geometry_changed()
 
     def _aspect_adjusted_rect(self, rect):
@@ -142,11 +141,7 @@ class _ROIMixin(base.RWGeometryItemMixin):
             elif event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Escape:
                 self.geometry = None # this sets dragging false
                 return True
-        elif (self.isSelected() and event.type() == Qt.QEvent.KeyPress
-              and event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}):
-            self.geometry = None
-            return True
-        return False
+        return super().sceneEventFilter(watched, event)
 
     def _done_resizing(self):
         # called after resize. set self.geometry to clean up position and call on_geometry_change

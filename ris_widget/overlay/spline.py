@@ -35,8 +35,7 @@ class Spline(polyline.Polyline):
         return path
 
     def sceneEventFilter(self, watched, event):
-        event_type = event.type()
-        if event_type == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
+        if event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
             if event.modifiers() & Qt.Qt.ShiftModifier:
                 self.smoothing *= 1.5
             else:

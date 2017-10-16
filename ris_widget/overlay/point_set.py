@@ -6,7 +6,6 @@ from . import base
 class _PointHandle(base.SelectableHandle):
     def __init__(self, parent, layer_stack, color):
         super().__init__(parent, layer_stack, color)
-        self.setFlag(Qt.QGraphicsItem.ItemIsFocusable) # Necessary in order for item to receive keyboard events
         self.setFlag(Qt.QGraphicsItem.ItemSendsGeometryChanges) # Necessary in order for .itemChange to be called when item is moved
 
     def itemChange(self, change, value):
@@ -14,12 +13,6 @@ class _PointHandle(base.SelectableHandle):
             self.parentItem()._geometry_changed()
         else:
             return super().itemChange(change, value)
-
-    def keyPressEvent(self, event):
-        if event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}:
-            self.parentItem()._delete_selected()
-        else:
-            self.parentItem().keyPressEvent(event)
 
 class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
@@ -33,7 +26,6 @@ class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self.points = []
         self._last_click_deselected = False
         super().__init__(ris_widget, color, geometry, on_geometry_change)
-        self.parentItem().installSceneEventFilter(self)
 
     @property
     def geometry(self):
@@ -87,11 +79,16 @@ class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             self._add_point(pos)
 
     def sceneEventFilter(self, watched, event):
-        if event.type() == Qt.QEvent.GraphicsSceneMousePress and event.button() == Qt.Qt.LeftButton:
+        event_type = event.type()
+        if event_type == Qt.QEvent.GraphicsSceneMousePress and event.button() == Qt.Qt.LeftButton:
             if any(point.isSelected() for point in self.points):
                 self._last_click_deselected = True
             else:
                 self._last_click_deselected = False
+            # don't return true to not swallow the mouse click
+        elif event_type == Qt.QEvent.KeyPress and event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}:
+            self._delete_selected()
+            return True
         return False
 
 

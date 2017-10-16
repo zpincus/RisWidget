@@ -11,8 +11,6 @@ class _PolylinePointHandle(point_set._PointHandle):
     def _set_active(self, active):
         self.setFlag(Qt.QGraphicsItem.ItemIsMovable, active)
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, active)
-        self.setFlag(Qt.QGraphicsItem.ItemIsFocusable, active) # Necessary in order for item to receive keyboard events
-        self.setFlag(Qt.QGraphicsItem.ItemSendsGeometryChanges, active) # Necessary in order for .itemChange to be called when item is moved
 
 
 class Polyline(point_set.PointSet):
@@ -60,7 +58,7 @@ class Polyline(point_set.PointSet):
         self._active_drawing = drawing
         for point in self.points:
             point._set_active(not drawing)
-        self._set_active(not drawing)
+        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, not drawing)
         self._generate_path()
 
     def _insert_point(self, pos):
@@ -107,9 +105,12 @@ class Polyline(point_set.PointSet):
             point.setSelected(False)
 
     def _delete_selected(self):
-        super()._delete_selected()
-        if len(self.points) == 0:
-            self._set_drawing(True)
+        if self.isSelected():
+            self.geometry = None
+        else:
+            super()._delete_selected()
+            if len(self.points) == 0:
+                self._set_drawing(True)
 
     def sceneEventFilter(self, watched, event):
         event_type = event.type()
@@ -141,5 +142,8 @@ class Polyline(point_set.PointSet):
                 key = event.key()
                 if key == Qt.Qt.Key_Slash:
                     self._set_drawing(True)
-            # TODO: +/- for subdivide / downsample
+                    return True
+                elif key in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}:
+                    self._delete_selected()
+                    return True
         return False
