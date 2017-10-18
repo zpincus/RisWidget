@@ -431,7 +431,7 @@ class LayerStackItem(shader_item.ShaderItem):
 
     def _get_visible_idxs_and_update_texs(self, estack):
         """Meant to be executed between a pair of QPainter.beginNativePainting() QPainter.endNativePainting() calls or,
-        at the very least, when an OpenGL context is current, _get_nonmuted_idxs_and_update_texs does whatever is required,
+        at the very least, when an OpenGL context is current, _get_visible_idxs_and_update_texs does whatever is required,
         for every visible layer with non-None .layer in self.layer_stack, in order that self._texs[layer] represents layer, including texture
         object creation and texture data uploading, and it leaves self._texs[layer] bound to texture unit n, where n is
         the associated visible_idx."""

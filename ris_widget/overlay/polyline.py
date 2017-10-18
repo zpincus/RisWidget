@@ -91,8 +91,8 @@ class Polyline(point_set.PointSet):
         pass
 
     def _geometry_changed(self):
-        super()._geometry_changed()
         self._generate_path()
+        super()._geometry_changed()
 
     def _selected(self):
         super()._selected()
