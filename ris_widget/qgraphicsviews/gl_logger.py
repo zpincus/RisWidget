@@ -5,7 +5,7 @@ _GL_LOGGERS = {}
 def get_logger():
     context = Qt.QOpenGLContext.currentContext()
     if context is None:
-        raise NoGLContextIsCurrentError()
+        raise RuntimeError('There is no current OpenGL context.')
     assert Qt.QThread.currentThread() is context.thread()
     try:
         return _GL_LOGGERS[context]
