@@ -219,6 +219,9 @@ class LayerStackPainter(Qt.QWidget):
         self.painter_item = self.PAINTER_ITEM_TYPE(layer_stack_item)
         self.layer_stack = layer_stack_item.layer_stack
         widget_layout = Qt.QVBoxLayout()
+        self.left_click_box = Qt.QCheckBox('Left click draws (alt-left pans)')
+        widget_layout.addWidget(self.left_click_box)
+        self.left_click_box.stateChanged.connect(self._on_left_click_changed)
         self.setLayout(widget_layout)
         section_layout = Qt.QGridLayout()
         widget_layout.addLayout(section_layout)
@@ -230,6 +233,15 @@ class LayerStackPainter(Qt.QWidget):
         self.alternate_brush_box = BrushBox(self.brush_size_lse, 'Shift right click brush', 'alternate_brush', self.painter_item, True)
         widget_layout.addWidget(self.alternate_brush_box)
         widget_layout.addStretch()
+
+    def _on_left_click_changed(self, state):
+        self.painter_item.left_click_draws = state
+        if state:
+            self.brush_box.setTitle('Left click brush')
+            self.alternate_brush_box.setTitle('Shift left click brush')
+        else:
+            self.brush_box.setTitle('Right click brush')
+            self.alternate_brush_box.setTitle('Shift right click brush')
 
     def _on_target_image_aspect_changed(self):
         e = self.painter_item.target_image is not None

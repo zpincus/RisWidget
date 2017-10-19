@@ -65,19 +65,34 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         self._on_layer_stack_item_bounding_rect_changed()
         self.brush = None
         self.alternate_brush = None
+        self.left_click_draws = False
         layer_stack_item.installSceneEventFilter(self)
 
     def boundingRect(self):
         return self._boundingRect
 
+    def _brush_for_click(self, event):
+        buttons = event.buttons()
+        modifiers = event.modifiers()
+        valid = False
+        if self.left_click_draws and buttons == Qt.Qt.LeftButton and not modifiers & Qt.Qt.AltModifier:
+            # if alt is held down, don't try to draw but instead forward the drag/click to the layer stack
+            # to pan the view
+            valid = True
+        elif not self.left_click_draws and buttons == Qt.Qt.LeftButton and modifiers & Qt.Qt.MetaModifier:
+            valid = True
+        elif not self.left_click_draws and buttons == Qt.Qt.RightButton:
+            valid = True
+        if not valid:
+            return None
+        if modifiers & Qt.Qt.ShiftModifier:
+            return self.alternate_brush
+        else:
+            return self.brush
+
     def sceneEventFilter(self, watched, event):
-        if (self.target_image is not None and
-            watched is self.parentItem() and
-            event.type() in (Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove) and
-            event.buttons() == Qt.Qt.RightButton and
-            event.modifiers() in (Qt.Qt.ShiftModifier, Qt.Qt.NoModifier)
-        ):
-            brush = self.brush if event.modifiers() == Qt.Qt.NoModifier else self.alternate_brush
+        if (self.target_image is not None and event.type() in (Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove)):
+            brush = self._brush_for_click(event)
             if brush is None:
                 return False
             p = self.mapFromScene(event.scenePos())
