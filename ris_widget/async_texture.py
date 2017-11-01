@@ -129,8 +129,7 @@ class _AsyncTextureUploadThread(Qt.QThread):
 
     def run(self):
         gl_context = Qt.QOpenGLContext()
-        if hasattr(Qt.QOpenGLContext, 'globalShareContext'):
-            gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
+        gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
         gl_context.setFormat(shared_resources.GL_QSURFACE_FORMAT)
         if not gl_context.create():
             raise RuntimeError('Failed to create OpenGL context for background texture upload thread.')
@@ -185,13 +184,6 @@ _texture_cache = None
 
 class _TextureCache(Qt.QObject):
     ASYNC_TEXTURE_UPLOAD_THREAD_COUNT = 4
-    # Whenever the .apply_cache_constraint() method is called or an entry is appended to .lru_cache, the oldest entries in
-    # .lru_cache are destroyed until either .lru_cache is empty or an additional constraint is met.  Which additional constraint
-    # applies depends on the the host environment:
-    # MIN_FREE_GPU_MEMORY_PORTION has an effect if the GL_NVX_gpu_memory_info extension is available
-    MIN_FREE_GPU_MEMORY_PORTION = 0.25
-    # MAX_LRU_CACHE_KIBIBYTES has an effect if the GL_NVX_gpu_memory_info extension is not available, and defaults to 128MiB.
-    # Actual memory used is typically a multiple of this value - thus the conservative default.
     MAX_LRU_CACHE_KIBIBYTES = 128 << 10
 
     @staticmethod
@@ -203,10 +195,6 @@ class _TextureCache(Qt.QObject):
     def __init__(self):
         super().__init__()
         glsf = shared_resources.GL_QSURFACE_FORMAT
-        if shared_resources.NVX_GPU_MEMORY_INFO_AVAILABLE:
-            self._apply_constraint = self._apply_constraint_NV
-        else:
-            self._apply_constraint = self._apply_constraint_plain
         self.offscreen_surface = Qt.QOffscreenSurface()
         self.offscreen_surface.setFormat(glsf)
         self.offscreen_surface.create()
@@ -271,23 +259,12 @@ class _TextureCache(Qt.QObject):
         with self.lru_cache_lock:
             self._apply_constraint()
 
-    def _apply_constraint_plain(self):
+    def _apply_constraint(self):
         lru_cache = self.lru_cache
         KiB = sum(atb.async_texture_wr().data.nbytes for atb in lru_cache) >> 10
         while KiB > _TextureCache.MAX_LRU_CACHE_KIBIBYTES and lru_cache:
             KiB -= lru_cache[0].async_texture_wr().data.nbytes >> 10
             self._pop_left()
-
-    def _apply_constraint_NV(self):
-        with ExitStack() as estack:
-            if Qt.QOpenGLContext.currentContext() is None:
-                self.gl_context.makeCurrent(self.offscreen_surface)
-                estack.callback(self.gl_context.doneCurrent)
-            import OpenGL.GL.NVX.gpu_memory_info as MI
-            lru_cache = self.lru_cache
-            min_KiB = int(PyGL.glGetInteger(MI.GL_GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX) * _TextureCache.MIN_FREE_GPU_MEMORY_PORTION)
-            while PyGL.glGetInteger(MI.GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX) < min_KiB and lru_cache:
-                self._pop_left()
 
     def _pop_left(self):
         # Requirement: self.lru_cache_lock is held

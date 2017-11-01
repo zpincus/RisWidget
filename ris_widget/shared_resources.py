@@ -25,7 +25,6 @@
 from contextlib import ExitStack
 import numpy
 from PyQt5 import Qt
-import warnings
 
 _NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType
 
@@ -42,17 +41,6 @@ def generate_unique_qgraphicsitem_type():
     _NEXT_QGRAPHICSITEM_USERTYPE += 1
     return _NEXT_QGRAPHICSITEM_USERTYPE
 
-class NoGLContextIsCurrentError(RuntimeError):
-    DEFAULT_MESSAGE = (
-        'QOpenGLContext.currentContext() returned None, indicating that no OpenGL '
-        'context is current.  This usually indicates that a routine that makes '
-        'OpenGL calls was invoked in an unanticipated manner (EG, at-exit execution '
-        'of a destructor for an module-level object that wraps an OpenGL primitive).')
-    def __init__(self, message=None):
-        if message is None:
-            message = NoGLContextIsCurrentError.DEFAULT_MESSAGE
-        super().__init__(message)
-
 _GL_CACHE = {}
 
 def QGL():
@@ -63,7 +51,7 @@ def QGL():
         return
     context = Qt.QOpenGLContext.currentContext()
     if context is None:
-        raise NoGLContextIsCurrentError()
+        raise RuntimeError('There is no current OpenGL context.')
     assert current_thread is context.thread()
     # Attempt to return cache entry, a Qt.QOpenGLVersionFunctions object...
     try:
@@ -99,50 +87,6 @@ def QGL():
     context.aboutToBeDestroyed.connect(lambda: _GL_CACHE.pop(context))
     return GL
 
-
-_GL_EXTS_QUERIED = False
-NV_PATH_RENDERING_AVAILABLE = False
-NVX_GPU_MEMORY_INFO_AVAILABLE = False
-
-def query_gl_exts():
-    global NV_PATH_RENDERING_AVAILABLE
-    global NVX_GPU_MEMORY_INFO_AVAILABLE
-    if _GL_EXTS_QUERIED:
-        return
-    try:
-        with ExitStack() as estack:
-            glw = Qt.QOpenGLWidget()
-            estack.callback(glw.deleteLater)
-            glf = Qt.QSurfaceFormat()
-            glf.setRenderableType(Qt.QSurfaceFormat.OpenGL)
-            glf.setVersion(2, 1)
-            glf.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
-            glf.setSwapBehavior(Qt.QSurfaceFormat.SingleBuffer)
-            glf.setStereo(False)
-            glf.setSwapInterval(1)
-            glw.setFormat(glf)
-            glw.show()
-            estack.callback(glw.hide)
-
-            if glw.context().hasExtension('GL_NV_path_rendering'.encode('utf-8')):
-                try:
-                    import OpenGL
-                    import OpenGL.GL.NV.path_rendering as PR
-                    if PR.glInitPathRenderingNV():
-                        NV_PATH_RENDERING_AVAILABLE = True
-                except:
-                    pass
-
-            if glw.context().hasExtension('GL_NVX_gpu_memory_info'.encode('utf-8')):
-                try:
-                    import OpenGL
-                    import OpenGL.GL.NVX.gpu_memory_info as GMI
-                    if GMI.glInitGpuMemoryInfoNVX():
-                        NVX_GPU_MEMORY_INFO_AVAILABLE = True
-                except:
-                    pass
-    except:
-        warnings.warn('An error occurred while querying OpenGL extension availability.')
 
 MSAA_SAMPLE_COUNT = 2
 SWAP_INTERVAL = 0
@@ -189,6 +133,7 @@ class _GlQuad:
         Qt.QApplication.instance().aboutToQuit.connect(self._on_qapplication_about_to_quit)
 
     def _on_qapplication_about_to_quit(self):
+        # TODO: is this necessary??
         # Unlike __init__, _on_qapplication_about_to_quit is not called directly by us, and we can not guarantee that
         # an OpenGL context is current
         with ExitStack() as estack:

@@ -88,30 +88,3 @@ class ShaderItem(Qt.QGraphicsObject):
         if bes != desired_bes:
             GL.glBlendEquationSeparate(*desired_bes)
             estack.callback(lambda: GL.glBlendEquationSeparate(*bes))
-
-class ShaderTexture:
-    """QOpenGLTexture does not support support GL_LUMINANCE*_EXT, etc, as specified by GL_EXT_texture_integer,
-    which is required for integer textures in OpenGL 2.1 (QOpenGLTexture does support GL_RGB*U/I formats,
-    but these were introduced with OpenGL 3.0 and should not be relied upon in 2.1 contexts).  So, in
-    cases where GL_LUMINANCE*_EXT format textures may be required, we use ShaderTexture rather than
-    QOpenGLTexture."""
-    def __init__(self, target):
-        self.texture_id = shared_resources.QGL().glGenTextures(1)
-        self.target = target
-
-    def __del__(self):
-        self.destroy()
-
-    def bind(self):
-        shared_resources.QGL().glBindTexture(self.target, self.texture_id)
-
-    def release(self):
-        shared_resources.QGL().glBindTexture(self.target, 0)
-
-    def destroy(self):
-        if hasattr(self, 'texture_id'):
-            try:
-                shared_resources.QGL().glDeleteTextures(1, (self.texture_id,))
-                del self.texture_id
-            except shared_resources.NoGLContextIsCurrentError:
-                pass
