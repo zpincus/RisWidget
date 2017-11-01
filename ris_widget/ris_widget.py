@@ -101,6 +101,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
     def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
         _init_qapplication()
         super().__init__(parent)
+        self.setWindowIcon(Qt.QIcon())
         self.app_prefs_name = app_prefs_name
         self._shown = False
         # TODO: is below workaround still necessary?
