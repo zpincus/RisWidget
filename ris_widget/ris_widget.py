@@ -25,6 +25,8 @@
 import sip
 sip.setdestroyonexit(True)
 
+import pkg_resources
+
 import atexit
 from PyQt5 import Qt
 import sys
@@ -92,6 +94,8 @@ def _init_qapplication():
                 ip.enable_gui('qt5')
         except ModuleNotFoundError:
             pass
+    iconfile = pkg_resources.resource_filename(__name__, 'icon.svg')
+    _QAPPLICATION.setWindowIcon(Qt.QIcon(iconfile))
 
 class RisWidgetQtObject(Qt.QMainWindow):
     def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
@@ -109,7 +113,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         if window_title is not None:
             self.setWindowTitle(window_title)
         self.setAcceptDrops(True)
-        shared_resources.query_gl_exts()
         async_texture._TextureCache.init()
         self.layer_stack = layer_stack.LayerStack()
         self._init_scenes_and_views()

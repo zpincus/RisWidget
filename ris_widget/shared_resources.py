@@ -159,8 +159,6 @@ def create_default_QSurfaceFormat():
     GL_QSURFACE_FORMAT.setStereo(False)
     GL_QSURFACE_FORMAT.setSwapInterval(SWAP_INTERVAL)
     GL_QSURFACE_FORMAT.setSamples(MSAA_SAMPLE_COUNT)
-    if NV_PATH_RENDERING_AVAILABLE:
-        GL_QSURFACE_FORMAT.setStencilBufferSize(4)
     GL_QSURFACE_FORMAT.setRedBufferSize(8)
     GL_QSURFACE_FORMAT.setGreenBufferSize(8)
     GL_QSURFACE_FORMAT.setBlueBufferSize(8)
