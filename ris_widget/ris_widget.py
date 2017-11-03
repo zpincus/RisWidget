@@ -115,7 +115,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
             self.setWindowTitle(window_title)
         self.setAcceptDrops(True)
         async_texture._TextureCache.init()
-        self.layer_stack = layer_stack.LayerStack()
         self._init_scenes_and_views()
         self._init_flipbook()
         self._init_actions()
@@ -135,18 +134,11 @@ class RisWidgetQtObject(Qt.QMainWindow):
         atexit.unregister(_atexit_cleanup)
 
     def _init_scenes_and_views(self):
+        self.layer_stack = layer_stack.LayerStack()
         self.image_scene = qgraphicsscenes.ImageScene(self, self.layer_stack)
         self.image_view = image_view.ImageView(self.image_scene, self)
         self.setCentralWidget(self.image_view)
-        self.histogram_scene = qgraphicsscenes.HistogramScene(self, self.layer_stack)
-        self.histogram_dock_widget = Qt.QDockWidget('Histogram', self)
-        self.histogram_view, self._histogram_frame = histogram_view.HistogramView.make_histogram_view_and_frame(self.histogram_scene, self.histogram_dock_widget)
-        self.histogram_dock_widget.setWidget(self._histogram_frame)
-        self.histogram_dock_widget.setAllowedAreas(Qt.Qt.BottomDockWidgetArea | Qt.Qt.TopDockWidgetArea)
-        self.histogram_dock_widget.setFeatures(
-            Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable |
-            Qt.QDockWidget.DockWidgetMovable | Qt.QDockWidget.DockWidgetVerticalTitleBar)
-        self.addDockWidget(Qt.Qt.BottomDockWidgetArea, self.histogram_dock_widget)
+
         self.layer_table_dock_widget = Qt.QDockWidget('Layer Stack', self)
         self.layer_table_model = layer_table.LayerTableModel(self.layer_stack)
         # NB: Qt.QAbstractItemView, an ancestor of InvertingProxyModel, attempts to start a QTimer as it is destroyed.  Therefore,
@@ -158,17 +150,30 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.layer_table_model_inverter.setSourceModel(self.layer_table_model)
         self.layer_table_view = layer_table.LayerTableView(self.layer_table_model)
         self.layer_table_view.setModel(self.layer_table_model_inverter)
+        # setting the selection model isn't part of the layer_stack constructor
+        # because otherwise there would be a circular dependency
+        self.layer_stack.set_selection_model(self.layer_table_view.selectionModel())
         self.layer_table_model.setParent(self.layer_table_view)
         self.layer_table_model.rowsInserted.connect(self._update_layer_stack_visibility)
         self.layer_table_model.rowsRemoved.connect(self._update_layer_stack_visibility)
         self.layer_table_model.modelReset.connect(self._update_layer_stack_visibility)
-        self.layer_stack.selection_model = self.layer_table_view.selectionModel()
         self.layer_table_dock_widget.setWidget(self.layer_table_view)
         self.layer_table_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
         self.layer_table_dock_widget.setFeatures(
             Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
         self.addDockWidget(Qt.Qt.TopDockWidgetArea, self.layer_table_dock_widget)
         self.layer_table_dock_widget.hide()
+
+        self.histogram_scene = qgraphicsscenes.HistogramScene(self, self.layer_stack)
+        self.histogram_dock_widget = Qt.QDockWidget('Histogram', self)
+        self.histogram_view, self._histogram_frame = histogram_view.HistogramView.make_histogram_view_and_frame(self.histogram_scene, self.histogram_dock_widget)
+        self.histogram_dock_widget.setWidget(self._histogram_frame)
+        self.histogram_dock_widget.setAllowedAreas(Qt.Qt.BottomDockWidgetArea | Qt.Qt.TopDockWidgetArea)
+        self.histogram_dock_widget.setFeatures(
+            Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable |
+            Qt.QDockWidget.DockWidgetMovable | Qt.QDockWidget.DockWidgetVerticalTitleBar)
+        self.addDockWidget(Qt.Qt.BottomDockWidgetArea, self.histogram_dock_widget)
+
         self.fps_display_dock_widget = Qt.QDockWidget('FPS', self)
         self.fps_display = fps_display.FPSDisplay()
         self.image_scene.layer_stack_item.painted.connect(self.fps_display.notify)

@@ -180,7 +180,7 @@ class Flipbook(Qt.QWidget):
     def apply(self):
         """Replace the image fields of the layers in .layer_stack with the images contained in the currently
         focused flipbook page, creating new layers as required, or clearing the image field of any excess
-        layers.  This method is called automatically when focus moves to a different page and when
+        layers. This method is called automatically when focus moves to a different page and when
         the contents of the current page change."""
         focused_page_idx = self.focused_page_idx
         if focused_page_idx is None:
@@ -195,8 +195,6 @@ class Flipbook(Qt.QWidget):
             focused_page.replaced.connect(self.apply)
             self._attached_page = focused_page
         layer_stack = self.layer_stack
-        if layer_stack.layers is None:
-            layer_stack.layers = []
         layers = layer_stack.layers
         lfp = len(focused_page)
         lls = len(layers)

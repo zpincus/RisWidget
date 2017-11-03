@@ -102,38 +102,17 @@ class LayerStackItem(shader_item.ShaderItem):
         self.contextual_info_pos = None
         self._bounding_rect = Qt.QRectF(self.DEFAULT_BOUNDING_RECT)
         self.layer_stack = layer_stack
-        self._connect_layers(layer_stack.layers)
-        layer_stack.layers_replaced.connect(self._on_layerlist_replaced)
+        layers = layer_stack.layers
+        layers.inserted.connect(self._on_layers_inserted)
+        layers.removed.connect(self._on_layers_removed)
+        layers.replaced.connect(self._on_layers_replaced)
+        self._attach_layers(layers)
+
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
         layer_stack.solo_layer_mode_action.toggled.connect(self.update)
 
     def boundingRect(self):
         return self._bounding_rect
-
-    def _on_layerlist_replaced(self, layer_stack, old_layers, layers):
-        old_sz = None
-        if old_layers and old_layers[0].image is not None:
-            old_sz = old_layers[0].image.size
-        self._detach_layers(old_layers)
-        old_layers.inserted.disconnect(self._on_layers_inserted)
-        old_layers.removed.disconnect(self._on_layers_removed)
-        old_layers.replaced.disconnect(self._on_layers_replaced)
-        new_sz = None
-        if layers and layers[0].image is not None:
-            new_sz = layers[0].image.size
-        self._connect_layers(layers)
-        if new_sz != old_sz:
-            self.prepareGeometryChange()
-            self._bounding_rect = self.DEFAULT_BOUNDING_RECT if new_sz is None else Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_sz))
-            self.bounding_rect_changed.emit()
-        self.update()
-        self._update_contextual_info()
-
-    def _connect_layers(self, layers):
-        layers.inserted.connect(self._on_layers_inserted)
-        layers.removed.connect(self._on_layers_removed)
-        layers.replaced.connect(self._on_layers_replaced)
-        self._attach_layers(layers)
 
     def _attach_layers(self, layers):
         layer_stack = self.layer_stack
@@ -146,11 +125,7 @@ class LayerStackItem(shader_item.ShaderItem):
             image = layer.image
             if image is not None and (examine_layer_mode and layer is focused_layer or not examine_layer_mode and layer.visible):
                 image.async_texture.upload()
-            # Any change, including layer data change, may change result of rendering layer and therefore requires refresh
             layer.changed.connect(self._on_layer_changed)
-            # When layer emits layer_changed, it will also emit changed.  In effect, self.update marks the scene as requiring
-            # refresh while self._on_layer_changed initiates a texture upload in the background.  Both operations are fast
-            # and may be called redundantly multiple times per frame without significantly impacting performance.
             layer.image_changed.connect(self._on_layer_image_changed)
 
     def _detach_layers(self, layers):

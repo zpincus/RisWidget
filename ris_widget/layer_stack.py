@@ -61,30 +61,27 @@ class LayerList(uniform_signaling_list.UniformSignalingList):
 
 class LayerStack(Qt.QObject):
     """LayerStack: The owner of a LayerList (L.layers, in ascending order, with bottom layer - ie, backmost - as element 0) and selection model that is
-    referenced by various other objects such as LayerStackItem, LayerTable, RisWidget, and Flipbooks.  LayerStack emits the Qt signal layers_replaced
-    when .layers is replaced by assignment (L.layers = [...]), forwards changing & changed signals from its LayerList, and ensures that a Layer is
-    focused and selected according to the selection model whenever its LayerList is not empty.
-
-    It is safe to assign None to either or both of LayerStack instance's layers and selection_model properties.
-
-    In ascending order, with bottom layer (backmost) as element 0.
+    referenced by various other objects such as LayerStackItem, LayerTable, RisWidget, and Flipbooks.
 
     Signals:
-    * layers_replaced(layer_stack, old_layers, layers): layer_stack.layers changed from old_layers to layers, its current value.
-    * selection_model_replaced(layer_stack, old_sm, sm): layer_stack.selection_model changed from old_sm to sm, its current value.  LayerStack provides
-    the layer_focus_changed signal, which is a proxy for the layer_stack.selection_model.currentRowChanged signal - the most commonly used selection
-    model signal.  If this is the only selection model signal you need, you can avoid having to connect to the new selection model's currentRowChanged
-    signal in response to selection_model_replaced by using LayerStack's layer_focus_changed signal instead.
     * layer_focus_changed(layer_stack, old_focused_layer, focused_layer): layer_stack.focused_layer changed from old_focused layer to focused_layer,
     its current value."""
-    layers_replaced = Qt.pyqtSignal(Qt.QObject, object, object)
-    selection_model_replaced = Qt.pyqtSignal(Qt.QObject, object, object)
     layer_focus_changed = Qt.pyqtSignal(Qt.QObject, object, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
         self._layers = LayerList()
-        self._connect_layers()
+        self._layers.inserting.connect(self._on_inserting_into_layers)
+        self._layers.removing.connect(self._on_removing_from_layers)
+        self._layers.replacing.connect(self._on_replacing_in_layers)
+        self._layers.replaced.connect(self._on_replaced_in_layers)
+        # Must be QueuedConnection in order to avoid race condition where self._on_inserting_into_layers may be called before any associated model's
+        # "inserting" handler, which would cause ensure_layer_focused, if layers was empty before insertion, to attempt to focus row 0 before associated
+        # models are even aware that a row has been inserting.
+        self._layers.inserted.connect(self._delayed_on_inserted_into_layers, Qt.Qt.QueuedConnection)
+        self._layers.removed.connect(self._delayed_on_removed_from_layers, Qt.Qt.QueuedConnection)
+
         self._mask_radius = None
         self._selection_model = None
         self.auto_min_max_all_action = Qt.QAction(self)
@@ -108,63 +105,17 @@ class LayerStack(Qt.QObject):
     def layers(self):
         return self._layers
 
-    @layers.setter
-    def layers(self, v):
-        v_o = self._layers
-        if v is v_o:
-            return
-        if not isinstance(v, LayerList):
-            v = LayerList(v)
-        v_o.inserting.disconnect(self._on_inserting_into_layers)
-        v_o.removing.disconnect(self._on_removing_from_layers)
-        v_o.replacing.disconnect(self._on_replacing_in_layers)
-        v_o.replaced.disconnect(self._on_replaced_in_layers)
-        v_o.inserted.disconnect(self._delayed_on_inserted_into_layers)
-        v_o.removed.disconnect(self._delayed_on_removed_from_layers)
-        self._detach_layers(v_o)
-        self._attach_layers(v)
-        self._layers = v
-        self._connect_layers()
-        self.layers_replaced.emit(self, v_o, v)
-        if v:
-            self.ensure_layer_focused()
-
-    def _connect_layers(self):
-        self._layers.inserting.connect(self._on_inserting_into_layers)
-        self._layers.removing.connect(self._on_removing_from_layers)
-        self._layers.replacing.connect(self._on_replacing_in_layers)
-        self._layers.replaced.connect(self._on_replaced_in_layers)
-        # Must be QueuedConnection in order to avoid race condition where self._on_inserting_into_layers may be called before any associated model's
-        # "inserting" handler, which would cause ensure_layer_focused, if layers was empty before insertion, to attempt to focus row 0 before associated
-        # models are even aware that a row has been inserting.
-        self._layers.inserted.connect(self._delayed_on_inserted_into_layers, Qt.Qt.QueuedConnection)
-        self._layers.removed.connect(self._delayed_on_removed_from_layers, Qt.Qt.QueuedConnection)
-
-    @property
-    def selection_model(self):
-        return self._selection_model
-
-    @selection_model.setter
-    def selection_model(self, v):
-        assert v is None or isinstance(v, Qt.QItemSelectionModel)
-        v_o = self._selection_model
-        if v is v_o:
-            return
-        if v_o is not None:
-            v_o.currentRowChanged.disconnect(self._on_current_row_changed)
-        if v is not None:
-            v.currentRowChanged.connect(self._on_current_row_changed)
+    def set_selection_model(self, v):
+        assert isinstance(v, Qt.QItemSelectionModel)
+        if self._selection_model is not None:
+            raise RuntimeError('only set selection model once, immediately after construction')
+        v.currentRowChanged.connect(self._on_current_row_changed)
         self._selection_model = v
-        self.selection_model_replaced.emit(self, v_o, v)
 
     @property
     def focused_layer_idx(self):
         sm = self._selection_model
-        if sm is None:
-            return
         m = sm.model()
-        if m is None:
-            return
         midx = sm.currentIndex()
         if isinstance(m, Qt.QAbstractProxyModel):
             # Selection model is with reference to table view's model, which is a proxy model (probably an InvertingProxyModel)
@@ -197,11 +148,7 @@ class LayerStack(Qt.QObject):
         if not ls:
             return
         sm = self._selection_model
-        if sm is None:
-            return
         m = sm.model()
-        if m is None:
-            return
         if not sm.currentIndex().isValid():
             sm.setCurrentIndex(m.index(0, 0), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
         if len(sm.selectedRows()) == 0:
@@ -260,8 +207,6 @@ class LayerStack(Qt.QObject):
         # Note: the selection model may be associated with a proxy model, in which case this method's idxs argument is in terms of the proxy.  Therefore,
         # we can't use self.focused_layer_idx (if the selection model is attached to a proxy, self.focused_layer_idx is in terms of the proxied model,
         # not the proxy).
-        if self._selection_model is None:
-            return
         focused_midx = self._selection_model.currentIndex()
         if focused_midx is None:
             return

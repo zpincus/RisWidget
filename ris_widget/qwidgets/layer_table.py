@@ -207,7 +207,6 @@ class LayerTableModel(LayerTableDragDropBehavior, property_table_model.PropertyT
         ):
         super().__init__(property_names=self.PROPERTIES, signaling_list=layer_stack.layers, parent=parent)
         self.layer_stack = layer_stack
-        layer_stack.layers_replaced.connect(self._on_layers_replaced)
         layer_stack.solo_layer_mode_action.toggled.connect(self._on_examine_layer_mode_toggled)
         layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
         self._focused_row = -1
@@ -382,9 +381,6 @@ class LayerTableModel(LayerTableDragDropBehavior, property_table_model.PropertyT
         if midx.isValid():
             return self._special_data_setters.get(self.property_names[midx.column()], super().setData)(midx, value, role)
         return False
-
-    def _on_layers_replaced(self, layer_stack, old_layers, layers):
-        self.signaling_list = layers
 
     def _refresh_column(self, column):
         if self.signaling_list is not None:
