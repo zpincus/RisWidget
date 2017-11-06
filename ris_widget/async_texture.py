@@ -45,16 +45,23 @@ NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
     numpy.uint16 : GL.GL_UNSIGNED_SHORT,
     numpy.float32: GL.GL_FLOAT}
 
+NO_BG_UPLOAD = False # debug flag for testing with flaky drivers
+
 class AsyncTexture:
     def __init__(self, image):
         self.data = image.data
         self.format, self.source_format = IMAGE_TYPE_TO_GL_FORMATS[image.type]
         self.source_type = NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self.data.dtype.type]
         self.done = threading.Event()
-        self.status = 'waiting'
-        UPLOAD_MANAGER.upload_thread.enqueue(self)
+        if NO_BG_UPLOAD:
+            self.status = 'fg_upload_required'
+        else:
+            self.status = 'queued'
+            UPLOAD_MANAGER.upload_thread.enqueue(self)
 
     def bind(self, tmu):
+        if self.status == 'fg_upload_required':
+            self._upload_fg()
         self.done.wait()
         if self.status == 'exception':
             raise self.exception
@@ -62,6 +69,49 @@ class AsyncTexture:
 
     def release(self, tmu):
         self.texture.release(tmu)
+
+    def _upload_fg(self):
+        assert Qt.QOpenGLContext.currentContext() is not None
+        QGL = shared_resources.QGL()
+        orig_unpack_alignment = QGL.glGetIntegerv(QGL.GL_UNPACK_ALIGNMENT)
+        QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, 1)
+        try:
+            self._upload()
+        finally:
+            # QPainter font rendering for OpenGL surfaces can break if we do not restore GL_UNPACK_ALIGNMENT
+            # and this function was called within QPainter's native painting operations
+            QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, orig_unpack_alignment)
+
+    def _upload(self):
+        try:
+            texture = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target2D)
+            texture.setFormat(self.format)
+            texture.setWrapMode(Qt.QOpenGLTexture.ClampToEdge)
+            texture.setMipLevels(6)
+            texture.setAutoMipMapGenerationEnabled(False)
+            data = self.data
+            texture.setSize(data.shape[0], data.shape[1], 1)
+            texture.allocateStorage()
+            texture.setMinMagFilters(Qt.QOpenGLTexture.LinearMipMapLinear, Qt.QOpenGLTexture.Nearest)
+            texture.bind()
+            try:
+                #TODO: use QOpenGLTexture.setData here, and pixel storage
+                # functions to allow strided arrays.
+                GL.glTexSubImage2D(
+                    GL.GL_TEXTURE_2D, 0, 0, 0, data.shape[0], data.shape[1],
+                    self.source_format,
+                    self.source_type,
+                    memoryview(data.swapaxes(0,1).flatten()))
+                texture.generateMipMaps()
+            finally:
+                texture.release()
+            self.texture = texture
+            self.status = 'uploaded'
+        except Exception as e:
+            self.exception = e
+            self.status = 'exception'
+        finally:
+            self.done.set()
 
     def __del__(self):
         if self.status == 'uploaded':
@@ -137,34 +187,6 @@ class TextureUploadThread(Qt.QThread):
                 if not self.running:
                     #self.running may go to false while blocked waiting on the queue
                     break
-                try:
-                    texture = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target2D)
-                    texture.setFormat(async_texture.format)
-                    texture.setWrapMode(Qt.QOpenGLTexture.ClampToEdge)
-                    texture.setMipLevels(6)
-                    texture.setAutoMipMapGenerationEnabled(False)
-                    data = async_texture.data
-                    texture.setSize(data.shape[0], data.shape[1], 1)
-                    texture.allocateStorage()
-                    texture.setMinMagFilters(Qt.QOpenGLTexture.LinearMipMapLinear, Qt.QOpenGLTexture.Nearest)
-                    texture.bind()
-                    try:
-                        #TODO: use QOpenGLTexture.setData here, and pixel storage
-                        # functions to allow strided arrays.
-                        GL.glTexSubImage2D(
-                            GL.GL_TEXTURE_2D, 0, 0, 0, data.shape[0], data.shape[1],
-                            async_texture.source_format,
-                            async_texture.source_type,
-                            memoryview(data.swapaxes(0,1).flatten()))
-                        texture.generateMipMaps()
-                    finally:
-                        texture.release()
-                    async_texture.texture = texture
-                    async_texture.status = 'uploaded'
-                except Exception as e:
-                    async_texture.exception = e
-                    async_texture.status = 'exception'
-                finally:
-                    async_texture.done.set()
+                async_texture._upload()
         finally:
             gl_context.doneCurrent()

@@ -134,13 +134,14 @@ class HistogramItem(shader_item.ShaderItem):
                     estack.callback(tex.release)
                 max_bin_val = histogram.max()
                 if self._hist_tex_needs_upload:
-                    orig_unpack_alignment = QGL.glGetIntegerv(QGL.GL_UNPACK_ALIGNMENT)
-                    if orig_unpack_alignment != 1:
-                        QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, 1)
-                        # QPainter font rendering for OpenGL surfaces will become broken if we do not restore GL_UNPACK_ALIGNMENT
-                        # to whatever QPainter had it set to (when it prepared the OpenGL context for our use as a result of
-                        # qpainter.beginNativePainting()).
-                        estack.callback(QGL.glPixelStorei, QGL.GL_UNPACK_ALIGNMENT, orig_unpack_alignment)
+                    # TODO: histogram (uint32) should always be 4-byte aligned... Check that the below isn't needed on other platforms though.
+                    # orig_unpack_alignment = QGL.glGetIntegerv(QGL.GL_UNPACK_ALIGNMENT)
+                    # if orig_unpack_alignment != 1:
+                    #     QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, 1)
+                    #     # QPainter font rendering for OpenGL surfaces will become broken if we do not restore GL_UNPACK_ALIGNMENT
+                    #     # to whatever QPainter had it set to (when it prepared the OpenGL context for our use as a result of
+                    #     # qpainter.beginNativePainting()).
+                    #     estack.callback(QGL.glPixelStorei, QGL.GL_UNPACK_ALIGNMENT, orig_unpack_alignment)
                     GL.glTexSubImage1D(
                         GL.GL_TEXTURE_1D, 0, 0, desired_tex_width, GL.GL_RED,
                         GL.GL_UNSIGNED_INT,
