@@ -115,16 +115,7 @@ class LayerStackItem(shader_item.ShaderItem):
         return self._bounding_rect
 
     def _attach_layers(self, layers):
-        layer_stack = self.layer_stack
-        examine_layer_mode = layer_stack.examine_layer_mode
-        if examine_layer_mode:
-            focused_layer = layer_stack.focused_layer
         for layer in layers:
-            # Initiate background texture upload if layer has a visible image; a no-op if image's texture is already uploaded or
-            # queued for uploading.
-            image = layer.image
-            if image is not None and (examine_layer_mode and layer is focused_layer or not examine_layer_mode and layer.visible):
-                image.async_texture.upload()
             layer.changed.connect(self._on_layer_changed)
             layer.image_changed.connect(self._on_layer_image_changed)
 
@@ -213,9 +204,6 @@ class LayerStackItem(shader_item.ShaderItem):
                 new_br = self.DEFAULT_BOUNDING_RECT
             else:
                 new_br = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(image.size))
-                examine_layer_mode = self.layer_stack.examine_layer_mode
-                if examine_layer_mode and layer is self.layer_stack.focused_layer or not examine_layer_mode and layer.visible:
-                    image.async_texture.upload()
             if new_br != current_br:
                 self.prepareGeometryChange()
                 self._bounding_rect = new_br
@@ -331,9 +319,9 @@ class LayerStackItem(shader_item.ShaderItem):
             estack.callback(glQuad.vao.release)
             vert_coord_loc = prog.attributeLocation('vert_coord')
             prog.enableAttributeArray(vert_coord_loc)
-            GL = shared_resources.QGL()
-            prog.setAttributeBuffer(vert_coord_loc, GL.GL_FLOAT, 0, 2, 0)
-            prog.setUniformValue('viewport_height', GL.glGetFloatv(GL.GL_VIEWPORT)[3])
+            QGL = shared_resources.QGL()
+            prog.setAttributeBuffer(vert_coord_loc, QGL.GL_FLOAT, 0, 2, 0)
+            prog.setUniformValue('viewport_height', QGL.glGetFloatv(QGL.GL_VIEWPORT)[3])
             prog.setUniformValue('layer_stack_item_opacity', self.opacity())
             # The next few lines of code compute frag_to_tex, representing an affine transform in 2D space from pixel coordinates
             # to normalized (unit square) texture coordinates.  That is, matrix multiplication of frag_to_tex and homogenous
@@ -383,8 +371,8 @@ class LayerStackItem(shader_item.ShaderItem):
                 prog.setUniformValue('gamma_'+tidxstr, layer.gamma)
                 prog.setUniformValue('tint_'+tidxstr, Qt.QVector4D(*layer.tint))
             self.set_blend(estack)
-            GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
-            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 4)
+            QGL.glEnableClientState(QGL.GL_VERTEX_ARRAY)
+            QGL.glDrawArrays(QGL.GL_TRIANGLE_FAN, 0, 4)
         self.painted.emit()
 
     @staticmethod
@@ -423,10 +411,11 @@ class LayerStackItem(shader_item.ShaderItem):
             layer = layer_stack.layers[idx]
             image = layer.image
             if image not in bound:
-                image.async_texture.bind(tex_unit, estack)
+                image.async_texture.bind(tex_unit)
+                estack.callback(image.async_texture.release, tex_unit)
                 bound.add(image)
             # The following generateMipMaps call completes in microseconds as mipmaps were already auto-generated on an _AsyncTextureUploadThread.  In fact, we should not have to call
             # generateMipMaps at this point.  However, OS X needs this call in order to see mipmaps generated on another thread.  Without it, all mip levels aside from base are black
             # on OS X.
-            image.async_texture.tex.generateMipMaps()
+            image.async_texture.texture.generateMipMaps()
         return visible_idxs

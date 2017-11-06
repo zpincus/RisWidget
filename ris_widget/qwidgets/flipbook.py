@@ -40,7 +40,7 @@ except ModuleNotFoundError:
 
 class ImageList(uniform_signaling_list.UniformSignalingList):
     def take_input_element(self, obj):
-        return obj if isinstance(obj, image.Image) else image.Image(obj, immediate_texture_upload=False)
+        return obj if isinstance(obj, image.Image) else image.Image(obj)
 
 class PageList(uniform_signaling_list.UniformSignalingList):
     def take_input_element(self, obj):
@@ -205,14 +205,6 @@ class Flipbook(Qt.QWidget):
                 layers.append(focused_page[idx])
             else:
                 layers[idx].image = focused_page[idx]
-        hint_pages = []
-        if focused_page_idx > 0:
-            hint_pages.append(pages[focused_page_idx-1])
-        if focused_page_idx < len(pages) - 1:
-            hint_pages.append(pages[focused_page_idx+1])
-        for hint_page in hint_pages:
-            for image in hint_page:
-                image.async_texture.upload()
         self.page_focus_changed.emit(self)
 
     def _detach_page(self):
@@ -295,8 +287,8 @@ class Flipbook(Qt.QWidget):
             if e.error:
                 e.task_page.page.name += ' (ERROR)'
             else:
-                e.task_page.page.extend(image.Image(im, name=im_name, immediate_texture_upload=False) for
-                                        (im, im_name) in zip(e.task_page.ims, e.task_page.im_names))
+                for im, im_name in zip(e.task_page.ims, e.task_page.im_names):
+                    e.task_page.page.append(image.Image(im, name=im_name))
             return True
         return super().event(e)
 

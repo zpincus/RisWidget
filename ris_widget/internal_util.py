@@ -10,9 +10,13 @@ class ProxyProperty(property):
         return self.proxied_property.fget(getattr(obj, self.owner_name))
 
     def __set__(self, obj, v):
+        if self.proxied_property.fset is None:
+            raise AttributeError("can't set attribute")
         self.proxied_property.fset(getattr(obj, self.owner_name), v)
 
     def __delete__(self, obj):
+        if self.proxied_property.fdel is None:
+            raise AttributeError("can't delete attribute")
         self.proxied_property.fdel(getattr(obj, self.owner_name))
 
 

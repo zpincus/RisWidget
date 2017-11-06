@@ -24,8 +24,6 @@
 
 from contextlib import ExitStack
 import numpy
-import OpenGL
-import OpenGL.GL.ARB.texture_float
 from PyQt5 import Qt
 from .. import shared_resources
 from .. import image
@@ -74,10 +72,10 @@ class BaseView(Qt.QGraphicsView):
 
     def drawBackground(self, p, rect):
         p.beginNativePainting()
-        GL = shared_resources.QGL()
-        GL.glClearColor(*self._background_color, 1.0)
-        GL.glClearDepth(1)
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+        QGL = shared_resources.QGL()
+        QGL.glClearColor(*self._background_color, 1.0)
+        QGL.glClearDepth(1)
+        QGL.glClear(QGL.GL_COLOR_BUFFER_BIT | QGL.GL_DEPTH_BUFFER_BIT)
         p.endNativePainting()
 
     @property
@@ -111,17 +109,17 @@ class BaseView(Qt.QGraphicsView):
                 estack.callback(self.scene().contextual_info_item.show)
             self.gl_widget.makeCurrent()
             estack.callback(self.gl_widget.doneCurrent)
-            GL = shared_resources.QGL()
+            QGL = shared_resources.QGL()
             fbo_format = Qt.QOpenGLFramebufferObjectFormat()
-            fbo_format.setInternalTextureFormat(GL.GL_RGBA8)
+            fbo_format.setInternalTextureFormat(QGL.GL_RGBA8)
             fbo_format.setSamples(msaa_sample_count)
             fbo_format.setAttachment(Qt.QOpenGLFramebufferObject.CombinedDepthStencil)
             fbo = Qt.QOpenGLFramebufferObject(size, fbo_format)
             fbo.bind()
             estack.callback(fbo.release)
-            GL.glClearColor(*self._background_color, 1.0)
-            GL.glClearDepth(1)
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+            QGL.glClearColor(*self._background_color, 1.0)
+            QGL.glClearDepth(1)
+            QGL.glClear(QGL.GL_COLOR_BUFFER_BIT | QGL.GL_DEPTH_BUFFER_BIT)
             glpd = Qt.QOpenGLPaintDevice(size)
             p = Qt.QPainter()
             p.begin(glpd)
@@ -140,7 +138,6 @@ class _ShaderViewGLViewport(Qt.QOpenGLWidget):
         self.setFormat(shared_resources.GL_QSURFACE_FORMAT)
         self.view = view
         self.makeCurrent()
-        OpenGL.GL.ARB.texture_float.glInitTextureFloatARB()
 
     def _check_current(self, estack):
         if Qt.QOpenGLContext.currentContext() is not self.context():

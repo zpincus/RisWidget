@@ -53,7 +53,7 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         self._target_layer_idx = None
         self.target_layer = None
         self.target_image = None
-        layers = layer_stack.layers
+        layers = layer_stack_item.layer_stack.layers
         layers.inserted.connect(self._on_layer_changed)
         layers.removed.connect(self._on_layer_changed)
         layers.replaced.connect(self._on_layer_changed)

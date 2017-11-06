@@ -22,18 +22,17 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
+import atexit
+import sys
+import pkg_resources
+
 import sip
 sip.setdestroyonexit(True)
 
-import pkg_resources
-
-import atexit
 from PyQt5 import Qt
-import sys
 
 from . import shared_resources
 from . import internal_util
-from . import async_texture
 from . import layer
 from . import layer_stack
 from .qwidgets import flipbook
@@ -72,8 +71,6 @@ def _atexit_cleanup():
     app = Qt.QApplication.instance()
     if app is None:
         return
-    # for context in shared_resources._GL_CACHE.keys():
-    #     context.destroyed[Qt.QObject].disconnect(shared_resources._on_destruction_of_context_with_cached_gl)
     app.aboutToQuit.emit()
 
 _QAPPLICATION = None
@@ -106,15 +103,13 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self._shown = False
         # TODO: is below workaround still necessary?
         self.resize(self.size()) # QMainWindow on Qt 5.8 doesn't remember user-set size between show/hide unless a resize is explicitly called.
-        # TODO: look deeper into opengl buffer swapping order and such to see if we can become compatible with OS X auto-hiding scrollbars
-        # rather than needing to disable them
-        if sys.platform == 'darwin':
-            style = Qt.QApplication.style()
-            Qt.QApplication.setStyle(NonTransientScrollbarsStyle(style))
+        # Older versions of Qt / OS X (?) had some issues with OS X auto-hiding scrollbars (flashing black). TODO: can we delete this code entirely?
+        # if sys.platform == 'darwin':
+        #     style = Qt.QApplication.style()
+        #     Qt.QApplication.setStyle(NonTransientScrollbarsStyle(style))
         if window_title is not None:
             self.setWindowTitle(window_title)
         self.setAcceptDrops(True)
-        async_texture._TextureCache.init()
         self._init_scenes_and_views()
         self._init_flipbook()
         self._init_actions()
@@ -130,6 +125,12 @@ class RisWidgetQtObject(Qt.QMainWindow):
         atexit.register(_atexit_cleanup)
 
     def _on_about_to_quit(self):
+        # TODO: is below really not necessary?
+        # for layer in self.layers:
+        #     layer.image = None
+        # del self.image_scene.contextual_info_item
+        # del self.histogram_scene.contextual_info_item
+        # self.takeCentralWidget()
         self.deleteLater()
         atexit.unregister(_atexit_cleanup)
 

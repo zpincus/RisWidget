@@ -152,9 +152,9 @@ class ImageValEdit(LabelEdit):
 
 class LayerStackPainter(Qt.QWidget):
     def __init__(self, rw, parent=None):
+        self.painter_item = layer_stack_painter_item.LayerStackPainterItem(rw.image_scene.layer_stack_item)
         super().__init__(parent)
         self.setWindowTitle('Layer Painter')
-        self.painter_item = layer_stack_painter_item.LayerStackPainterItem(rw.image_scene.layer_stack_item)
         widget_layout = Qt.QVBoxLayout()
         self.left_click_box = Qt.QCheckBox('Left click draws (alt-left pans)')
         widget_layout.addWidget(self.left_click_box)
@@ -183,11 +183,11 @@ class LayerStackPainter(Qt.QWidget):
     def _on_left_click_changed(self, state):
         self.painter_item.left_click_draws = state
         if state:
-            self.brush_val.setText('Left-click')
-            self.alt_brush_val.setText('Shift-left-click')
+            self.brush_val.label.setText('Left-click')
+            self.alt_brush_val.label.setText('Shift-left-click')
         else:
-            self.brush_val.setText('Right-click')
-            self.alt_brush_val.setText('Shift-right-click')
+            self.brush_val.label.setText('Right-click')
+            self.alt_brush_val.label.setText('Shift-right-click')
 
     def _on_target_image_changed(self):
         self.brush_size.setEnabled(self.painter_item.target_image is not None)

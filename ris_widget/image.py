@@ -24,11 +24,7 @@
 
 import ctypes
 import numpy
-import OpenGL
-import OpenGL.GL as PyGL
 from PyQt5 import Qt
-import textwrap
-from . import async_texture
 
 class Image(Qt.QObject):
     """An instance of the Image class is a wrapper around a Numpy ndarray representing a single image.
@@ -38,19 +34,7 @@ class Image(Qt.QObject):
     The .data array can be modified in-place after construction, however: just call .refresh() afterward.
     """
     # TODO: update documentation after image simplification
-    changed = Qt.pyqtSignal(object)
-
-    IMAGE_TYPE_TO_QOGLTEX_TEX_FORMAT = {
-        'G': Qt.QOpenGLTexture.R32F,
-        'Ga': Qt.QOpenGLTexture.RG32F,
-        'rgb': Qt.QOpenGLTexture.RGB32F,
-        'rgba': Qt.QOpenGLTexture.RGBA32F}
-
-    NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
-        numpy.bool8  : PyGL.GL_UNSIGNED_BYTE,
-        numpy.uint8  : PyGL.GL_UNSIGNED_BYTE,
-        numpy.uint16 : PyGL.GL_UNSIGNED_SHORT,
-        numpy.float32: PyGL.GL_FLOAT}
+    changed = Qt.pyqtSignal()
 
     NUMPY_DTYPE_TO_RANGE = {
         numpy.bool8  : (False, True),
@@ -58,13 +42,7 @@ class Image(Qt.QObject):
         numpy.uint16 : (0, 65535),
         numpy.float32: (-numpy.inf, numpy.inf)}
 
-    IMAGE_TYPE_TO_GL_PIX_FORMAT = {
-        'G'   : PyGL.GL_RED,
-        'Ga'  : PyGL.GL_RG,
-        'rgb' : PyGL.GL_RGB,
-        'rgba': PyGL.GL_RGBA}
-
-    def __init__(self, data, image_bits=None, immediate_texture_upload=True, name=None, parent=None):
+    def __init__(self, data, image_bits=None, name=None, parent=None):
         """
         image_bits: only applies to uint16 images. If None, images are assumed to occupy full 16-bit range.
         The shape of image and mask data is interpreted as (x,y) for 2-d arrays and (x,y,c) for 3-d arrays.  If your image or mask was loaded as (y,x),
@@ -104,24 +82,18 @@ class Image(Qt.QObject):
             self.valid_range = self.NUMPY_DTYPE_TO_RANGE[data.dtype.type]
 
         self.name = name
-        self.refresh(immediate_texture_upload)
+        self.refresh()
 
     def __repr__(self):
         return '{}; {}x{} ({})>'.format(super().__repr__()[:-1], self.size.width(), self.size.height(), self.type)
 
-    def refresh(self, immediate_texture_upload=True):
+    def refresh(self):
         """
         The .refresh method should be called after modifying the contents of .data.
 
         The .refresh method is primarily useful to cause a user interface to update in response to data changes caused by manipulation of .data or
         another numpy view of the same memory."""
-        self.async_texture = async_texture.AsyncTexture(
-            self._data,
-            self.IMAGE_TYPE_TO_QOGLTEX_TEX_FORMAT[self.type],
-            self.IMAGE_TYPE_TO_GL_PIX_FORMAT[self.type],
-            self.NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self._data.dtype.type],
-            immediate_texture_upload)
-        self.changed.emit(self)
+        self.changed.emit()
 
     def generate_contextual_info_for_pos(self, x, y):
         sz = self.size

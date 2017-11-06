@@ -30,7 +30,7 @@ import numpy
 from . import image
 from . import histogram
 from . import qt_property
-
+from . import async_texture
 
 SHADER_PROP_HELP = """The GLSL fragment shader used to render an image within a layer stack is created
 by filling in the $-values from the following template (somewhat simplified) with the corresponding
@@ -93,23 +93,27 @@ def coerce_to_radius(v):
         return v
 
 class Layer(qt_property.QtPropertyOwner):
-    """Image's properties are all either computed from that ndarray, provide views into that ndarray's data (in the case of .data
-    and .data_T), or, in the special cases of .is_twelve_bit for uint16 images and .imposed_float_range for floating-point images,
-    represent unenforced constraints limiting the domain of valid values that are expected to be assumed by elements of the ndarray.
+    """ The class Layer contains properties that control Image presentation.
 
-    Layer adds properties such as min/max/gamma scaling that control presentation of the image data contained by Image.
+    Properties:
+        visible
+        mask_radius
+        auto_min_max
+        min
+        max
+        gamma
+        histogram_min
+        histogram_max
+        getcolor_expression
+        tint
+        transform_section
+        blend_function
+        opacity
 
-    In summary,
-    Image: raw image data and essential information for interpreting that data in any context
-    Layer: has an Image and presentation data and metadata for RisWidget such as rescaling min/max/gamma values and an informative name
-
-    The changed signal is emitted when any property impacting image presentation is modified or image data is explicitly changed or refreshed.
-    In the case where any image appearance change should cause a function to be executed, do changed.connect(your_function) rather than
-    min_changed.connect(your_function); max_changed.connect(your_function); etc.
-
-    Although Layer uses Property descriptors, subclasses adding properties are not obligated to use Property to represent the additional
-    properties.  The regular @property decorator syntax or property(..) builtin remain available - Property provides an abstraction that
-    is potentially convenient and worth understanding and using when defining a large number of properties."""
+    The 'changed' signal is emitted when any property impacting image presentation
+    is modified or image data is explicitly changed or refreshed. Each specific
+    property also has its own changed signal, such as 'min_changed' &c.
+    """
 
     GAMMA_RANGE = (0.0625, 16.0)
     IMAGE_TYPE_TO_GETCOLOR_EXPRESSION = {
@@ -153,6 +157,7 @@ class Layer(qt_property.QtPropertyOwner):
     changed = Qt.pyqtSignal(object)
     image_changed = Qt.pyqtSignal(object)
     opacity_changed = Qt.pyqtSignal(object)
+    # below properties are necessary for proper updating of LayerStack table view when images change
     dtype_changed = Qt.pyqtSignal(object)
     type_changed = Qt.pyqtSignal(object)
     size_changed = Qt.pyqtSignal(object)
@@ -188,50 +193,54 @@ class Layer(qt_property.QtPropertyOwner):
         return self._image
 
     @image.setter
-    def image(self, v):
-        if v is not self._image:
-            if v is not None:
-                if not isinstance(v, image.Image):
-                    v = image.Image(v)
+    def image(self, new_image):
+        if new_image is not self._image:
+            if new_image is not None:
+                if not isinstance(new_image, image.Image):
+                    new_image = image.Image(new_image)
                 try:
-                    v.changed.connect(self._on_image_changed)
+                    new_image.changed.connect(self._on_image_changed)
                 except Exception as e:
-                    if self._image is not None:
-                        self._image.changed.disconnect(self._on_image_changed)
+                    if self._new_image is not None:
+                        self._new_image.changed.disconnect(self._on_image_changed)
                     self._image = None
                     raise e
             if self._image is not None:
+                del self._image.async_texture
                 self._image.changed.disconnect(self._on_image_changed)
-            self._image = v
-            if v is not None:
-                min, max = self._image.valid_range
+            self._image = new_image
+            if new_image is None:
+                self.dtype = None
+                self.type = None
+                self.size = None
+                self.name = None
+            else:
+                min, max = new_image.valid_range
                 if not (min <= self.histogram_min <= max):
                     del self.histogram_min # reset histogram min (delattr on the qt_property returns it to the default)
                 if not (min <= self.histogram_max <= max):
                     del self.histogram_max # reset histogram min (delattr on the qt_property returns it to the default)
 
-                self.dtype = v.data.dtype
-                self.type = v.type
-                self.size = v.size
-                self.name = v.name
-            else:
-                self.dtype = None
-                self.type = None
-                self.size = None
-                self.name = None
+                self.dtype = new_image.data.dtype
+                self.type = new_image.type
+                self.size = new_image.size
+                self.name = new_image.name
             for proxy_prop in ('dtype', 'type', 'size', 'name'):
                 getattr(self, proxy_prop+'_changed').emit(self)
-            self._on_image_changed(v)
+            self._on_image_changed()
 
-    def _on_image_changed(self, image):
-        assert image is self.image
+    def _on_image_changed(self):
+        if self.image is not None:
+            # do this before calculating the histogram, so that the background texture upload (slow) runs in
+            # parallel with the foreground histogram calculation (slow)
+            self.image.async_texture = async_texture.AsyncTexture(self.image)
         self.calculate_histogram()
         self._update_property_defaults()
-        if image is not None:
+        if self.image is not None:
             if self.auto_min_max:
                 self.do_auto_min_max()
             else:
-                l, h = image.valid_range
+                l, h = self.image.valid_range
                 if self.min < l:
                     self.min = l
                 if self.max > h:
@@ -278,7 +287,7 @@ class Layer(qt_property.QtPropertyOwner):
         coerce_arg_fn=bool)
 
     def _mask_radius_post_set(self, v):
-        self._on_image_changed(self.image)
+        self._on_image_changed()
 
     mask_radius = qt_property.Property(
         default_value=None,

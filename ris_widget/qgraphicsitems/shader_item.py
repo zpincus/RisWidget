@@ -74,17 +74,17 @@ class ShaderItem(Qt.QGraphicsObject):
         # transparency data immediately after it has been used to blend into the scene.  In fact, this is what Qt does when drawing partially transparent QGraphicsItems:
         # they are blended into the viewport framebuffer, but alpha is discarded and framebuffer alpha remains saturated.  This does require us to clear the framebuffer
         # with saturated alpha at the start of each frame, which we do by default (see ris_widget.qgraphicsviews.base_view.BaseView and its drawBackground method).
-        GL = shared_resources.QGL()
-        if not GL.glIsEnabled(GL.GL_BLEND):
-            GL.glEnable(GL.GL_BLEND)
-            estack.callback(lambda: GL.glDisable(GL.GL_BLEND))
-        desired_bfs = GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA, GL.GL_ONE, GL.GL_ONE
-        bfs = GL.glGetIntegerv(GL.GL_BLEND_SRC_RGB), GL.glGetIntegerv(GL.GL_BLEND_DST_RGB), GL.glGetIntegerv(GL.GL_BLEND_SRC_ALPHA), GL.glGetIntegerv(GL.GL_BLEND_DST_ALPHA)
+        QGL = shared_resources.QGL()
+        if not QGL.glIsEnabled(QGL.GL_BLEND):
+            QGL.glEnable(QGL.GL_BLEND)
+            estack.callback(lambda: QGL.glDisable(QGL.GL_BLEND))
+        desired_bfs = QGL.GL_SRC_ALPHA, QGL.GL_ONE_MINUS_SRC_ALPHA, QGL.GL_ONE, QGL.GL_ONE
+        bfs = QGL.glGetIntegerv(QGL.GL_BLEND_SRC_RGB), QGL.glGetIntegerv(QGL.GL_BLEND_DST_RGB), QGL.glGetIntegerv(QGL.GL_BLEND_SRC_ALPHA), QGL.glGetIntegerv(QGL.GL_BLEND_DST_ALPHA)
         if bfs != desired_bfs:
-            GL.glBlendFuncSeparate(*desired_bfs)
-            estack.callback(lambda: GL.glBlendFuncSeparate(*bfs))
-        desired_bes = GL.GL_FUNC_ADD, GL.GL_MAX
-        bes = GL.glGetIntegerv(GL.GL_BLEND_EQUATION_RGB), GL.glGetIntegerv(GL.GL_BLEND_EQUATION_ALPHA)
+            QGL.glBlendFuncSeparate(*desired_bfs)
+            estack.callback(lambda: QGL.glBlendFuncSeparate(*bfs))
+        desired_bes = QGL.GL_FUNC_ADD, QGL.GL_MAX
+        bes = QGL.glGetIntegerv(QGL.GL_BLEND_EQUATION_RGB), QGL.glGetIntegerv(QGL.GL_BLEND_EQUATION_ALPHA)
         if bes != desired_bes:
-            GL.glBlendEquationSeparate(*desired_bes)
-            estack.callback(lambda: GL.glBlendEquationSeparate(*bes))
+            QGL.glBlendEquationSeparate(*desired_bes)
+            estack.callback(lambda: QGL.glBlendEquationSeparate(*bes))

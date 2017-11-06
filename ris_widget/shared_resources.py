@@ -41,7 +41,7 @@ def generate_unique_qgraphicsitem_type():
     _NEXT_QGRAPHICSITEM_USERTYPE += 1
     return _NEXT_QGRAPHICSITEM_USERTYPE
 
-_GL_CACHE = {}
+_QGL_CACHE = {}
 
 def QGL():
     current_thread = Qt.QThread.currentThread()
@@ -55,19 +55,19 @@ def QGL():
     assert current_thread is context.thread()
     # Attempt to return cache entry, a Qt.QOpenGLVersionFunctions object...
     try:
-        return _GL_CACHE[context]
+        return _QGL_CACHE[context]
     except KeyError:
         pass
     # There is no entry for the current OpenGL context in our cache.  Acquire, cache, and return a
     # Qt.QOpenGLVersionFunctions object.
     try:
-        GL = context.versionFunctions()
-        if GL is None:
+        QGL = context.versionFunctions()
+        if QGL is None:
             # Some platforms seem to need version profile specification
             vp = Qt.QOpenGLVersionProfile()
             vp.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
             vp.setVersion(2, 1)
-            GL = context.versionFunctions(vp)
+            QGL = context.versionFunctions(vp)
     except ImportError:
         # PyQt5 v5.4.0 and v5.4.1 provide access to OpenGL functions up to OpenGL 2.0, but we have made
         # an OpenGL 2.1 context.  QOpenGLContext.versionFunctions(..) will, by default, attempt to return
@@ -78,14 +78,15 @@ def QGL():
         vp = Qt.QOpenGLVersionProfile()
         vp.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
         vp.setVersion(2, 0)
-        GL = context.versionFunctions(vp)
-    if GL is None:
+        QGL = context.versionFunctions(vp)
+    if QGL is None:
         raise RuntimeError('Failed to retrieve QOpenGL.')
-    if not GL.initializeOpenGLFunctions():
+    if not QGL.initializeOpenGLFunctions():
         raise RuntimeError('Failed to initialize OpenGL wrapper namespace.')
-    _GL_CACHE[context] = GL
-    context.aboutToBeDestroyed.connect(lambda: _GL_CACHE.pop(context))
-    return GL
+    _QGL_CACHE[context] = QGL
+    # TODO: is below really not necessary?
+    # context.aboutToBeDestroyed.connect(lambda: _QGL_CACHE.pop(context))
+    return QGL
 
 
 MSAA_SAMPLE_COUNT = 2
