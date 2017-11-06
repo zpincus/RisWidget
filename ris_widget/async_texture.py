@@ -130,7 +130,7 @@ class TextureUploadManager:
             self.gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
             self.gl_context.setFormat(shared_resources.GL_QSURFACE_FORMAT)
             # TODO: is below really not necessary?
-            # Qt.QApplication.instance().aboutToQuit.connect(self.shut_down)
+            Qt.QApplication.instance().aboutToQuit.connect(self.shut_down)
         return self._upload_thread
 
     def destroy_texture(self, texture):
