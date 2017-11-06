@@ -223,6 +223,10 @@ class LayerStack(Qt.QObject):
         self.ensure_layer_focused()
 
     def _delayed_on_removed_from_layers(self, idxs, layers):
+        # NB: There is a race condition when a layer is removed right before the ris_widget itself
+        # is deleted. If ensure_layer_focused runs after ris_widget goes away, then it fails
+        # because some qt objects have been deleted on the C++ side. This is generally rare, though,
+        # and doesn't break things (it just prints a stack trace), so it's a low priority TODO
         self.ensure_layer_focused()
 
     def _on_current_row_changed(self, midx, old_midx):
