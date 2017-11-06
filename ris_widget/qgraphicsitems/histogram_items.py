@@ -141,11 +141,10 @@ class HistogramItem(shader_item.ShaderItem):
                         # to whatever QPainter had it set to (when it prepared the OpenGL context for our use as a result of
                         # qpainter.beginNativePainting()).
                         estack.callback(lambda oua=orig_unpack_alignment: QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, oua))
-                    mv = memoryview(histogram)
                     GL.glTexSubImage1D(
                         GL.GL_TEXTURE_1D, 0, 0, desired_tex_width, GL.GL_RED,
                         GL.GL_UNSIGNED_INT,
-                        mv
+                        memoryview(histogram)
                     )
                     self._hist_tex_needs_upload = False
                     self._tex = tex

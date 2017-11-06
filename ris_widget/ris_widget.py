@@ -128,9 +128,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         # TODO: is below really not necessary?
         # for layer in self.layers:
         #     layer.image = None
-        # del self.image_scene.contextual_info_item
-        # del self.histogram_scene.contextual_info_item
-        # self.takeCentralWidget()
         self.deleteLater()
         atexit.unregister(_atexit_cleanup)
 
