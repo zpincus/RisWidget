@@ -46,10 +46,15 @@ NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
     numpy.uint16 : GL.GL_UNSIGNED_SHORT,
     numpy.float32: GL.GL_FLOAT}
 
-NO_BG_UPLOAD = False # debug flag for testing with flaky drivers
+USE_BG_UPLOAD_THREAD = True # debug flag for testing with flaky drivers
 
 class AsyncTexture:
     _LIVE_TEXTURES = None
+    @classmethod
+    def _on_about_to_quit(cls):
+        with shared_resources.offscreen_context():
+            for t in cls._LIVE_TEXTURES:
+                t.destroy()
 
     def __init__(self, image):
         if self._LIVE_TEXTURES is None:
@@ -60,85 +65,80 @@ class AsyncTexture:
         self.format, self.source_format = IMAGE_TYPE_TO_GL_FORMATS[image.type]
         self.source_type = NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self.data.dtype.type]
         self.done = threading.Event()
-        if NO_BG_UPLOAD:
-            self.status = 'fg_upload_required'
+        self.texture = None
+
+    def upload(self, upload_region=None):
+        if self.texture is None and upload_region is not None:
+            raise ValueError('The first time the texture is uploaded, the full region must be used.')
+        if USE_BG_UPLOAD_THREAD:
+            OffscreenContextThread.get().enqueue(self._upload, [upload_region])
         else:
-            self.status = 'queued'
-            TextureUploadThread.get().enqueue(self)
+            self._upload_fg(upload_region)
 
-    @classmethod
-    def _on_about_to_quit(cls):
-        with shared_resources.offscreen_context():
-            for t in cls._LIVE_TEXTURES:
-                t.destroy()
-
-    def bind(self, tmu):
-        if self.status == 'fg_upload_required':
-            self._upload_fg()
+    def bind(self, tex_unit):
         self.done.wait()
-        if self.status == 'exception':
+        if hasattr(self, 'exception'):
             raise self.exception
-        self.texture.bind(tmu)
+        assert self.texture is not None
+        self.texture.bind(tex_unit)
 
-    def release(self, tmu):
-        self.texture.release(tmu)
+    def release(self, tex_unit):
+        assert self.texture is not None
+        self.texture.release(tex_unit)
 
-    def _upload_fg(self):
+    def destroy(self):
+        if self.texture is not None:
+            # requires a valid context
+            assert Qt.QOpenGLContext.currentContext() is not None
+            self.texture.destroy()
+            self.texture = None
+
+    def _upload_fg(self, upload_region):
         assert Qt.QOpenGLContext.currentContext() is not None
         QGL = shared_resources.QGL()
         orig_unpack_alignment = QGL.glGetIntegerv(QGL.GL_UNPACK_ALIGNMENT)
         QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, 1)
         try:
-            self._upload()
+            self._upload(upload_region)
         finally:
             # QPainter font rendering for OpenGL surfaces can break if we do not restore GL_UNPACK_ALIGNMENT
             # and this function was called within QPainter's native painting operations
             QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, orig_unpack_alignment)
 
-    def _upload(self):
+    def _upload(self, upload_region):
         try:
-            texture = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target2D)
-            texture.setFormat(self.format)
-            texture.setWrapMode(Qt.QOpenGLTexture.ClampToEdge)
-            texture.setMipLevels(6)
-            texture.setAutoMipMapGenerationEnabled(False)
-            data = self.data
-            texture.setSize(data.shape[0], data.shape[1], 1)
-            texture.allocateStorage()
-            texture.setMinMagFilters(Qt.QOpenGLTexture.LinearMipMapLinear, Qt.QOpenGLTexture.Nearest)
-            texture.bind()
+            if self.texture is None:
+                texture = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target2D)
+                texture.setFormat(self.format)
+                texture.setWrapMode(Qt.QOpenGLTexture.ClampToEdge)
+                texture.setMipLevels(6)
+                texture.setAutoMipMapGenerationEnabled(False)
+                data = self.data
+                texture.setSize(data.shape[0], data.shape[1], 1)
+                texture.allocateStorage()
+                texture.setMinMagFilters(Qt.QOpenGLTexture.LinearMipMapLinear, Qt.QOpenGLTexture.Nearest)
+                self.texture = texture
+                self._LIVE_TEXTURES.add(self)
+            self.texture.bind()
             try:
                 #TODO: use QOpenGLTexture.setData here, and pixel storage
                 # functions to allow strided arrays.
+                #TODO: use upload_region to allow updates to only a portion
+                # of the texture
                 GL.glTexSubImage2D(
                     GL.GL_TEXTURE_2D, 0, 0, 0, data.shape[0], data.shape[1],
                     self.source_format,
                     self.source_type,
                     memoryview(data.swapaxes(0,1).flatten()))
-                texture.generateMipMaps()
+                self.texture.generateMipMaps()
             finally:
-                texture.release()
-            self.texture = texture
-            self.status = 'uploaded'
-            self._LIVE_TEXTURES.add(self)
+                self.texture.release()
         except Exception as e:
             self.exception = e
-            self.status = 'exception'
         finally:
             self.done.set()
 
-    def destroy(self):
-        # assumes a valid context
-        assert Qt.QOpenGLContext.currentContext() is not None
-        if self.status == 'uploaded':
-            self.texture.destroy()
-            self.status = 'destroyed'
-
-    def __del__(self):
-        self.destroy()
-
-
-class TextureUploadThread(Qt.QThread):
+class OffscreenContextThread(Qt.QThread):
     _ACTIVE_THREAD = None
 
     @classmethod
@@ -155,8 +155,8 @@ class TextureUploadThread(Qt.QThread):
         self.running = True
         self.start()
 
-    def enqueue(self, async_texture):
-        self.queue.put(async_texture)
+    def enqueue(self, func, args):
+        self.queue.put((func, args))
 
     def shut_down(self):
         self.running = False
@@ -174,10 +174,10 @@ class TextureUploadThread(Qt.QThread):
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
         try:
             while self.running:
-                async_texture = self.queue.get()
+                func, args = self.queue.get()
                 if not self.running:
                     #self.running may go to false while blocked waiting on the queue
                     break
-                async_texture._upload()
+                func(*args)
         finally:
             gl_context.doneCurrent()

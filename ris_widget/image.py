@@ -27,6 +27,8 @@ import ctypes
 import numpy
 from PyQt5 import Qt
 
+from . import async_texture
+
 class Image(Qt.QObject):
     """An instance of the Image class is a wrapper around a Numpy ndarray representing a single image.
 
@@ -35,7 +37,7 @@ class Image(Qt.QObject):
     The .data array can be modified in-place after construction, however: just call .refresh() afterward.
     """
     # TODO: update documentation after image simplification
-    changed = Qt.pyqtSignal()
+    changed = Qt.pyqtSignal(object)
 
     NUMPY_DTYPE_TO_RANGE = {
         numpy.bool8  : (False, True),
@@ -83,18 +85,22 @@ class Image(Qt.QObject):
             self.valid_range = self.NUMPY_DTYPE_TO_RANGE[data.dtype.type]
 
         self.name = name
+        self.texture = async_texture.AsyncTexture(self)
         self.refresh()
 
     def __repr__(self):
         return '{}; {}x{} ({})>'.format(super().__repr__()[:-1], self.size.width(), self.size.height(), self.type)
 
-    def refresh(self):
+    def refresh(self, changed_region=None):
         """
         The .refresh method should be called after modifying the contents of .data.
 
         The .refresh method is primarily useful to cause a user interface to update in response to data changes caused by manipulation of .data or
-        another numpy view of the same memory."""
-        self.changed.emit()
+        another numpy view of the same memory.
+
+        If only a portion of the image changed,
+        """
+        self.changed.emit(changed_region)
 
     def generate_contextual_info_for_pos(self, x, y):
         sz = self.size
