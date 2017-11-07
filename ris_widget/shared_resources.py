@@ -82,7 +82,7 @@ SWAP_INTERVAL = 0
 GL_QSURFACE_FORMAT = None
 def pre_qapp_initialization():
     Qt.QApplication.setAttribute(Qt.Qt.AA_ShareOpenGLContexts)
-    sip.setdestroyonexit(True)
+    sip.setdestroyonexit(False)
 
     global GL_QSURFACE_FORMAT
     assert GL_QSURFACE_FORMAT is None
@@ -213,16 +213,14 @@ class _GlQuad:
             # Note: the following release call is essential.  Without it, if a QPainter is active, QPainter will never work for
             # again for the widget with the active painter!
             self.buffer.release()
-        Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
+    #     Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
 
-    def _on_about_to_quit(self):
-        # we know we have a valid openGL context because our atexit handler creates one
-        # before causing aboutToQuit to be emitted.
-        with offscreen_context():
-            self.vao.destroy()
-            self.vao = None
-            self.buffer.destroy()
-            self.buffer = None
+    # def _on_about_to_quit(self):
+    #     with offscreen_context():
+    #         self.vao.destroy()
+    #         self.vao = None
+    #         self.buffer.destroy()
+    #         self.buffer = None
 
 _GL_QUAD = None
 def GL_QUAD():

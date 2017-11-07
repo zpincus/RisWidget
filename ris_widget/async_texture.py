@@ -49,18 +49,18 @@ NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
 USE_BG_UPLOAD_THREAD = True # debug flag for testing with flaky drivers
 
 class AsyncTexture:
-    _LIVE_TEXTURES = None
-    @classmethod
-    def _on_about_to_quit(cls):
-        with shared_resources.offscreen_context():
-            for t in cls._LIVE_TEXTURES:
-                t.destroy()
+    # _LIVE_TEXTURES = None
+    # @classmethod
+    # def _on_about_to_quit(cls):
+    #     with shared_resources.offscreen_context():
+    #         for t in cls._LIVE_TEXTURES:
+    #             t.destroy()
 
     def __init__(self, image):
-        if self._LIVE_TEXTURES is None:
-            # if we used 'self' instead of __class__, would just set _LIVE_TEXTURES for this instance
-            __class__._LIVE_TEXTURES = weakref.WeakSet()
-            Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
+        # if self._LIVE_TEXTURES is None:
+        #     # if we used 'self' instead of __class__, would just set _LIVE_TEXTURES for this instance
+        #     __class__._LIVE_TEXTURES = weakref.WeakSet()
+        #     Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
         self.data = image.data
         self.format, self.source_format = IMAGE_TYPE_TO_GL_FORMATS[image.type]
         self.source_type = NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self.data.dtype.type]
@@ -118,7 +118,7 @@ class AsyncTexture:
                 texture.allocateStorage()
                 texture.setMinMagFilters(Qt.QOpenGLTexture.LinearMipMapLinear, Qt.QOpenGLTexture.Nearest)
                 self.texture = texture
-                self._LIVE_TEXTURES.add(self)
+                # self._LIVE_TEXTURES.add(self)
             self.texture.bind()
             try:
                 #TODO: use QOpenGLTexture.setData here, and pixel storage
@@ -158,11 +158,11 @@ class OffscreenContextThread(Qt.QThread):
     def enqueue(self, func, args):
         self.queue.put((func, args))
 
-    def shut_down(self):
-        self.running = False
-        # now wake up the thread if it's blocked waiting for a texture
-        self.queue.put(None)
-        self.wait()
+    # def shut_down(self):
+    #     self.running = False
+    #     # now wake up the thread if it's blocked waiting for a texture
+    #     self.queue.put(None)
+    #     self.wait()
 
     def run(self):
         gl_context = Qt.QOpenGLContext()
