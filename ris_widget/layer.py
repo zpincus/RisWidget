@@ -206,7 +206,8 @@ class Layer(qt_property.QtPropertyOwner):
                     self._image = None
                     raise e
             if self._image is not None:
-                del self._image.async_texture
+                # texture desruction happens in __del__ of async_texture
+                del self.image.async_texture
                 self._image.changed.disconnect(self._on_image_changed)
             self._image = new_image
             if new_image is None:
@@ -233,6 +234,7 @@ class Layer(qt_property.QtPropertyOwner):
         if self.image is not None:
             # do this before calculating the histogram, so that the background texture upload (slow) runs in
             # parallel with the foreground histogram calculation (slow)
+            # replacing old image.async_texture, if it exists, causes destruction of the old
             self.image.async_texture = async_texture.AsyncTexture(self.image)
         self.calculate_histogram()
         self._update_property_defaults()

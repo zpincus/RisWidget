@@ -25,6 +25,7 @@
 import contextlib
 import threading
 import queue
+import weakref
 
 import numpy
 from OpenGL import GL
@@ -48,7 +49,13 @@ NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
 NO_BG_UPLOAD = False # debug flag for testing with flaky drivers
 
 class AsyncTexture:
+    _LIVE_TEXTURES = None
+
     def __init__(self, image):
+        if self._LIVE_TEXTURES is None:
+            # if we used 'self' instead of __class__, would just set _LIVE_TEXTURES for this instance
+            __class__._LIVE_TEXTURES = weakref.WeakSet()
+            Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
         self.data = image.data
         self.format, self.source_format = IMAGE_TYPE_TO_GL_FORMATS[image.type]
         self.source_type = NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self.data.dtype.type]
@@ -57,7 +64,13 @@ class AsyncTexture:
             self.status = 'fg_upload_required'
         else:
             self.status = 'queued'
-            UPLOAD_MANAGER.upload_thread.enqueue(self)
+            TextureUploadThread.get().enqueue(self)
+
+    @classmethod
+    def _on_about_to_quit(cls):
+        with shared_resources.offscreen_context():
+            for t in cls._LIVE_TEXTURES:
+                t.destroy()
 
     def bind(self, tmu):
         if self.status == 'fg_upload_required':
@@ -107,59 +120,37 @@ class AsyncTexture:
                 texture.release()
             self.texture = texture
             self.status = 'uploaded'
+            self._LIVE_TEXTURES.add(self)
         except Exception as e:
             self.exception = e
             self.status = 'exception'
         finally:
             self.done.set()
 
-    def __del__(self):
+    def destroy(self):
+        # assumes a valid context
+        assert Qt.QOpenGLContext.currentContext() is not None
         if self.status == 'uploaded':
-            UPLOAD_MANAGER.destroy_texture(self.texture)
+            self.texture.destroy()
+            self.status = 'destroyed'
 
-class TextureUploadManager:
-    def __init__(self):
-        self._upload_thread = None
-        self._allow_destroy = True
+    def __del__(self):
+        self.destroy()
 
-    @property
-    def upload_thread(self):
-        if self._upload_thread is None:
-            self._upload_thread = TextureUploadThread()
-            self.gl_context = Qt.QOpenGLContext()
-            self.gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
-            self.gl_context.setFormat(shared_resources.GL_QSURFACE_FORMAT)
-            # TODO: is below really not necessary?
-            Qt.QApplication.instance().aboutToQuit.connect(self.shut_down)
-        return self._upload_thread
-
-    def destroy_texture(self, texture):
-        if not self._allow_destroy:
-            print('destroying too late :(')
-            return
-        with contextlib.ExitStack() as estack:
-            if Qt.QOpenGLContext.currentContext() is None:
-                self.gl_context.makeCurrent(self._upload_thread.offscreen_surface)
-                estack.callback(self.gl_context.doneCurrent)
-            texture.destroy()
-
-    def shut_down(self):
-        # TODO: any of this necessary?
-        if self._upload_thread is not None:
-            self._upload_thread.shut_down()
-        self._allow_destroy = False
-        self.gl_context.deleteLater()
-
-UPLOAD_MANAGER = TextureUploadManager()
 
 class TextureUploadThread(Qt.QThread):
+    _ACTIVE_THREAD = None
+
+    @classmethod
+    def get(cls):
+        if cls._ACTIVE_THREAD is None:
+            cls._ACTIVE_THREAD = cls()
+            # TODO: is below necessary ever?
+            # Qt.QApplication.instance().aboutToQuit.connect(cls._ACTIVE_THREAD.shut_down)
+        return cls._ACTIVE_THREAD
+
     def __init__(self):
         super().__init__()
-        # must create offscreen surface in foreground thread, per Qt docs.
-        # (note that the foreground thread runs __init__...)
-        self.offscreen_surface = Qt.QOffscreenSurface()
-        self.offscreen_surface.setFormat(shared_resources.GL_QSURFACE_FORMAT)
-        self.offscreen_surface.create()
         self.queue = queue.Queue()
         self.running = True
         self.start()
@@ -179,7 +170,7 @@ class TextureUploadThread(Qt.QThread):
         gl_context.setFormat(shared_resources.GL_QSURFACE_FORMAT)
         if not gl_context.create():
             raise RuntimeError('Failed to create OpenGL context for background texture upload thread.')
-        gl_context.makeCurrent(self.offscreen_surface)
+        gl_context.makeCurrent(shared_resources.OFFSCREEN_SURFACE)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
         try:
             while self.running:

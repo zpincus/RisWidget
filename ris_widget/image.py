@@ -23,6 +23,7 @@
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
 import ctypes
+
 import numpy
 from PyQt5 import Qt
 

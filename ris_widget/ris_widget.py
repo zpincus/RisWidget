@@ -22,13 +22,6 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-import atexit
-import sys
-import pkg_resources
-
-import sip
-sip.setdestroyonexit(True)
-
 from PyQt5 import Qt
 
 from . import shared_resources
@@ -54,55 +47,22 @@ except ModuleNotFoundError:
 # rely on the (better) ipython method.
 Qt.pyqtRemoveInputHook()
 
-if sys.platform == 'darwin':
-    class NonTransientScrollbarsStyle(Qt.QProxyStyle):
-        def styleHint(self, sh, option=None, widget=None, returnData=None):
-            if sh == Qt.QStyle.SH_ScrollBar_Transient:
-                return 0
-            return self.baseStyle().styleHint(sh, option, widget, returnData)
-
-def _atexit_cleanup():
-    # With IPython's Qt event loop integration installed, the Qt.QApplication.aboutToQuit signal is not emitted
-    # when the Python interpreter exits.  However, we must do certain things before last-pass garbage collection
-    # at interpreter exit time in order to avoid segfaulting, and these things are done in response to the
-    # Qt.QApplication.aboutToQuit signal.  Fortunately, we can cause Qt.QApplication.aboutToQuit emission
-    # ourselves.  Doing so at exit time prompts our cleanup routines, avoiding the segfault upon exit from
-    # an IPython session owning one or more RisWidgets.
-    app = Qt.QApplication.instance()
-    if app is None:
-        return
-    app.aboutToQuit.emit()
-
-_QAPPLICATION = None
-def _init_qapplication():
-    shared_resources.create_default_QSurfaceFormat()
-    global _QAPPLICATION
-    if _QAPPLICATION is None:
-        instance = Qt.QApplication.instance()
-        if instance is None:
-            _QAPPLICATION = Qt.QApplication(sys.argv)
-        else:
-            _QAPPLICATION = instance
-        # are we running in IPython? If so, turn on the GUI integration
-        try:
-            import IPython
-            ip = IPython.get_ipython() # only not None if IPython is currently running
-            if ip is not None:
-                ip.enable_gui('qt5')
-        except ModuleNotFoundError:
-            pass
-    iconfile = pkg_resources.resource_filename(__name__, 'icon.svg')
-    _QAPPLICATION.setWindowIcon(Qt.QIcon(iconfile))
+# if sys.platform == 'darwin':
+#     class NonTransientScrollbarsStyle(Qt.QProxyStyle):
+#         def styleHint(self, sh, option=None, widget=None, returnData=None):
+#             if sh == Qt.QStyle.SH_ScrollBar_Transient:
+#                 return 0
+#             return self.baseStyle().styleHint(sh, option, widget, returnData)
 
 class RisWidgetQtObject(Qt.QMainWindow):
     def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
-        _init_qapplication()
+        shared_resources.init_qapplication()
         super().__init__(parent)
         self.setWindowIcon(Qt.QIcon())
         self.app_prefs_name = app_prefs_name
         self._shown = False
         # TODO: is below workaround still necessary?
-        self.resize(self.size()) # QMainWindow on Qt 5.8 doesn't remember user-set size between show/hide unless a resize is explicitly called.
+        # self.resize(self.size()) # QMainWindow on Qt 5.8 doesn't remember user-set size between show/hide unless a resize is explicitly called.
         # Older versions of Qt / OS X (?) had some issues with OS X auto-hiding scrollbars (flashing black). TODO: can we delete this code entirely?
         # if sys.platform == 'darwin':
         #     style = Qt.QApplication.style()
@@ -122,14 +82,10 @@ class RisWidgetQtObject(Qt.QMainWindow):
         # is delete everything queued up for deletion by deleteLater calls).  Thus, all of our QObject offspring
         # are culled gracefully after the QApplication exits, before Python starts to tear itself down.
         Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
-        atexit.register(_atexit_cleanup)
 
     def _on_about_to_quit(self):
-        # TODO: is below really not necessary?
-        # for layer in self.layers:
-        #     layer.image = None
+        self.close()
         self.deleteLater()
-        atexit.unregister(_atexit_cleanup)
 
     def _init_scenes_and_views(self):
         self.layer_stack = layer_stack.LayerStack()
@@ -497,4 +453,4 @@ class RisWidget:
 if __name__ == '__main__':
     import sys
     rw = RisWidget()
-    _QAPPLICATION.exec_()
+    shared_resources._QAPPLICATION.exec()

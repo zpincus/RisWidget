@@ -22,12 +22,117 @@
 #
 # Authors: Erik Hvatum <ice.rikh@gmail.com>
 
-from contextlib import ExitStack
+import contextlib
+import atexit
+import sys
+import pkg_resources
+import signal
+
 import numpy
 from PyQt5 import Qt
+import sip
+
+_QAPPLICATION = None
+def init_qapplication(icon_resource_path=(__name__, 'icon.svg')):
+    global _QAPPLICATION
+    if _QAPPLICATION is None:
+        assert Qt.QApplication.instance() is None
+        pre_qapp_initialization()
+        _QAPPLICATION = Qt.QApplication([])
+        post_qapp_initialization()
+
+        if icon_resource_path is not None:
+            iconfile = pkg_resources.resource_filename(*icon_resource_path)
+            _QAPPLICATION.setWindowIcon(Qt.QIcon(iconfile))
+
+        try:
+            # are we running in IPython?
+            import IPython
+            ipython = IPython.get_ipython() # only not None if IPython is currently running
+        except ModuleNotFoundError:
+            ipython = None
+
+        if ipython is not None:
+            # If iPython is running, turn on the GUI integration
+            ipython.enable_gui('qt5')
+            # QApplication.aboutToQuit is not emitted when exiting via IPython
+            # so register a handler to do so
+            atexit.register(_emit_about_to_quit)
+
+        else:
+            # install signal handlers so that Qt can be interrupted by control-c to quit
+            def sigint_handler(*args):
+                """Handler for the SIGINT signal."""
+                Qt.QApplication.quit()
+            signal.signal(signal.SIGINT, sigint_handler)
+            # now arrange for the QT event loop to allow the python interpreter to
+            # run occasionally. Otherwise it never runs, and hence the signal handler
+            # would never get called.
+            timer = Qt.QTimer()
+            timer.start(100)
+            # add a no-op callback for timeout. What's important is that the python interpreter
+            # gets a chance to run so it can see the signal and call the handler.
+            timer.timeout.connect(lambda: None)
+            _QAPPLICATION._timer = timer
+    return _QAPPLICATION
+
+
+MSAA_SAMPLE_COUNT = 2
+SWAP_INTERVAL = 0
+GL_QSURFACE_FORMAT = None
+def pre_qapp_initialization():
+    Qt.QApplication.setAttribute(Qt.Qt.AA_ShareOpenGLContexts)
+    sip.setdestroyonexit(True)
+
+    global GL_QSURFACE_FORMAT
+    assert GL_QSURFACE_FORMAT is None
+    GL_QSURFACE_FORMAT = Qt.QSurfaceFormat()
+    GL_QSURFACE_FORMAT.setRenderableType(Qt.QSurfaceFormat.OpenGL)
+    GL_QSURFACE_FORMAT.setVersion(2, 1)
+    GL_QSURFACE_FORMAT.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
+    GL_QSURFACE_FORMAT.setSwapBehavior(Qt.QSurfaceFormat.DoubleBuffer)
+    GL_QSURFACE_FORMAT.setStereo(False)
+    GL_QSURFACE_FORMAT.setSwapInterval(SWAP_INTERVAL)
+    GL_QSURFACE_FORMAT.setSamples(MSAA_SAMPLE_COUNT)
+    GL_QSURFACE_FORMAT.setRedBufferSize(8)
+    GL_QSURFACE_FORMAT.setGreenBufferSize(8)
+    GL_QSURFACE_FORMAT.setBlueBufferSize(8)
+    GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
+    Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
+
+OFFSCREEN_SURFACE = None
+OFFSCREEN_CONTEXT = None
+def post_qapp_initialization():
+    global OFFSCREEN_SURFACE, OFFSCREEN_CONTEXT
+    assert OFFSCREEN_SURFACE is None
+    OFFSCREEN_SURFACE = Qt.QOffscreenSurface()
+    OFFSCREEN_SURFACE.setFormat(GL_QSURFACE_FORMAT)
+    OFFSCREEN_SURFACE.create()
+    OFFSCREEN_CONTEXT = Qt.QOpenGLContext()
+    OFFSCREEN_CONTEXT.setShareContext(Qt.QOpenGLContext.globalShareContext())
+    OFFSCREEN_CONTEXT.setFormat(GL_QSURFACE_FORMAT)
+    OFFSCREEN_CONTEXT.create()
+
+def _emit_about_to_quit():
+    # With IPython's Qt event loop integration installed, the Qt.QApplication.aboutToQuit signal is not emitted
+    # when the Python interpreter exits. However, we must do certain things before last-pass garbage collection
+    # at interpreter exit time in order to avoid segfaulting, and these things are done in response to the
+    # Qt.QApplication.aboutToQuit signal. Fortunately, we can cause Qt.QApplication.aboutToQuit emission
+    # ourselves. Doing so at exit time prompts our cleanup routines, avoiding segfault upon exit.
+    app = Qt.QApplication.instance()
+    if app is None:
+        return
+    app.aboutToQuit.emit()
+
+def offscreen_context():
+    estack = contextlib.ExitStack()
+    if Qt.QOpenGLContext.currentContext() is None:
+        estack.callback(OFFSCREEN_CONTEXT.doneCurrent)
+    OFFSCREEN_CONTEXT.makeCurrent(OFFSCREEN_SURFACE)
+    return estack
+
 
 _NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType
-
 def generate_unique_qgraphicsitem_type():
     """Returns a value to return from QGraphicsItem.type() overrides (which help
     Qt and PyQt return objects of the right type from any call returning QGraphicsItem
@@ -42,7 +147,6 @@ def generate_unique_qgraphicsitem_type():
     return _NEXT_QGRAPHICSITEM_USERTYPE
 
 _QGL_CACHE = {}
-
 def QGL():
     current_thread = Qt.QThread.currentThread()
     if current_thread is None:
@@ -85,30 +189,8 @@ def QGL():
         raise RuntimeError('Failed to initialize OpenGL wrapper namespace.')
     _QGL_CACHE[context] = QGL
     # TODO: is below really not necessary?
-    # context.aboutToBeDestroyed.connect(lambda: _QGL_CACHE.pop(context))
+    context.aboutToBeDestroyed.connect(lambda c=context: _QGL_CACHE.pop(c))
     return QGL
-
-
-MSAA_SAMPLE_COUNT = 2
-SWAP_INTERVAL = 0
-GL_QSURFACE_FORMAT = None
-def create_default_QSurfaceFormat():
-    global GL_QSURFACE_FORMAT
-    if GL_QSURFACE_FORMAT is not None:
-        return
-    GL_QSURFACE_FORMAT = Qt.QSurfaceFormat()
-    GL_QSURFACE_FORMAT.setRenderableType(Qt.QSurfaceFormat.OpenGL)
-    GL_QSURFACE_FORMAT.setVersion(2, 1)
-    GL_QSURFACE_FORMAT.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
-    GL_QSURFACE_FORMAT.setSwapBehavior(Qt.QSurfaceFormat.DoubleBuffer)
-    GL_QSURFACE_FORMAT.setStereo(False)
-    GL_QSURFACE_FORMAT.setSwapInterval(SWAP_INTERVAL)
-    GL_QSURFACE_FORMAT.setSamples(MSAA_SAMPLE_COUNT)
-    GL_QSURFACE_FORMAT.setRedBufferSize(8)
-    GL_QSURFACE_FORMAT.setGreenBufferSize(8)
-    GL_QSURFACE_FORMAT.setBlueBufferSize(8)
-    GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
-    Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
 
 class _GlQuad:
     def __init__(self):
@@ -131,24 +213,12 @@ class _GlQuad:
             # Note: the following release call is essential.  Without it, if a QPainter is active, QPainter will never work for
             # again for the widget with the active painter!
             self.buffer.release()
-        Qt.QApplication.instance().aboutToQuit.connect(self._on_qapplication_about_to_quit)
+        Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
 
-    def _on_qapplication_about_to_quit(self):
-        # TODO: is this necessary??
-        # Unlike __init__, _on_qapplication_about_to_quit is not called directly by us, and we can not guarantee that
-        # an OpenGL context is current
-        with ExitStack() as estack:
-            if Qt.QOpenGLContext.currentContext() is None:
-                offscreen_surface = Qt.QOffscreenSurface()
-                offscreen_surface.setFormat(GL_QSURFACE_FORMAT)
-                offscreen_surface.create()
-                gl_context = Qt.QOpenGLContext()
-                if hasattr(Qt.QOpenGLContext, 'globalShareContext'):
-                    gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
-                gl_context.setFormat(GL_QSURFACE_FORMAT)
-                gl_context.create()
-                gl_context.makeCurrent(offscreen_surface)
-                estack.callback(gl_context.doneCurrent)
+    def _on_about_to_quit(self):
+        # we know we have a valid openGL context because our atexit handler creates one
+        # before causing aboutToQuit to be emitted.
+        with offscreen_context():
             self.vao.destroy()
             self.vao = None
             self.buffer.destroy()
@@ -160,3 +230,4 @@ def GL_QUAD():
     if _GL_QUAD is None:
         _GL_QUAD = _GlQuad()
     return _GL_QUAD
+
