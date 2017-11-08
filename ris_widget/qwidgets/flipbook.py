@@ -497,8 +497,6 @@ class Flipbook(Qt.QWidget):
 
     @playback_fps.setter
     def playback_fps(self, v):
-        if not 1 <= v <= 50:
-            raise ValueError('FPS must be in range [1, 50]')
         self.fps_editor.setText(str(v))
         interval_ms = (1/v)*1000
         self.playback_timer.setInterval(interval_ms)
