@@ -35,6 +35,7 @@ from .qwidgets import layer_stack_painter
 from . import qgraphicsscenes
 from .qgraphicsviews import image_view
 from .qgraphicsviews import histogram_view
+from . import dock_widgets
 
 try:
     import freeimage
@@ -411,6 +412,12 @@ class RisWidget:
         self.qt_object.addAction(action)
         self.actions[name] = action
         return action
+
+    def add_painter(self):
+        self.painter = dock_widgets.Painter(self)
+
+    def add_annotator(self, fields):
+        self.annotator = dock_widgets.Annotator(self, fields)
 
     def update(self):
         """Calling this method on the main thread updates all Qt widgets immediately, without requiring

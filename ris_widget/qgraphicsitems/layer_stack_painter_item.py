@@ -123,8 +123,11 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         if r.bottom() >= target_height:
             br.setBottom(br.bottom() - (r.bottom() - target_height + 1))
             r.setBottom(target_height - 1)
-        brush.apply(self.target_image.data[r.left():r.right()+1, r.top():r.bottom()+1], br)
-        self.target_image.refresh()
+        x1, x2, y1, y2 = r.left(), r.right(), r.top(), r.bottom()
+        brush.apply(self.target_image.data[x1:x2+1, y1:y2+1], br)
+        w = x2 - x1
+        h = y2 - y1
+        self.target_image.refresh((x1, y1, w, h))
         return True
 
     def _on_layer_stack_item_bounding_rect_changed(self):

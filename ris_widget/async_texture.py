@@ -25,7 +25,8 @@
 import contextlib
 import threading
 import queue
-import weakref
+# import weakref
+import ctypes
 
 import numpy
 from OpenGL import GL
@@ -70,6 +71,10 @@ class AsyncTexture:
     def upload(self, upload_region=None):
         if self.texture is None and upload_region is not None:
             raise ValueError('The first time the texture is uploaded, the full region must be used.')
+        if self.done.is_set():
+            # if the texture was already uploaded and done is set, make sure to
+            # reset it so that bind waits for this new upload.
+            self.done.clear()
         if USE_BG_UPLOAD_THREAD:
             OffscreenContextThread.get().enqueue(self._upload, [upload_region])
         else:
@@ -95,44 +100,48 @@ class AsyncTexture:
 
     def _upload_fg(self, upload_region):
         assert Qt.QOpenGLContext.currentContext() is not None
-        QGL = shared_resources.QGL()
-        orig_unpack_alignment = QGL.glGetIntegerv(QGL.GL_UNPACK_ALIGNMENT)
-        QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, 1)
+        orig_unpack_alignment = GL.glGetIntegerv(GL.GL_UNPACK_ALIGNMENT)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
         try:
             self._upload(upload_region)
         finally:
             # QPainter font rendering for OpenGL surfaces can break if we do not restore GL_UNPACK_ALIGNMENT
             # and this function was called within QPainter's native painting operations
-            QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, orig_unpack_alignment)
+            GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, orig_unpack_alignment)
 
     def _upload(self, upload_region):
         try:
+            data = self.data
             if self.texture is None:
                 texture = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target2D)
                 texture.setFormat(self.format)
-                texture.setWrapMode(Qt.QOpenGLTexture.ClampToEdge)
                 texture.setMipLevels(6)
-                texture.setAutoMipMapGenerationEnabled(False)
-                data = self.data
                 texture.setSize(data.shape[0], data.shape[1], 1)
-                texture.allocateStorage()
+                texture.setWrapMode(Qt.QOpenGLTexture.ClampToEdge)
+                texture.setAutoMipMapGenerationEnabled(False)
                 texture.setMinMagFilters(Qt.QOpenGLTexture.LinearMipMapLinear, Qt.QOpenGLTexture.Nearest)
                 self.texture = texture
                 # self._LIVE_TEXTURES.add(self)
+            # for some reason (Qt 5.9) we need to re-allocate storage before re-uploading to
+            # an existing texture. It's pretty fast so that's OK, though.
+            # TODO: figure out why and if this is OK. Also see if goes away in a later Qt version
+            self.texture.allocateStorage()
             self.texture.bind()
-            try:
-                #TODO: use QOpenGLTexture.setData here, and pixel storage
-                # functions to allow strided arrays.
-                #TODO: use upload_region to allow updates to only a portion
-                # of the texture
-                GL.glTexSubImage2D(
-                    GL.GL_TEXTURE_2D, 0, 0, 0, data.shape[0], data.shape[1],
-                    self.source_format,
-                    self.source_type,
-                    memoryview(data.swapaxes(0,1).flatten()))
+            with contextlib.ExitStack() as estack:
+                estack.callback(self.texture.release)
+                if upload_region is None:
+                    x = y = 0
+                    w, h = data.shape
+                else:
+                    x, y, w, h = upload_region
+                    orig_row_length = GL.glGetIntegerv(GL.GL_UNPACK_ROW_LENGTH)
+                    GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, data.shape[0])
+                    estack.callback(GL.glPixelStorei, GL.GL_UNPACK_ROW_LENGTH, orig_row_length)
+                    data = data[x:x+w, y:y+h]
+                GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, x, y, w, h,
+                    self.source_format, self.source_type,
+                    data.ctypes.data_as(ctypes.c_void_p))
                 self.texture.generateMipMaps()
-            finally:
-                self.texture.release()
         except Exception as e:
             self.exception = e
         finally:
