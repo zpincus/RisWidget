@@ -203,7 +203,8 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.main_view_toolbar.addAction(self.layer_stack_reset_curr_gamma_action)
         self.main_view_toolbar.addAction(self.layer_stack.auto_min_max_all_action)
         self.main_view_toolbar.addAction(self.layer_stack.solo_layer_mode_action)
-        self.main_view_toolbar.addAction(self.snapshot_action)
+        if freeimage is not None:
+            self.main_view_toolbar.addAction(self.snapshot_action)
         self.dock_widget_visibility_toolbar = self.addToolBar('Dock Widget Visibility')
         self.dock_widget_visibility_toolbar.addAction(self.layer_table_dock_widget.toggleViewAction())
         self.dock_widget_visibility_toolbar.addAction(self.histogram_dock_widget.toggleViewAction())
