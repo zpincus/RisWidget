@@ -88,13 +88,6 @@ class AsyncTexture:
         GL.glActiveTexture(GL.GL_TEXTURE0 + tex_unit)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
 
-    def release(self, tex_unit):
-        pass
-
-
-    def generateMipMaps(self):
-        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
-
     def destroy(self):
         if self.texture is not None:
             # requires a valid context
@@ -115,40 +108,41 @@ class AsyncTexture:
 
     def _upload(self, upload_region):
         try:
-            with contextlib.ExitStack() as estack:
+            if self.texture is None:
+                self.texture = GL.glGenTextures(1)
+                alloc_texture = True
+            else:
+                alloc_texture = False
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
+            w, h = self.data.shape
 
-                if self.texture is None:
-                    texture = GL.glGenTextures(1)
-                else:
-                    texture = self.texture
-                GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+            if alloc_texture:
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_LEVEL, 6)
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
-
-                data = self.data
-                w, h = data.shape
                 GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, self.format, w, h, 0,
-                    self.source_format, self.source_type, data.ctypes.data_as(ctypes.c_void_p))
-
-                if self.texture is None:
-                    self.texture = texture
+                    self.source_format, self.source_type, self.data.ctypes.data_as(ctypes.c_void_p))
+            else: # texture already exists
+                if upload_region is None:
+                    x = y = 0
+                    data = self.data
                 else:
-                    if upload_region is None:
-                        x = y = 0
-                    else:
-                        x, y, w, h = upload_region
-                        orig_row_length = GL.glGetIntegerv(GL.GL_UNPACK_ROW_LENGTH)
-                        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, data.shape[0])
-                        estack.callback(GL.glPixelStorei, GL.GL_UNPACK_ROW_LENGTH, orig_row_length)
-                        data = data[x:x+w, y:y+h]
+                    x, y, w, h = upload_region
+                    data = self.data[x:x+w, y:y+h]
+                try:
+                    GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, self.data.shape[0])
                     GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, x, y, w, h,
                         self.source_format, self.source_type,
                         data.ctypes.data_as(ctypes.c_void_p))
-                GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
-                GL.glFinish()
+                finally:
+                    GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
+            # whether or not allocating texture, need to regenerate mipmaps
+            GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+            # need glFinish to make sure that the GL calls (which run asynchronously)
+            # have completed before we set self.done()
+            GL.glFinish()
         except Exception as e:
             self.exception = e
         finally:

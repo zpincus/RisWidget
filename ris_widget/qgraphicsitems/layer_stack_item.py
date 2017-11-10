@@ -273,7 +273,7 @@ class LayerStackItem(shader_item.ShaderItem):
         qpainter.beginNativePainting()
         with ExitStack() as estack:
             estack.callback(qpainter.endNativePainting)
-            visible_idxs = self._get_visible_idxs_and_update_texs(estack)
+            visible_idxs = self._get_visible_idxs_and_update_texs()
             if not visible_idxs:
                 return
             prog_desc = tuple((layer.getcolor_expression,
@@ -392,7 +392,7 @@ class LayerStackItem(shader_item.ShaderItem):
             raise NotImplementedError('OpenGL-compatible normalization for {} missing.'.format(image.data.dtype))
         return v
 
-    def _get_visible_idxs_and_update_texs(self, estack):
+    def _get_visible_idxs_and_update_texs(self):
         """Meant to be executed between a pair of QPainter.beginNativePainting() QPainter.endNativePainting() calls or,
         at the very least, when an OpenGL context is current, _get_visible_idxs_and_update_texs does whatever is required,
         for every visible layer with non-None .layer in self.layer_stack, in order that self._texs[layer] represents layer, including texture
@@ -412,10 +412,5 @@ class LayerStackItem(shader_item.ShaderItem):
             image = layer.image
             if image not in bound:
                 image.texture.bind(tex_unit)
-                estack.callback(image.texture.release, tex_unit)
                 bound.add(image)
-            # The following generateMipMaps call completes in microseconds as mipmaps were already auto-generated on an _AsyncTextureUploadThread.  In fact, we should not have to call
-            # generateMipMaps at this point.  However, OS X needs this call in order to see mipmaps generated on another thread.  Without it, all mip levels aside from base are black
-            # on OS X.
-            image.texture.generateMipMaps()
         return visible_idxs
