@@ -232,11 +232,10 @@ class Layer(qt_property.QtPropertyOwner):
 
     def _on_image_changed(self, changed_region=None):
         if self.image is not None:
-            # do this before calculating the histogram, so that the background texture upload (slow) runs in
+            # upload texture before calculating the histogram, so that the background texture upload (slow) runs in
             # parallel with the foreground histogram calculation (slow)
-            # replacing old image.async_texture, if it exists, causes destruction of the old
             self.image.texture.upload(changed_region)
-        self.calculate_histogram()
+            self.calculate_histogram()
         self._update_property_defaults()
         if self.image is not None:
             if self.auto_min_max:
@@ -250,13 +249,10 @@ class Layer(qt_property.QtPropertyOwner):
         self.image_changed.emit(self)
 
     def calculate_histogram(self):
-        if self.image is None:
-            return
         r_min = None if self._is_default('histogram_min') else self.histogram_min
         r_max = None if self._is_default('histogram_max') else self.histogram_max
         self.image_min, self.image_max, self.histogram = histogram.histogram(
             self.image.data, (r_min, r_max), self.image.image_bits, self.mask_radius)
-
 
     def generate_contextual_info_for_pos(self, x, y, idx=None):
         image = self.image
@@ -394,7 +390,8 @@ class Layer(qt_property.QtPropertyOwner):
             return False
 
     def _histogram_min_max_post_set(self, v):
-        self.calculate_histogram()
+        if self.image is not None:
+            self.calculate_histogram()
         self._retain_auto_min_max_on_min_max_change = True
         try:
             if self.min < self.histogram_min:

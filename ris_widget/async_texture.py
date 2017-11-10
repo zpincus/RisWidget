@@ -141,7 +141,7 @@ class AsyncTexture:
             # whether or not allocating texture, need to regenerate mipmaps
             GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
             # need glFinish to make sure that the GL calls (which run asynchronously)
-            # have completed before we set self.done()
+            # have completed before we set self.done
             GL.glFinish()
         except Exception as e:
             self.exception = e
