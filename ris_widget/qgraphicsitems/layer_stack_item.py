@@ -417,5 +417,5 @@ class LayerStackItem(shader_item.ShaderItem):
             # The following generateMipMaps call completes in microseconds as mipmaps were already auto-generated on an _AsyncTextureUploadThread.  In fact, we should not have to call
             # generateMipMaps at this point.  However, OS X needs this call in order to see mipmaps generated on another thread.  Without it, all mip levels aside from base are black
             # on OS X.
-            image.texture.texture.generateMipMaps()
+            image.texture.generateMipMaps()
         return visible_idxs

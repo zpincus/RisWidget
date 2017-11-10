@@ -35,10 +35,10 @@ from PyQt5 import Qt
 from . import shared_resources
 
 IMAGE_TYPE_TO_GL_FORMATS = {
-    'G': (Qt.QOpenGLTexture.R32F, GL.GL_RED),
-    'Ga': (Qt.QOpenGLTexture.RG32F, GL.GL_RG),
-    'rgb': (Qt.QOpenGLTexture.RGB32F, GL.GL_RGB),
-    'rgba': (Qt.QOpenGLTexture.RGBA32F, GL.GL_RGBA)
+    'G': (GL.GL_R32F, GL.GL_RED),
+    'Ga': (GL.GL_RG32F, GL.GL_RG),
+    'rgb': (GL.GL_RGB32F, GL.GL_RGB),
+    'rgba': (GL.GL_RGBA32F, GL.GL_RGBA)
 }
 
 NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
@@ -85,17 +85,21 @@ class AsyncTexture:
         if hasattr(self, 'exception'):
             raise self.exception
         assert self.texture is not None
-        self.texture.bind(tex_unit)
+        GL.glActiveTexture(GL.GL_TEXTURE0 + tex_unit)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
 
     def release(self, tex_unit):
-        assert self.texture is not None
-        self.texture.release(tex_unit)
+        pass
+
+
+    def generateMipMaps(self):
+        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
 
     def destroy(self):
         if self.texture is not None:
             # requires a valid context
             assert Qt.QOpenGLContext.currentContext() is not None
-            self.texture.destroy()
+            GL.glDeleteTextures([self.texture])
             self.texture = None
 
     def _upload_fg(self, upload_region):
@@ -111,37 +115,40 @@ class AsyncTexture:
 
     def _upload(self, upload_region):
         try:
-            data = self.data
-            if self.texture is None:
-                texture = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target2D)
-                texture.setFormat(self.format)
-                texture.setMipLevels(6)
-                texture.setSize(data.shape[0], data.shape[1], 1)
-                texture.setWrapMode(Qt.QOpenGLTexture.ClampToEdge)
-                texture.setAutoMipMapGenerationEnabled(False)
-                texture.setMinMagFilters(Qt.QOpenGLTexture.LinearMipMapLinear, Qt.QOpenGLTexture.Nearest)
-                self.texture = texture
-                # self._LIVE_TEXTURES.add(self)
-            # for some reason (Qt 5.9) we need to re-allocate storage before re-uploading to
-            # an existing texture. It's pretty fast so that's OK, though.
-            # TODO: figure out why and if this is OK. Also see if goes away in a later Qt version
-            self.texture.allocateStorage()
-            self.texture.bind()
             with contextlib.ExitStack() as estack:
-                estack.callback(self.texture.release)
-                if upload_region is None:
-                    x = y = 0
-                    w, h = data.shape
+
+                if self.texture is None:
+                    texture = GL.glGenTextures(1)
                 else:
-                    x, y, w, h = upload_region
-                    orig_row_length = GL.glGetIntegerv(GL.GL_UNPACK_ROW_LENGTH)
-                    GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, data.shape[0])
-                    estack.callback(GL.glPixelStorei, GL.GL_UNPACK_ROW_LENGTH, orig_row_length)
-                    data = data[x:x+w, y:y+h]
-                GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, x, y, w, h,
-                    self.source_format, self.source_type,
-                    data.ctypes.data_as(ctypes.c_void_p))
-                self.texture.generateMipMaps()
+                    texture = self.texture
+                GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_LEVEL, 6)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
+
+                data = self.data
+                w, h = data.shape
+                GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, self.format, w, h, 0,
+                    self.source_format, self.source_type, data.ctypes.data_as(ctypes.c_void_p))
+
+                if self.texture is None:
+                    self.texture = texture
+                else:
+                    if upload_region is None:
+                        x = y = 0
+                    else:
+                        x, y, w, h = upload_region
+                        orig_row_length = GL.glGetIntegerv(GL.GL_UNPACK_ROW_LENGTH)
+                        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, data.shape[0])
+                        estack.callback(GL.glPixelStorei, GL.GL_UNPACK_ROW_LENGTH, orig_row_length)
+                        data = data[x:x+w, y:y+h]
+                    GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, x, y, w, h,
+                        self.source_format, self.source_type,
+                        data.ctypes.data_as(ctypes.c_void_p))
+                GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+                GL.glFinish()
         except Exception as e:
             self.exception = e
         finally:
