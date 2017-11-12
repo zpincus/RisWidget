@@ -65,23 +65,27 @@ class AsyncTexture:
         self.data = image.data
         self.format, self.source_format = IMAGE_TYPE_TO_GL_FORMATS[image.type]
         self.source_type = NUMPY_DTYPE_TO_GL_PIXEL_TYPE[self.data.dtype.type]
-        self.done = threading.Event()
+        self.ready = threading.Event()
+        self.status = 'waiting'
         self.texture = None
 
     def upload(self, upload_region=None):
         if self.texture is None and upload_region is not None:
             raise ValueError('The first time the texture is uploaded, the full region must be used.')
-        if self.done.is_set():
+        if self.ready.is_set():
             # if the texture was already uploaded and done is set, make sure to
             # reset it so that bind waits for this new upload.
-            self.done.clear()
+            self.ready.clear()
+        self.status = 'uploading'
         if USE_BG_UPLOAD_THREAD:
             OffscreenContextThread.get().enqueue(self._upload, [upload_region])
         else:
             self._upload_fg(upload_region)
 
     def bind(self, tex_unit):
-        self.done.wait()
+        if not self.status in ('uploading', 'uploaded'):
+            raise RuntimeError('Cannot bind texture that has not been first uploaded')
+        self.ready.wait()
         if hasattr(self, 'exception'):
             raise self.exception
         assert self.texture is not None
@@ -94,6 +98,7 @@ class AsyncTexture:
             assert Qt.QOpenGLContext.currentContext() is not None
             GL.glDeleteTextures([self.texture])
             self.texture = None
+            self.status = 'waiting'
 
     def _upload_fg(self, upload_region):
         assert Qt.QOpenGLContext.currentContext() is not None
@@ -141,12 +146,13 @@ class AsyncTexture:
             # whether or not allocating texture, need to regenerate mipmaps
             GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
             # need glFinish to make sure that the GL calls (which run asynchronously)
-            # have completed before we set self.done
+            # have completed before we set self.ready
             GL.glFinish()
+            self.status = 'uploaded'
         except Exception as e:
             self.exception = e
         finally:
-            self.done.set()
+            self.ready.set()
 
 class OffscreenContextThread(Qt.QThread):
     _ACTIVE_THREAD = None

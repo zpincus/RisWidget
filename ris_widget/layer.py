@@ -151,7 +151,8 @@ class Layer(qt_property.QtPropertyOwner):
         BLEND_FUNCTIONS[k] = '    // blending function name: {}\n    '.format(k) + '\n    '.join(v)
     del k, v
     # A change to any mutable property, including .image, potentially impacts layer presentation.  For convenience, .changed is emitted whenever
-    # any mutable-property-changed signal is emitted, including or calling .image.refresh().
+    # any mutable-property-changed signal is emitted, including or calling .image.refresh(). Note that the .changed signal is emitted by
+    # the qt_property.Property instance (which involves some deep-ish Python magic)
     # NB: .image_changed is the more specific signal emitted in addition to .changed for modifications to .image.
     #
     changed = Qt.pyqtSignal(object)
@@ -168,7 +169,16 @@ class Layer(qt_property.QtPropertyOwner):
         self._image = None
         super().__init__(parent)
         self.image_changed.connect(self.changed)
-        self.image = image
+        if image is not None:
+            self.image = image
+        else:
+            # self._image is already None, so setting self.image = None will just
+            # return immediately from the setter, without setting the below.
+            self.dtype = None
+            self.type = None
+            self.size = None
+            self.name = None
+
 
     def __repr__(self):
         image = self.image
@@ -194,41 +204,46 @@ class Layer(qt_property.QtPropertyOwner):
 
     @image.setter
     def image(self, new_image):
-        if new_image is not self._image:
-            if new_image is not None:
-                if not isinstance(new_image, image.Image):
-                    new_image = image.Image(new_image)
-                try:
-                    new_image.changed.connect(self._on_image_changed)
-                except Exception as e:
-                    if self._new_image is not None:
-                        self._new_image.changed.disconnect(self._on_image_changed)
-                    self._image = None
-                    raise e
-            if self._image is not None:
-                # deallocate old texture when we're done with it.
-                self.image.texture.destroy()
-                self._image.changed.disconnect(self._on_image_changed)
-            self._image = new_image
-            if new_image is None:
-                self.dtype = None
-                self.type = None
-                self.size = None
-                self.name = None
-            else:
-                min, max = new_image.valid_range
-                if not (min <= self.histogram_min <= max):
-                    del self.histogram_min # reset histogram min (delattr on the qt_property returns it to the default)
-                if not (min <= self.histogram_max <= max):
-                    del self.histogram_max # reset histogram min (delattr on the qt_property returns it to the default)
+        if new_image is self._image:
+            return
 
-                self.dtype = new_image.data.dtype
-                self.type = new_image.type
-                self.size = new_image.size
-                self.name = new_image.name
-            for proxy_prop in ('dtype', 'type', 'size', 'name'):
-                getattr(self, proxy_prop+'_changed').emit(self)
-            self._on_image_changed()
+        if new_image is not None:
+            if not isinstance(new_image, image.Image):
+                new_image = image.Image(new_image)
+            try:
+                new_image.changed.connect(self._on_image_changed)
+            except Exception as e:
+                if self._new_image is not None:
+                    self._new_image.changed.disconnect(self._on_image_changed)
+                self._image = None
+                raise e
+
+        if self._image is not None:
+            # deallocate old texture when we're done with it.
+            self._image.texture.destroy()
+            self._image.changed.disconnect(self._on_image_changed)
+
+        self._image = new_image
+
+        if new_image is None:
+            self.dtype = None
+            self.type = None
+            self.size = None
+            self.name = None
+        else:
+            min, max = new_image.valid_range
+            if not (min <= self.histogram_min <= max):
+                del self.histogram_min # reset histogram min (delattr on the qt_property returns it to the default)
+            if not (min <= self.histogram_max <= max):
+                del self.histogram_max # reset histogram min (delattr on the qt_property returns it to the default)
+            self.dtype = new_image.data.dtype
+            self.type = new_image.type
+            self.size = new_image.size
+            self.name = new_image.name
+
+        for proxy_prop in ('dtype', 'type', 'size', 'name'):
+            getattr(self, proxy_prop+'_changed').emit(self)
+        self._on_image_changed()
 
     def _on_image_changed(self, changed_region=None):
         if self.image is not None:
@@ -255,21 +270,15 @@ class Layer(qt_property.QtPropertyOwner):
             self.image.data, (r_min, r_max), self.image.image_bits, self.mask_radius)
 
     def generate_contextual_info_for_pos(self, x, y, idx=None):
-        image = self.image
-        if image is None:
-            image_text = 'None'
+        if self.image is None:
+            return None
         else:
-            image_text = image.generate_contextual_info_for_pos(x, y)
+            image_text = self.image.generate_contextual_info_for_pos(x, y)
             if image_text is None:
-                return
-        ts = []
+                return None
         if idx is not None:
-            ts.append('{: 3}'.format(idx))
-        t = ' '.join(ts)
-        if t:
-            t += ': '
-        t += image_text
-        return t
+            image_text = '{}: {}'.format(idx, image_text)
+        return image_text
 
     def do_auto_min_max(self):
         assert self.image is not None

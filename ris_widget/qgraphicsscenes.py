@@ -46,7 +46,7 @@ class BaseScene(Qt.QGraphicsScene):
     would entail significant additional code complexity)."""
 
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent=None)
         self.viewport_rect_item = viewport_rect_item.ViewportRectItem()
         self.addItem(self.viewport_rect_item)
         self.contextual_info_item = contextual_info_item.ContextualInfoItem(self.viewport_rect_item)
@@ -60,7 +60,7 @@ class BaseScene(Qt.QGraphicsScene):
 
 
 class ImageScene(BaseScene):
-    def __init__(self, parent, layer_stack):
+    def __init__(self, layer_stack, parent=None):
         super().__init__(parent)
         self.layer_stack_item = layer_stack_item.LayerStackItem(layer_stack=layer_stack)
         self.layer_stack_item.bounding_rect_changed.connect(self._on_layer_stack_item_bounding_rect_changed)
@@ -74,7 +74,7 @@ class ImageScene(BaseScene):
 
 
 class HistogramScene(BaseScene):
-    def __init__(self, parent, layer_stack):
+    def __init__(self, layer_stack, parent=None):
         super().__init__(parent)
         self.setSceneRect(0, 0, 1, 1)
         self.histogram_item = histogram_items.HistogramItem(layer_stack=layer_stack)

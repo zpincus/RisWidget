@@ -55,10 +55,51 @@ Qt.pyqtRemoveInputHook()
 #                 return 0
 #             return self.baseStyle().styleHint(sh, option, widget, returnData)
 
-class RisWidgetQtObject(Qt.QMainWindow):
-    def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
+
+class RisWidgetBase:
+    def __init__(self, parent=None):
         shared_resources.init_qapplication()
-        super().__init__(parent)
+        self.layer_stack = layer_stack.LayerStack()
+        self.image_scene = qgraphicsscenes.ImageScene(self.layer_stack, parent)
+        self.image_view = image_view.ImageView(self.image_scene, parent)
+
+    @property
+    def layers(self):
+        """Convenience property equivalent to rw.layer_stack.layers, with the following
+        further property: assigning to this property replaces all layers, and is equivalent to:
+        rw.layer_stack.layers.clear()
+        rw.layer_stack.layers.extend(layers)
+        """
+        return self.layer_stack.layers
+
+    @layers.setter
+    def layers(self, layers):
+        self.layer_stack.layers.clear()
+        self.layer_stack.layers.extend(layers)
+
+    @property
+    def layer(self):
+        """rw.layer: A convenience property equivalent to rw.layers[0] and rw.layer_stack.layers[0]"""
+        return self.layers[0]
+
+    @layer.setter
+    def layer(self, v):
+        self.layers[0] = v
+
+    @property
+    def image(self):
+        """rw.image: A Convenience property exactly equivalent to rw.layer.image, and equivalent to
+        rw.layer_stack[0].image."""
+        return self.layer.image
+
+    @image.setter
+    def image(self, v):
+        self.layer.image = v
+
+class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
+    def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
+        RisWidgetBase.__init__(self, parent=self)
+        Qt.QMainWindow.__init__(self, parent)
         self.setWindowIcon(Qt.QIcon())
         self.app_prefs_name = app_prefs_name
         self._shown = False
@@ -89,9 +130,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         # self.deleteLater()
 
     def _init_scenes_and_views(self):
-        self.layer_stack = layer_stack.LayerStack()
-        self.image_scene = qgraphicsscenes.ImageScene(self, self.layer_stack)
-        self.image_view = image_view.ImageView(self.image_scene, self)
         self.setCentralWidget(self.image_view)
 
         self.layer_table_dock_widget = Qt.QDockWidget('Layer Stack', self)
@@ -119,7 +157,7 @@ class RisWidgetQtObject(Qt.QMainWindow):
         self.addDockWidget(Qt.Qt.TopDockWidgetArea, self.layer_table_dock_widget)
         self.layer_table_dock_widget.hide()
 
-        self.histogram_scene = qgraphicsscenes.HistogramScene(self, self.layer_stack)
+        self.histogram_scene = qgraphicsscenes.HistogramScene(self.layer_stack, self)
         self.histogram_dock_widget = Qt.QDockWidget('Histogram', self)
         self.histogram_view, self._histogram_frame = histogram_view.HistogramView.make_histogram_view_and_frame(self.histogram_scene, self.histogram_dock_widget)
         self.histogram_dock_widget.setWidget(self._histogram_frame)
@@ -243,18 +281,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
         super().closeEvent(event)
 
     @property
-    def layers(self):
-        """If you wish to replace the current .layers, it may be done by assigning to this property.  For example:
-        import freeimage
-        from ris_widget.layer import Layer
-        rw.layers = [Layer(freeimage.read(str(p))) for p in pathlib.Path('./').glob('*.png')]."""
-        return self.layer_stack.layers
-
-    @layers.setter
-    def layers(self, v):
-        self.layer_stack.layers = v
-
-    @property
     def focused_layer(self):
         """rw.focused_layer: A convenience property equivalent to rw.layer_stack.focused_layer."""
         return self.layer_stack.focused_layer
@@ -262,36 +288,6 @@ class RisWidgetQtObject(Qt.QMainWindow):
     @focused_layer.setter
     def focused_layer(self, v):
         self.layer_stack.focused_layer = v
-
-    @property
-    def layer(self):
-        """rw.layer: A convenience property equivalent to rw.layers[0] and rw.layer_stack.layers[0], with minor differences:
-        * If rw.layers is None: Querying rw.layer causes rw.layers to be set to a LayerList containing a single empty Layer which is returned,
-        while assigning to rw.layer causes rw.layers to be set to a LayerList containing the thing assigned (wrapped in a Layer as needed).
-        * If len(rw.layers) == 0: Querying rw.layer causes a new Layer to be inserted at rw.layers[0] and returned, while assigning to
-        rw.layer causes the assigned thing to be inserted at rw.layers[0] (wrapped in a Layer as needed)."""
-        if len(self.layers) == 0:
-            self.layers.append(layer.Layer())
-        return self.layers[0]
-
-    @layer.setter
-    def layer(self, v):
-        if len(self.layers) == 0:
-            self.layers.append(v)
-        else:
-            self.layers[0] = v
-
-    @property
-    def image(self):
-        """rw.image: A Convenience property exactly equivalent to rw.layer.image, and equivalent to
-        rw.layer_stack[0].image with a minor difference: if len(rw.layer_stack) == 0, a query of rw.image
-        returns None rather than raising an exception, and an assignment to it in this scenario is
-        equivalent to rw.layer_stack.insert(0, Layer(v))."""
-        return self.layer.image
-
-    @image.setter
-    def image(self, v):
-        self.layer.image = v
 
     def _update_flipbook_visibility(self):
         visible = self.flipbook_dock_widget.isVisible()

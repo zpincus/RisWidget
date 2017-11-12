@@ -30,7 +30,7 @@ from .. import image
 from . import gl_logger
 
 class BaseView(Qt.QGraphicsView):
-    def __init__(self, scene, parent):
+    def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
         self._background_color = (0.0, 0.0, 0.0)
         # It seems necessary to retain this reference.  It is available via self.viewport() after

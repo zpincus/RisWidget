@@ -103,18 +103,17 @@ class Image(Qt.QObject):
         self.changed.emit(changed_region)
 
     def generate_contextual_info_for_pos(self, x, y):
-        sz = self.size
+        if not (0 <= x < self.size.width() and 0 <= y < self.size.height()):
+            return None
+
         component_format_str = '{}' if self.data.dtype != numpy.float32 else '{:.8g}'
-        if 0 <= x < sz.width() and 0 <= y < sz.height():
-            # if self.name:
-            #     mst = '"' + self.name + '" '
-            pos_text = '({}, {}): '.format(x, y)
-            val_text = ','.join(component_format_str for c in self.type)
-            if self._data.ndim == 2:
-                val_text = val_text.format(self.data[x, y])
-            else:
-                val_text = val_text.format(*self.data[x, y])
-            return pos_text + val_text
+        pos_text = '({}, {}): '.format(x, y)
+        val_text = ','.join(component_format_str for c in self.type)
+        if self._data.ndim == 2:
+            val_text = val_text.format(self.data[x, y])
+        else:
+            val_text = val_text.format(*self.data[x, y])
+        return pos_text + val_text
 
     # make data read-only to make clear that images are immutable (though the data's contents need not be)
     @property

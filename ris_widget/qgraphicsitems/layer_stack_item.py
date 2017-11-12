@@ -89,7 +89,7 @@ class LayerStackItem(shader_item.ShaderItem):
             da = clamp(da, 0, 1);
             dca = clamp(dca, 0, 1);
         """))
-    DEFAULT_BOUNDING_RECT = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(1, 1))
+    DEFAULT_BOUNDING_RECT = Qt.QRectF(Qt.QPointF(0, 0), Qt.QSizeF(1000, 1000))
     TEXTURE_BORDER_COLOR = Qt.QColor(0, 0, 0, 0)
 
     bounding_rect_changed = Qt.pyqtSignal()
@@ -241,9 +241,7 @@ class LayerStackItem(shader_item.ShaderItem):
         cis = []
         it = iter((idx, self.layer_stack.layers[idx]) for idx in visible_idxs)
         idx, layer = next(it)
-        ci = layer.generate_contextual_info_for_pos(
-            ipos.x(),
-            ipos.y(),
+        ci = layer.generate_contextual_info_for_pos(ipos.x(), ipos.y(),
             idx if len(self.layer_stack.layers) > 1 else None)
         if ci is not None:
             cis.append(ci)

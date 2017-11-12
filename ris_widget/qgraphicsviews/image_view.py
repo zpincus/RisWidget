@@ -37,10 +37,11 @@ class ImageView(base_view.BaseView):
     # The signal contains the position of the mouse, in image coordinates
     mouse_release = Qt.pyqtSignal(Qt.QPointF, Qt.Qt.KeyboardModifiers)
 
-    def __init__(self, scene, parent):
+    def __init__(self, scene, allow_wheel_zoom=True, parent=None):
         super().__init__(scene, parent)
         self.setMinimumSize(Qt.QSize(100,100))
         self._zoom = 1
+        self.allow_wheel_zoom = allow_wheel_zoom
         self.zoom_to_fit_action = Qt.QAction('Zoom to Fit', self)
         self.zoom_to_fit_action.setCheckable(True)
         self.zoom_to_fit_action.setChecked(True)
@@ -143,6 +144,8 @@ class ImageView(base_view.BaseView):
             super().dropEvent(event)
 
     def wheelEvent(self, event):
+        if not self.allow_wheel_zoom:
+            return
         wheel_delta = event.angleDelta().y()
         if wheel_delta == 0:
             return

@@ -27,7 +27,7 @@ from PyQt5 import Qt
 
 class HistogramView(base_view.BaseView):
     @classmethod
-    def make_histogram_view_and_frame(cls, base_scene, parent):
+    def make_histogram_view_and_frame(cls, base_scene, parent=None):
         histogram_frame = Qt.QFrame(parent)
         histogram_frame.setMinimumSize(Qt.QSize(120, 60))
         histogram_frame.setFrameShape(Qt.QFrame.StyledPanel)

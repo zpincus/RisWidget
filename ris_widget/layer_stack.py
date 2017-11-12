@@ -101,26 +101,30 @@ class LayerStack(Qt.QObject):
         self.solo_layer_mode_action.setChecked(False)
         self.solo_layer_mode_action.setToolTip('Show only the currently selected layer')
 
+        self.layers.append(layer.Layer())
+
     @property
     def layers(self):
         return self._layers
 
-    def set_selection_model(self, v):
-        assert isinstance(v, Qt.QItemSelectionModel)
+    def set_selection_model(self, selection_model):
+        assert isinstance(selection_model, Qt.QItemSelectionModel)
         if self._selection_model is not None:
             raise RuntimeError('only set selection model once, immediately after construction')
-        v.currentRowChanged.connect(self._on_current_row_changed)
-        self._selection_model = v
+        selection_model.currentRowChanged.connect(self._on_current_row_changed)
+        self._selection_model = selection_model
 
     @property
     def focused_layer_idx(self):
         sm = self._selection_model
-        m = sm.model()
+        if self._selection_model is None:
+            return None
+        m = self._selection_model.model()
         midx = sm.currentIndex()
         if isinstance(m, Qt.QAbstractProxyModel):
             # Selection model is with reference to table view's model, which is a proxy model (probably an InvertingProxyModel)
             if not midx.isValid():
-                return
+                return None
             midx = m.mapToSource(midx)
         if midx.isValid():
             return midx.row()
@@ -144,10 +148,9 @@ class LayerStack(Qt.QObject):
         """If we have both a layer list & selection model and no Layer is selected & .layers is not empty:
            If there is a "current" layer, IE highlighted but not selected, select it.
            If there is no "current" layer, make .layer_stack[0] current and select it."""
-        ls = self._layers
-        if not ls:
-            return
         sm = self._selection_model
+        if sm is None:
+            return
         m = sm.model()
         if not sm.currentIndex().isValid():
             sm.setCurrentIndex(m.index(0, 0), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
@@ -207,6 +210,8 @@ class LayerStack(Qt.QObject):
         # Note: the selection model may be associated with a proxy model, in which case this method's idxs argument is in terms of the proxy.  Therefore,
         # we can't use self.focused_layer_idx (if the selection model is attached to a proxy, self.focused_layer_idx is in terms of the proxied model,
         # not the proxy).
+        if self._selection_model is None:
+            return
         focused_midx = self._selection_model.currentIndex()
         if focused_midx is None:
             return
@@ -231,18 +236,18 @@ class LayerStack(Qt.QObject):
 
     def _on_current_row_changed(self, midx, old_midx):
         # TODO: verify that this happens in response to signaling list removing signal and not removed signal
-        sm = self._selection_model
-        m = sm.model()
-        ls = self._layers
+        if self._selection_model is None:
+            return
+        m = self._selection_model.model()
         if isinstance(m, Qt.QAbstractProxyModel):
             if old_midx.isValid():
                 old_midx = m.mapToSource(old_midx)
             if midx.isValid():
                 midx = m.mapToSource(midx)
-        ol = ls[old_midx.row()] if old_midx.isValid() else None
-        l = ls[midx.row()] if midx.isValid() else None
-        if l is not ol:
-            self.layer_focus_changed.emit(self, ol, l)
+        old_layer = self._layers[old_midx.row()] if old_midx.isValid() else None
+        new_layer = self._layers[midx.row()] if midx.isValid() else None
+        if new_layer is not old_layer:
+            self.layer_focus_changed.emit(self, old_layer, new_layer)
 
     def _on_master_enable_auto_min_max_triggered(self, checked):
         # Disable auto min/max for all Layers in this LayerStack when auto min/max is explicitly deactivated but not when auto min/max is deactivated as
