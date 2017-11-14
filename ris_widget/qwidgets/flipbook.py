@@ -321,6 +321,8 @@ class Flipbook(Qt.QWidget):
         if sm is None or m is None:
             return
         selected_rows = self.selected_page_idxs[::-1]
+        if len(selected_rows) == 0:
+            return
         # "run" as in consecutive indexes specified as range rather than individually
         run_start_idx = selected_rows[0]
         run_length = 1
@@ -354,9 +356,10 @@ class Flipbook(Qt.QWidget):
         midx = self.pages_model.createIndex(target_row, 0)
         self.pages_view.selectionModel().select(midx, Qt.QItemSelectionModel.Deselect)
         self.delete_selected()
+        self.focused_page_idx = None # clear remaining selection
         for image_list in to_add:
             target_page.extend(image_list)
-        self.pages_view.selectionModel().select(midx, Qt.QItemSelectionModel.Select)
+        self.focused_page_idx = target_row
         self.apply()
 
     def _on_page_selection_changed(self, newly_selected_midxs=None, newly_deselected_midxs=None):
