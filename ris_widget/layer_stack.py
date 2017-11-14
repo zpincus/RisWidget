@@ -107,6 +107,23 @@ class LayerStack(Qt.QObject):
     def layers(self):
         return self._layers
 
+    @layers.setter
+    def layers(self, new_layers):
+        num_new_layers = len(new_layers)
+        num_extant_layers = len(self._layers)
+        for i in range(max(num_new_layers, num_extant_layers)):
+            if i >= num_new_layers:
+                self._layers[i].image = None
+            elif i >= num_extant_layers:
+                self._layers.append(new_layers[i])
+            else:
+                new_layer = new_layers[i]
+                if isinstance(new_layer, layer.Layer):
+                    self._layers[i] = new_layer
+                else:
+                    self._layers[i].image = new_layer
+
+
     def set_selection_model(self, selection_model):
         assert isinstance(selection_model, Qt.QItemSelectionModel)
         if self._selection_model is not None:

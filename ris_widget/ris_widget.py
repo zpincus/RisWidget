@@ -31,7 +31,6 @@ from . import layer_stack
 from .qwidgets import flipbook
 from .qwidgets import fps_display
 from .qwidgets import layer_table
-from .qwidgets import layer_stack_painter
 from . import qgraphicsscenes
 from .qgraphicsviews import image_view
 from .qgraphicsviews import histogram_view
@@ -65,17 +64,17 @@ class RisWidgetBase:
 
     @property
     def layers(self):
-        """Convenience property equivalent to rw.layer_stack.layers, with the following
-        further property: assigning to this property replaces all layers, and is equivalent to:
-        rw.layer_stack.layers.clear()
-        rw.layer_stack.layers.extend(layers)
+        """Convenience property equivalent to rw.layer_stack.layers. Assigning to layers
+        is smart: if images are provided, any existing layer properties will be retained.
+        To clear the layers and start afresh do:
+        rw.layers.clear()
+        rw.layers.extend([img1, img2])
         """
         return self.layer_stack.layers
 
     @layers.setter
-    def layers(self, layers):
-        self.layer_stack.layers.clear()
-        self.layer_stack.layers.extend(layers)
+    def layers(self, new_layers):
+        self.layer_stack.layers = new_layers
 
     @property
     def layer(self):

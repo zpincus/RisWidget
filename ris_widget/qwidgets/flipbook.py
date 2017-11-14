@@ -194,17 +194,7 @@ class Flipbook(Qt.QWidget):
             focused_page.removed.connect(self.apply)
             focused_page.replaced.connect(self.apply)
             self._attached_page = focused_page
-        layer_stack = self.layer_stack
-        layers = layer_stack.layers
-        lfp = len(focused_page)
-        lls = len(layers)
-        for idx in range(max(lfp, lls)):
-            if idx >= lfp:
-                layers[idx].image = None
-            elif idx >= lls:
-                layers.append(focused_page[idx])
-            else:
-                layers[idx].image = focused_page[idx]
+        self.layer_stack.layers = focused_page # setter magic takes care of rest
         self.page_focus_changed.emit(self)
 
     def _detach_page(self):
