@@ -9,10 +9,10 @@ with hist_src.open() as f:
 hist_def = re.compile(r'^void.+?\)', flags=re.MULTILINE|re.DOTALL)
 hist_headers = '\n'.join(h + ';' for h in hist_def.findall(hist_source))
 
-ffi = cffi.FFI()
+ffibuilder = cffi.FFI()
 
-ffi.set_source("_histogram", hist_source)
-ffi.cdef(hist_headers)
+ffibuilder.set_source("_histogram", hist_source)
+ffibuilder.cdef(hist_headers)
 
 if __name__ == "__main__":
-    ffi.compile()
+    ffibuilder.compile()

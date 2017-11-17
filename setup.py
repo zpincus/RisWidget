@@ -34,5 +34,5 @@ setuptools.setup(
                     'ris_widget':['icon.svg']},
     install_requires=['cffi>=1.0.0', 'numpy', 'PyOpenGL', 'PyQt5'],
     setup_requires=['cffi>=1.0.0'],
-    cffi_modules=['ris_widget/histogram/build_histogram.py:ffi'],
+    cffi_modules=['ris_widget/histogram/build_histogram.py:ffibuilder'],
     version = '1.5')
