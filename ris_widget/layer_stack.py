@@ -51,13 +51,11 @@ class LayerList(uniform_signaling_list.UniformSignalingList):
 
     def take_input_element(self, obj):
         if isinstance(obj, (numpy.ndarray, image.Image)):
-            obj = layer.Layer(obj)
+            return layer.Layer(obj)
         elif isinstance(obj, layer.Layer):
-            if hasattr(self, '_list') and obj in self._list:
-                raise ValueError('A given layer can only be in the layer stack once.')
+            return obj
         else:
             raise TypeError("All inputs must be numpy.ndarray, Image, or Layer")
-        return obj
 
 class LayerStack(Qt.QObject):
     """LayerStack: The owner of a LayerList (L.layers, in ascending order, with bottom layer - ie, backmost - as element 0) and selection model that is

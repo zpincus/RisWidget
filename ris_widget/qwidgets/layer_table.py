@@ -200,11 +200,7 @@ class LayerTableModel(LayerTableDragDropBehavior, property_table_model.PropertyT
         'name'
     ]
 
-    def __init__(
-            self,
-            layer_stack,
-            parent=None
-        ):
+    def __init__(self, layer_stack, parent=None):
         super().__init__(property_names=self.PROPERTIES, signaling_list=layer_stack.layers, parent=parent)
         self.layer_stack = layer_stack
         layer_stack.solo_layer_mode_action.toggled.connect(self._on_examine_layer_mode_toggled)
@@ -270,7 +266,7 @@ class LayerTableModel(LayerTableDragDropBehavior, property_table_model.PropertyT
         if role == Qt.Qt.FontRole and midx.isValid():
             try:
                 pname = self.property_names[midx.column()]
-                element = self._signaling_list[midx.row()]
+                element = self.signaling_list[midx.row()]
             except IndexError:
                 return
             try:

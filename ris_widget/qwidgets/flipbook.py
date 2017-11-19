@@ -114,7 +114,9 @@ class Flipbook(Qt.QWidget):
         layout = Qt.QVBoxLayout()
         self.setLayout(layout)
         self.pages_view = PagesView()
-        self.pages_model = PagesModel(PageList(), self.pages_view)
+        pages = PageList()
+        self.pages_model = PagesModel(pages, self.pages_view)
+        pages.replaced.connect(self._on_pages_replaced)
         self.pages_model.handle_dropped_files = self._handle_dropped_files
         self.pages_model.rowsInserted.connect(self._on_model_change)
         self.pages_model.rowsRemoved.connect(self._on_model_change)
@@ -400,25 +402,9 @@ class Flipbook(Qt.QWidget):
 
     @pages.setter
     def pages(self, pages):
-        if not isinstance(pages, PageList):
-            pages = PageList(pages)
-        sl = self.pages_model.signaling_list
-        if sl is not None:
-            try:
-                sl.replaced.disconnect(self._on_pages_replaced)
-            except TypeError:
-                pass
-        self.pages_model.signaling_list = pages
-        if pages is not None:
-            pages.replaced.connect(self._on_pages_replaced)
-        self.ensure_page_focused()
-        self.page_selection_changed.emit(self)
-        self.apply()
+        self.pages[:] = pages
 
-    try:
-        pages.__doc__ = _FLIPBOOK_PAGES_DOCSTRING
-    except AttributeError:
-        pass
+    pages.__doc__ = _FLIPBOOK_PAGES_DOCSTRING
 
     @property
     def focused_page_idx(self):
@@ -462,11 +448,9 @@ class Flipbook(Qt.QWidget):
         return [self.pages[idx] for idx in self.selected_page_idxs]
 
     def ensure_page_focused(self):
-        """If no page is selected and .pages is not empty:
+        """If no page is selected:
            If there is a "current" page, IE highlighted but not selected, select it.
            If there is no "current" page, make .pages[0] current and select it."""
-        if not self.pages:
-            return
         sm = self.pages_view.selectionModel()
         if not sm.currentIndex().isValid():
             sm.setCurrentIndex(
@@ -543,10 +527,6 @@ class PagesView(Qt.QTableView):
         self.setSelectionMode(Qt.QAbstractItemView.ExtendedSelection)
         self.setWordWrap(False)
 
-class PagesModelDragDropBehavior(drag_drop_model_behavior.DragDropModelBehavior):
-    def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
-        return isinstance(src_model, PagesModel)
-
 class ImageListListener(Qt.QObject):
     def __init__(self, image_list, pages_model, parent=None):
         super().__init__(parent)
@@ -566,26 +546,25 @@ class ImageListListener(Qt.QObject):
         index = self.pages_model.createIndex(idx, 0)
         self.pages_model.dataChanged.emit(index, index)
 
-class PagesModel(PagesModelDragDropBehavior, property_table_model.PropertyTableModel):
-    PROPERTIES = (
-        'name',
-        )
-
+class PagesModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_model.PropertyTableModel):
     def __init__(self, pages, parent=None):
         self.listeners = {}
-        super().__init__(self.PROPERTIES, pages, parent)
+        super().__init__(property_names=['name'], signaling_list=pages, parent=parent)
         self.modelAboutToBeReset.connect(self._on_model_about_to_be_reset)
         self.modelReset.connect(self._on_model_reset)
 
+    def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
+        return isinstance(src_model, PagesModel)
+
     def flags(self, midx):
-        if midx.isValid() and midx.column() == self.PROPERTIES.index('name'):
+        if midx.isValid() and midx.column() == 0:
             image_list = self.signaling_list[midx.row()]
             if len(image_list) == 0:
                 return super().flags(midx) & ~Qt.Qt.ItemIsEditable
         return super().flags(midx)
 
     def data(self, midx, role=Qt.Qt.DisplayRole):
-        if midx.isValid() and midx.column() == self.PROPERTIES.index('name'):
+        if midx.isValid() and midx.column() == 0:
             image_list = self.signaling_list[midx.row()]
             if image_list is None:
                 return Qt.QVariant()

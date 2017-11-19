@@ -34,8 +34,6 @@ class PropertyTableModel(Qt.QAbstractTableModel):
     will connect to it and cause all associated views to update the appropriate cells when the that
     _changed signal is emitted.
 
-    Duplicate elements are fully supported.
-
     Additionally, "properties" may be plain attributes, with the limitation that changes to plain
     attributes will not be detected.
 
@@ -119,17 +117,25 @@ class PropertyTableModel(Qt.QAbstractTableModel):
             coerce_arg_fn=float_or_none)
 """
 
-    def __init__(self, property_names, signaling_list, parent=None):
+    def __init__(self, property_names, signaling_list, allow_duplicates=False, parent=None):
         super().__init__(parent)
-        self._signaling_list = None
         self.property_names = list(property_names)
         self.property_columns = {pn : idx for idx, pn in enumerate(self.property_names)}
         assert all(map(lambda p: isinstance(p, str) and len(p) > 0, self.property_names)), 'property_names must be a non-empty iterable of non-empty strings.'
         if len(self.property_names) != len(set(self.property_names)):
             raise ValueError('The property_names argument contains at least one duplicate.')
         self._property_changed_slots = [lambda element, pn=pn: self._on_property_changed(element, pn) for pn in self.property_names]
-        self._instance_counts = {}
+        signaling_list.inserting.connect(self._on_inserting)
+        signaling_list.inserted.connect(self._on_inserted)
+        signaling_list.replaced.connect(self._on_replaced)
+        signaling_list.removing.connect(self._on_removing)
+        signaling_list.removed.connect(self._on_removed)
         self.signaling_list = signaling_list
+        self.allow_duplicates = allow_duplicates
+        self._attached = set()
+        self.beginResetModel() # TODO: is this begin/end necessary?
+        self._attach_elements(signaling_list)
+        self.endResetModel()
 
     def rowCount(self, _=None):
         sl = self.signaling_list
@@ -139,10 +145,9 @@ class PropertyTableModel(Qt.QAbstractTableModel):
         return len(self.property_names)
 
     def flags(self, midx):
-        f = Qt.Qt.ItemIsSelectable | Qt.Qt.ItemNeverHasChildren
+        f = Qt.Qt.ItemIsSelectable | Qt.Qt.ItemNeverHasChildren | self.drag_drop_flags(midx)
         if midx.isValid():
             f |= Qt.Qt.ItemIsEnabled | Qt.Qt.ItemIsEditable
-        f |= self.drag_drop_flags(midx)
         return f
 
     def drag_drop_flags(self, midx):
@@ -172,80 +177,47 @@ class PropertyTableModel(Qt.QAbstractTableModel):
         return Qt.QVariant()
 
     def removeRows(self, row, count, parent=Qt.QModelIndex()):
-#       print('removeRows', row, count, parent)
         try:
             del self.signaling_list[row:row+count]
             return True
         except IndexError:
             return False
 
-    @property
-    def signaling_list(self):
-        return self._signaling_list
-
-    @signaling_list.setter
-    def signaling_list(self, v):
-        if v is not self._signaling_list:
-            if self._signaling_list is not None or v is not None:
-                self.beginResetModel()
-                try:
-                    if self._signaling_list is not None:
-                        self._signaling_list.inserting.disconnect(self._on_inserting)
-                        self._signaling_list.inserted.disconnect(self._on_inserted)
-                        self._signaling_list.replaced.disconnect(self._on_replaced)
-                        self._signaling_list.removing.disconnect(self._on_removing)
-                        self._signaling_list.removed.disconnect(self._on_removed)
-                        self._detach_elements(self._signaling_list)
-                    assert len(self._instance_counts) == 0
-                    self._signaling_list = v
-                    if v is not None:
-                        v.inserting.connect(self._on_inserting)
-                        v.inserted.connect(self._on_inserted)
-                        v.replaced.connect(self._on_replaced)
-                        v.removing.connect(self._on_removing)
-                        v.removed.connect(self._on_removed)
-                        self._attach_elements(v)
-                finally:
-                    self.endResetModel()
-
     def _attach_elements(self, elements):
         for element in elements:
-            instance_count = self._instance_counts.get(element, 0) + 1
-            assert instance_count > 0
-            self._instance_counts[element] = instance_count
-            if instance_count == 1:
-                for property_name, changed_slot in zip(self.property_names, self._property_changed_slots):
-                    try:
-                        changed_signal = getattr(element, property_name + '_changed')
-                        changed_signal.connect(changed_slot)
-                    except AttributeError:
-                        pass
+            if element in self._attached:
+                if self.allow_duplicates:
+                    continue
+                else:
+                    raise RuntimeError('Duplicate item detected but not allowed in list')
+            self._attached.add(element)
+            for property_name, changed_slot in zip(self.property_names, self._property_changed_slots):
+                try:
+                    changed_signal = getattr(element, property_name + '_changed')
+                    changed_signal.connect(changed_slot)
+                except AttributeError:
+                    pass
 
     def _detach_elements(self, elements):
+        # must be called AFTER the relevant elements have already been removed from the signaling list:
         for element in elements:
-            instance_count = self._instance_counts[element] - 1
-            assert instance_count >= 0
-            if instance_count == 0:
-                for property_name, changed_slot in zip(self.property_names, self._property_changed_slots):
-                    try:
-                        changed_signal = getattr(element, property_name + '_changed')
-                        changed_signal.disconnect(changed_slot)
-                    except AttributeError:
-                        pass
-                del self._instance_counts[element]
-            else:
-                self._instance_counts[element] = instance_count
+            assert element in self._attached
+            if self.allow_duplicates:
+                if element in self.signaling_list:
+                    # there's still another copy in the list
+                    continue
+            self._attached.remove(element)
+            for property_name, changed_slot in zip(self.property_names, self._property_changed_slots):
+                try:
+                    changed_signal = getattr(element, property_name + '_changed')
+                    changed_signal.disconnect(changed_slot)
+                except AttributeError:
+                    pass
 
     def _on_property_changed(self, element, property_name):
         column = self.property_columns[property_name]
-        signaling_list = self.signaling_list
-        next_idx = 0
-        instance_count = self._instance_counts[element]
-        assert instance_count > 0
-        for _ in range(instance_count):
-            row = signaling_list.index(element, next_idx)
-            next_idx = row + 1
-            self.dataChanged.emit(self.createIndex(row, column), self.createIndex(row, column))
+        row = self.signaling_list.index(element)
+        self.dataChanged.emit(self.createIndex(row, column), self.createIndex(row, column))
 
     def _on_inserting(self, idx, elements):
         self.beginInsertRows(Qt.QModelIndex(), idx, idx+len(elements)-1)
