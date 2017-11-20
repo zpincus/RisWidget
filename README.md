@@ -1,4 +1,5 @@
 RisWidget
 =========
 
-Standing for Rapid Image Streaming Widget, RisWidget is a PyQt5 widget using OpenGL 2.1 for rapid display with an interactive histogram of uncompressed images stored in Numpy arrays.
+RisWidget is a PyQt5 to allow rapid display images stored in numpy arrays (supported types: uint8, uint16, float32), with an interactive historgram and
+image scaling with min/max/gamma controls.

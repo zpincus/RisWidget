@@ -1,3 +1,5 @@
+# This code is licensed under the MIT License (see LICENSE file for details)
+
 from zplib.image import colorize
 import PyQt5.Qt as Qt
 

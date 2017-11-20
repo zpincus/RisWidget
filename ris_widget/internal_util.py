@@ -1,3 +1,5 @@
+# This code is licensed under the MIT License (see LICENSE file for details)
+
 class ProxyProperty(property):
     def __init__(self, owner_name, proxied_property):
         self.owner_name = owner_name
