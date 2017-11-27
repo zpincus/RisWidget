@@ -37,8 +37,8 @@ class AnnotationField:
             old_value = None
         if self.auto_advance is not None:
             if self.auto_advance(old_value, value) and self.flipbook is not None:
-                if self.flipbook.focused_page_idx < len(self.flipbook.pages) - 1:
-                    self.flipbook.focused_page_idx += 1
+                if self.flipbook.current_page_idx < len(self.flipbook.pages) - 1:
+                    self.flipbook.current_page_idx += 1
 
 
     def update_widget(self, value):
@@ -150,7 +150,7 @@ class Annotator(Qt.QWidget):
     data = annotator.all_annotations
 
     # how to make GUI reflect python-level changes to the annotations
-    rw.flipbook.focused_page.annotations['alive'] = False
+    rw.flipbook.current_page.annotations['alive'] = False
     # or
     annotator.current_annotations['alive'] = False
     annotator.update_fields()
@@ -166,12 +166,12 @@ class Annotator(Qt.QWidget):
             layout.addRow(field.name, field.widget)
             field.flipbook = rw.flipbook
         self.flipbook = rw.flipbook
-        self.flipbook.page_selection_changed.connect(self.update_fields)
+        self.flipbook.current_page_changed.connect(self.update_fields)
         self.update_fields()
 
     def update_fields(self):
         if self.isVisible() and len(self.flipbook.selected_pages) == 1:
-            page = self.flipbook.focused_page
+            page = self.flipbook.current_page
             try:
                 self.current_annotations = page.annotations
             except AttributeError:

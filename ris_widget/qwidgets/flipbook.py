@@ -84,8 +84,7 @@ class Flipbook(Qt.QWidget):
 
     __doc__ += _FLIPBOOK_PAGES_DOCSTRING
 
-    page_focus_changed = Qt.pyqtSignal(object)
-    page_selection_changed = Qt.pyqtSignal(object)
+    current_page_changed = Qt.pyqtSignal(object)
 
     def __init__(self, layer_stack, parent=None):
         super().__init__(parent)
@@ -163,20 +162,20 @@ class Flipbook(Qt.QWidget):
         focused flipbook page, creating new layers as required, or clearing the image field of any excess
         layers. This method is called automatically when focus moves to a different page and when
         the contents of the current page change."""
-        focused_page_idx = self.focused_page_idx
-        if focused_page_idx is None:
+        current_page_idx = self.current_page_idx
+        if current_page_idx is None:
             self._detach_page()
             return
         pages = self.pages
-        focused_page = pages[focused_page_idx]
-        if focused_page is not self._attached_page:
+        current_page = pages[current_page_idx]
+        if current_page is not self._attached_page:
             self._detach_page()
-            focused_page.inserted.connect(self.apply)
-            focused_page.removed.connect(self.apply)
-            focused_page.replaced.connect(self.apply)
-            self._attached_page = focused_page
-        self.layer_stack.layers = focused_page # setter magic takes care of rest
-        self.page_focus_changed.emit(self)
+            current_page.inserted.connect(self.apply)
+            current_page.removed.connect(self.apply)
+            current_page.replaced.connect(self.apply)
+            self._attached_page = current_page
+        self.layer_stack.layers = current_page # setter magic takes care of rest
+        self.current_page_changed.emit(self)
 
     def _detach_page(self):
         if self._attached_page is not None:
@@ -250,7 +249,7 @@ class Flipbook(Qt.QWidget):
             dst_row = len(self.pages)
         self.add_image_files(fpaths, insertion_point=dst_row)
         if dst_row < len(self.pages):
-            self.focused_page_idx = dst_row
+            self.current_page_idx = dst_row
         return True
 
     def event(self, e):
@@ -322,7 +321,7 @@ class Flipbook(Qt.QWidget):
         # re-select the next page after the deleted ones, or the prev page if that's all that's left
         pages_left = len(self.pages)
         if pages_left > 0:
-            self.focused_page_idx = min(run_start_idx, pages_left-1)
+            self.current_page_idx = min(run_start_idx, pages_left-1)
 
     def merge_selected(self):
         """The contents of the currently selected pages (by ascending index order in .pages
@@ -337,43 +336,42 @@ class Flipbook(Qt.QWidget):
         midx = self.pages_model.createIndex(target_row, 0)
         self.pages_view.selectionModel().select(midx, Qt.QItemSelectionModel.Deselect)
         self.delete_selected()
-        self.focused_page_idx = None # clear remaining selection
+        self.current_page_idx = None # clear remaining selection
         for image_list in to_add:
             target_page.extend(image_list)
-        self.focused_page_idx = target_row
+        self.current_page_idx = target_row
         self.apply()
 
     def _on_page_selection_changed(self, newly_selected_midxs=None, newly_deselected_midxs=None):
         midxs = self.pages_view.selectionModel().selectedRows()
         self.delete_selected_action.setEnabled(len(midxs) >= 1)
         self.merge_selected_action.setEnabled(len(midxs) >= 2)
-        self.page_selection_changed.emit(self)
 
     def _on_pages_replaced(self, idxs, replaced_pages, pages):
-        if self.focused_page_idx in idxs:
+        if self.current_page_idx in idxs:
             self.apply()
 
     def focus_prev_page(self):
         """Advance to the previous page, if there is one."""
-        idx = self.focused_page_idx
+        idx = self.current_page_idx
         if idx is None:
             selected_idxs = self.selected_page_idxs
             if not selected_idxs:
                 self.ensure_page_focused()
                 return
             idx = selected_idxs[0]
-        self.focused_page_idx = max(idx - 1, 0)
+        self.current_page_idx = max(idx - 1, 0)
 
     def focus_next_page(self):
         """Advance to the next page, if there is one."""
-        idx = self.focused_page_idx
+        idx = self.current_page_idx
         if idx is None:
             selected_idxs = self.selected_page_idxs
             if not selected_idxs:
                 self.ensure_page_focused()
                 return
             idx = selected_idxs[0]
-        self.focused_page_idx = min(idx + 1, len(self.pages) - 1)
+        self.current_page_idx = min(idx + 1, len(self.pages) - 1)
 
     @property
     def pages(self):
@@ -386,27 +384,27 @@ class Flipbook(Qt.QWidget):
     pages.__doc__ = _FLIPBOOK_PAGES_DOCSTRING
 
     @property
-    def focused_page_idx(self):
+    def current_page_idx(self):
         midx = self.pages_view.selectionModel().currentIndex()
         if midx.isValid():
             return midx.row()
 
-    @focused_page_idx.setter
-    def focused_page_idx(self, idx):
+    @current_page_idx.setter
+    def current_page_idx(self, idx):
         sm = self.pages_view.selectionModel()
         if idx is None:
             sm.clear()
         else:
             if not 0 <= idx < len(self.pages):
-                raise IndexError('The value assigned to focused_pages_idx must either be None or a value >= 0 and < page count.')
+                raise IndexError('The value assigned to current_pages_idx must either be None or a value >= 0 and < page count.')
             midx = self.pages_model.index(idx, 0)
             sm.setCurrentIndex(midx, Qt.QItemSelectionModel.ClearAndSelect)
 
     @property
-    def focused_page(self):
-        focused_page_idx = self.focused_page_idx
-        if focused_page_idx is not None:
-            return self.pages[focused_page_idx]
+    def current_page(self):
+        current_page_idx = self.current_page_idx
+        if current_page_idx is not None:
+            return self.pages[current_page_idx]
 
     @property
     def selected_page_idxs(self):
@@ -419,7 +417,7 @@ class Flipbook(Qt.QWidget):
             item_selection.append(Qt.QItemSelectionRange(self.pages_model.index(idx, 0)))
         sm = self.pages_view.selectionModel()
         sm.select(item_selection, Qt.QItemSelectionModel.ClearAndSelect)
-        if idxs and self.focused_page_idx not in idxs:
+        if idxs and self.current_page_idx not in idxs:
             sm.setCurrentIndex(self.pages_model.index(idxs[0], 0), Qt.QItemSelectionModel.Current)
 
     @property
@@ -485,7 +483,7 @@ class Flipbook(Qt.QWidget):
         page_count = len(self.pages)
         if page_count == 0:
             return
-        self.focused_page_idx = (self.focused_page_idx + 1) % page_count
+        self.current_page_idx = (self.current_page_idx + 1) % page_count
 
 class PagesView(Qt.QTableView):
     def __init__(self, parent=None):
