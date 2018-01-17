@@ -61,7 +61,6 @@ class _ROIMixin(base.RWGeometryItemMixin):
     def remove(self):
         for handle in self.handles:
             handle.remove()
-        self.parentItem().removeSceneEventFilter(self)
         super().remove()
 
     @property

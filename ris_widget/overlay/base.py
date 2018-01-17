@@ -45,6 +45,7 @@ class RWGeometryItemMixin:
             self.on_geometry_change(self.geometry)
 
     def remove(self):
+        self.parentItem().removeSceneEventFilter(self)
         if self._mouse_connected:
             self.rw.image_view.mouse_release.disconnect(self._view_mouse_release)
         self.rw.image_scene.removeItem(self)

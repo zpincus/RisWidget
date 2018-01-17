@@ -2,6 +2,10 @@
 
 from PyQt5 import Qt
 
+def basic_auto_advance(old_value, value):
+    """Advance to next if the value was changed in any way."""
+    return old_value != value
+
 class AnnotationField:
     enablable = True
     def __init__(self, name, default=None, auto_advance=None):
@@ -77,15 +81,14 @@ class NonWidgetAnnotation(AnnotationField):
 
 
 class OverlayAnnotation(NonWidgetAnnotation):
-    def __init__(self, name, overlay, default=None):
+    def __init__(self, name, overlay, default=None, auto_advance=None):
         """
         Parameters:
             overlay: item from ris_widget.overlay
         """
-        super().__init__(name, default)
+        super().__init__(name, default, auto_advance)
         self.overlay = overlay
         self.overlay.hide()
-        self.auto_advance = auto_advance
         self.overlay.on_geometry_change = self.on_geometry_change
 
     def on_geometry_change(self, value):

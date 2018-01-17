@@ -69,7 +69,6 @@ class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._geometry_changed()
 
     def remove(self):
-        self.parentItem().removeSceneEventFilter(self)
         for point in self.points:
             point.remove()
         super().remove()

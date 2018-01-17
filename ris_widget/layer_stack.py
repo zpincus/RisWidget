@@ -41,8 +41,13 @@ class LayerStack(Qt.QObject):
 
     Signals:
     * layer_focus_changed(layer_stack, old_focused_layer, focused_layer): layer_stack.focused_layer changed from old_focused layer to focused_layer,
-    its current value."""
+    its current value.
+    * focused_image_changed(old_focused_image, focused_image): The image of the currently-focused layer has changed, either because the foused layer
+    itself has changed, or the image in that layer was replaced or modified in-place.
+
+    """
     layer_focus_changed = Qt.pyqtSignal(Qt.QObject, object, object)
+    focused_image_changed = Qt.pyqtSignal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -57,6 +62,7 @@ class LayerStack(Qt.QObject):
         # models are even aware that a row has been inserting.
         self._layers.inserted.connect(self._delayed_on_inserted_into_layers, Qt.Qt.QueuedConnection)
         self._layers.removed.connect(self._delayed_on_removed_from_layers, Qt.Qt.QueuedConnection)
+        self.layer_focus_changed.connect(self._on_layer_focus_changed)
 
         self._mask_radius = None
         self._selection_model = None
@@ -125,10 +131,8 @@ class LayerStack(Qt.QObject):
     @property
     def focused_layer(self):
         """Note: L.focused_layer = Layer() is equivalent to L.layers[L.focused_layer_idx] = Layer()."""
-        if self._layers is not None:
-            idx = self.focused_layer_idx
-            if idx is not None:
-                return self._layers[idx]
+        idx = self.focused_layer_idx
+        return None if idx is None else self._layers[idx]
 
     @focused_layer.setter
     def focused_layer(self, v):
@@ -136,6 +140,12 @@ class LayerStack(Qt.QObject):
         if idx is None:
             raise IndexError('No layer is currently focused.')
         self._layers[idx] = v
+
+    @property
+    def focused_image(self):
+        idx = self.focused_layer_idx
+        return None if idx is None else self._layers[idx].image
+
 
     def ensure_layer_focused(self):
         """If we have both a layer list & selection model and no Layer is selected & .layers is not empty:
@@ -257,4 +267,16 @@ class LayerStack(Qt.QObject):
     def _on_layer_auto_min_max_changed(self, layer):
         if self.auto_min_max_all and not layer.auto_min_max:
             self.auto_min_max_all = False
+
+    def _on_layer_focus_changed(self, layer_stack, old_focused_layer, focused_layer):
+        if old_focused_layer is not None:
+            old_focused_layer.image_changed.disconnect(self._on_focused_layer_image_changed)
+        if focused_layer is not None:
+            focused_layer.image_changed.connect(self._on_focused_layer_image_changed)
+        image = None if focused_layer is None else focused_layer.image
+        self.focused_image_changed.emit(image)
+
+    def _on_focused_layer_image_changed(self, focused_layer):
+        self.focused_image_changed.emit(focused_layer.image)
+
 

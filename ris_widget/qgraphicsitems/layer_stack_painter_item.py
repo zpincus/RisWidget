@@ -17,34 +17,25 @@ class LayerStackPainterBrush:
 class LayerStackPainterItem(Qt.QGraphicsObject):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     # Something relevant to LayerStackPainter changed: either we are now looking at a different Image
-    # instance due to assignment to layer.image, or image data type and/or channel count and/or range
-    # changed.  target_image_changed is not emitted when just image data changes.
+    # instance due to assignment to layer.image, or due to a change in the focused layer.
     target_image_changed = Qt.pyqtSignal(Qt.QObject)
 
     def __init__(self, layer_stack_item):
         super().__init__(layer_stack_item)
         self.setFlag(Qt.QGraphicsItem.ItemHasNoContents)
-        self._boundingRect = Qt.QRectF()
         self.layer_stack_item = layer_stack_item
-        layer_stack_item.bounding_rect_changed.connect(self._on_layer_stack_item_bounding_rect_changed)
-        layer_stack_item.layer_stack.layer_focus_changed.connect(self._on_layer_changed)
-        self._target_layer_idx = None
-        self.target_layer = None
         self.target_image = None
-        layers = layer_stack_item.layer_stack.layers
-        layers.inserted.connect(self._on_layer_changed)
-        layers.removed.connect(self._on_layer_changed)
-        layers.replaced.connect(self._on_layer_changed)
-        self._on_layer_changed()
-
-        self._on_layer_stack_item_bounding_rect_changed()
         self.brush = None
         self.alternate_brush = None
         self.left_click_draws = False
+        layer_stack_item.layer_stack.focused_image_changed.connect(self._on_focused_image_changed)
+        self._on_focused_image_changed(layer_stack_item.layer_stack.focused_image)
+        layer_stack_item.bounding_rect_changed.connect(self._on_layer_stack_item_bounding_rect_changed)
+        self._on_layer_stack_item_bounding_rect_changed()
         layer_stack_item.installSceneEventFilter(self)
 
     def boundingRect(self):
-        return self._boundingRect
+        return Qt.QRectF()
 
     def _brush_for_click(self, event):
         buttons = event.buttons()
@@ -78,9 +69,10 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         target_size = self.target_image.size
         target_width = target_size.width()
         target_height = target_size.height()
-        if self._boundingRect.toRect().size() != target_size:
-            p.setX(p.x() * target_width / bounding_size.width())
-            p.setY(p.y() * target_height / bounding_size.height())
+
+        if self.bounding_size != target_size:
+            p.setX(p.x() * target_width / self.bounding_size.width())
+            p.setY(p.y() * target_height / self.bounding_size.height())
 
         p = Qt.QPoint(p.x(), p.y())
         r = Qt.QRect(p.x(), p.y(), *brush.mask.shape)
@@ -109,23 +101,10 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
         return True
 
     def _on_layer_stack_item_bounding_rect_changed(self):
-        self.prepareGeometryChange()
-        self._boundingRect = self.layer_stack_item.boundingRect()
+        self.bounding_size = self.layer_stack_item.boundingRect().toRect().size()
 
-    def _on_layer_changed(self):
-        target_layer = self.layer_stack_item.layer_stack.focused_layer
-        if target_layer is self.target_layer:
-            return
-        if self.target_layer is not None:
-            self.target_layer.image_changed.disconnect(self._on_image_changed)
-        self.target_layer = target_layer
-        if target_layer is not None:
-            target_layer.image_changed.connect(self._on_image_changed)
-        self._on_image_changed()
-
-    def _on_image_changed(self):
-        new_target = None if self.target_layer is None else self.target_layer.image
-        if self.target_image is not new_target:
-            self.target_image = new_target
-            self.setVisible(new_target is not None) # hide if target goes to None
+    def _on_focused_image_changed(self, new_image):
+        if self.target_image is not new_image:
+            self.target_image = new_image
+            self.setVisible(new_image is not None) # hide if target goes to None
             self.target_image_changed.emit(self)
