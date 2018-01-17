@@ -167,6 +167,10 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._generate_tck_from_points()
         self._generate_points_from_tck()
 
+    def _reverse_spline(self):
+        t, c, k = self._tck
+        self.set_tck((t, c[::-1], k), self.points[::-1])
+
     def _view_mouse_release(self, pos, modifiers):
         if self.geometry is None:
             self._start_drawing(pos)
@@ -183,13 +187,22 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         elif self._tck is not None and event.type() == Qt.QEvent.GraphicsSceneMousePress and event.modifiers() & Qt.Qt.ShiftModifier:
             pos = event.pos()
             self._extend_endpoint(pos.x(), pos.y())
-        elif event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
+            return True
+        elif self.shared_filter(event):
+            return True
+        return super().sceneEventFilter(watched, event)
+
+    def shared_filter(self, event):
+        if event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
             if event.modifiers() & Qt.Qt.ShiftModifier:
                 self.smoothing = min(self.smoothing * 2, 320) # 10 * 2**5
             else:
                 self.smoothing = max(self.smoothing / 2, 0.625) # 10 / 2**3
             return True
-        return super().sceneEventFilter(watched, event)
+        elif self._tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_R:
+            self._reverse_spline()
+            return True
+        return False
 
     def mousePressEvent(self, event):
         p = event.pos()
@@ -230,5 +243,7 @@ class WarpedViewDragDetector(Qt.QGraphicsObject):
                 bandwidth_factor = 2
             p = event.pos()
             self.free_spline._warp_spline_perpendicular(p.x(), p.y(), bandwidth_factor)
+            return True
+        elif self.free_spline.shared_filter(event):
             return True
         return False
