@@ -156,6 +156,7 @@ class Annotator(Qt.QWidget):
     rw.flipbook.current_page.annotations['alive'] = False
     # or
     annotator.current_annotations['alive'] = False
+    # then to make an update occur:
     annotator.update_fields()
     """
     def __init__(self, rw, fields, parent=None):
@@ -222,3 +223,4 @@ class Annotator(Qt.QWidget):
             for field in self.fields:
                 # make sure the annotations are present in at least default value for each field
                 page_annotations.setdefault(field.name, field.default)
+        self.update_fields()

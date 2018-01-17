@@ -14,17 +14,16 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None, on_geometry_change=None):
         self.drawing = False
-        self._smoothing = 10
+        self._smoothing = 5
         self._tck = None
         self.bandwidth = 20
-        super().__init__(ris_widget, color, geometry, on_geometry_change)
-        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
-
         self.warped_view = getattr(ris_widget, 'alt_view', None)
         if self.warped_view is not None:
             ris_widget.layer_stack.focused_image_changed.connect(self._on_focused_image_changed)
             self._on_focused_image_changed(ris_widget.layer_stack.focused_image)
             self._drag_detector = WarpedViewDragDetector(self, self.warped_view)
+        super().__init__(ris_widget, color, geometry, on_geometry_change)
+        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
 
     def remove(self):
         super().remove()
@@ -45,9 +44,9 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self.drawing = False
         self._tck = tck
         self.path = Qt.QPainterPath()
+        if self.warped_view is not None:
+            self._update_warped_view()
         if tck is not None:
-            if self.warped_view is not None:
-                self._update_warped_view()
             if points is None:
                 self._generate_points_from_tck()
             else:
@@ -70,7 +69,9 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             self._generate_tck_from_points()
 
     def _update_warped_view(self):
-        if self._image is not None:
+        if self._tck is None:
+            self.warped_view.image = None
+        elif self._image is not None:
             width = self._tck[0][-1] / 5
             warped = resample.sample_image_along_spline(self._image, self._tck, width, order=1)
             self.warped_view.image = warped
@@ -91,14 +92,13 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         assert self._tck is not None
         self.points = interpolate.spline_interpolate(self._tck, num_points=300)
 
-    def _start_drawing(self, pos):
+    def _start_drawing(self):
         self.drawing = True
         self.display_pen.setStyle(Qt.Qt.DotLine)
         self.setPen(self.display_pen)
-        self.points = [(pos.x(), pos.y())]
-        self._last_pos = pos
+        self.points = []
+        self._last_pos = None
         self.path = Qt.QPainterPath()
-        self.path.moveTo(pos)
         self.setPath(self.path)
 
     def _stop_drawing(self):
@@ -112,8 +112,11 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _add_point(self, pos):
         self.points.append((pos.x(), pos.y()))
+        if self._last_pos is None:
+            self.path.moveTo(pos)
+        else:
+            self.path.lineTo(pos)
         self._last_pos = pos
-        self.path.lineTo(pos)
         self.setPath(self.path)
 
     def _start_warp(self, x, y):
@@ -171,14 +174,10 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         t, c, k = self._tck
         self.set_tck((t, c[::-1], k), self.points[::-1])
 
-    def _view_mouse_release(self, pos, modifiers):
-        if self.geometry is None:
-            self._start_drawing(pos)
-
     def sceneEventFilter(self, watched, event):
         if self.drawing and event.type() in {Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove}:
             pos = event.pos()
-            if (pos.x() - self._last_pos.x())**2 + (pos.y() - self._last_pos.y())**2 > 36:
+            if self._last_pos is None or (pos.x() - self._last_pos.x())**2 + (pos.y() - self._last_pos.y())**2 > 36:
                 self._add_point(pos)
             return True
         elif self.drawing and event.type() == Qt.QEvent.GraphicsSceneMouseRelease:
@@ -188,6 +187,12 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             pos = event.pos()
             self._extend_endpoint(pos.x(), pos.y())
             return True
+        elif self.geometry is None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
+            if not self.drawing:
+                self._start_drawing()
+            else:
+                self._stop_drawing()
+            return True
         elif self.shared_filter(event):
             return True
         return super().sceneEventFilter(watched, event)
@@ -195,12 +200,15 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     def shared_filter(self, event):
         if event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
             if event.modifiers() & Qt.Qt.ShiftModifier:
-                self.smoothing = min(self.smoothing * 2, 320) # 10 * 2**5
+                self.smoothing = min(self.smoothing * 2, 160) # 5 * 2**5
             else:
-                self.smoothing = max(self.smoothing / 2, 0.625) # 10 / 2**3
+                self.smoothing = max(self.smoothing / 2, 0.625) # 5 / 2**2
             return True
         elif self._tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_R:
             self._reverse_spline()
+            return True
+        elif self._tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_D and event.modifiers() & Qt.Qt.ShiftModifier:
+            self.geometry = None
             return True
         return False
 
