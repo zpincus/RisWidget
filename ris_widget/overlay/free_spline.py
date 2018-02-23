@@ -172,7 +172,7 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _reverse_spline(self):
         t, c, k = self._tck
-        self.set_tck((t, c[::-1], k), self.points[::-1])
+        self.set_tck(interpolate.reverse_spline(tck), self.points[::-1])
 
     def sceneEventFilter(self, watched, event):
         if self.drawing and event.type() in {Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove}:
