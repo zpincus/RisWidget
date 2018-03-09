@@ -187,7 +187,7 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             pos = event.pos()
             self._extend_endpoint(pos.x(), pos.y())
             return True
-        elif self.geometry is None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
+        elif self._tck is None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
             if not self.drawing:
                 self._start_drawing()
             else:
