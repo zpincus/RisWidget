@@ -14,25 +14,12 @@ class SliderDelegate(Qt.QStyledItemDelegate):
         return Qt.QSize(100,10)
 
     def paint(self, painter, option, midx):
-        # style = None
-        # if option.widget is not None:
-        #     style = option.widget.style()
-        # if style is None:
-        #     style = Qt.QApplication.style()
-        # Fill cell background in the *exact same manner* as the default delegate.  This is the simplest way to get the correct
-        # cell background in all circumstances, including while dragging a row.
         self.style.drawPrimitive(Qt.QStyle.PE_PanelItemViewItem, option, painter, option.widget)
         if not midx.isValid():
             return
         d = midx.data()
         if isinstance(d, Qt.QVariant):
             d = d.value()
-        # pbo = Qt.QStyleOptionProgressBar()
-        # pbo.minimum, pbo.maximum = 0, 100
-        # pbo.progress = int( (d-self.min_value)/(self.max_value-self.min_value) * 100.0 )
-        # pbo.textVisible = False
-        # pbo.rect = option.rect
-        # style.drawControl(Qt.QStyle.CE_ProgressBar, pbo, painter)
         slider = Qt.QStyleOptionSlider()
         slider.minimum, slider.maximum = 0, 100
         slider.sliderPosition = int( (d-self.min_value)/(self.max_value-self.min_value) * 100.0 )
