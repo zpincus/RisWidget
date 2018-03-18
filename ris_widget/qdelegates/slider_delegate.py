@@ -7,33 +7,37 @@ class SliderDelegate(Qt.QStyledItemDelegate):
         super().__init__(parent)
         self.min_value = min_value
         self.max_value = max_value
+        self.style = Qt.QStyleFactory.create('fusion')
         self._drag_grabber = None
 
     def sizeHint(self, option, midx):
         return Qt.QSize(100,10)
 
     def paint(self, painter, option, midx):
-        style = None
-        if option.widget is not None:
-            style = option.widget.style()
-        if style is None:
-            style = Qt.QApplication.style()
+        # style = None
+        # if option.widget is not None:
+        #     style = option.widget.style()
+        # if style is None:
+        #     style = Qt.QApplication.style()
         # Fill cell background in the *exact same manner* as the default delegate.  This is the simplest way to get the correct
         # cell background in all circumstances, including while dragging a row.
-        style.drawPrimitive(Qt.QStyle.PE_PanelItemViewItem, option, painter, option.widget)
+        self.style.drawPrimitive(Qt.QStyle.PE_PanelItemViewItem, option, painter, option.widget)
         if not midx.isValid():
             return
         d = midx.data()
         if isinstance(d, Qt.QVariant):
             d = d.value()
-        pbo = Qt.QStyleOptionProgressBar()
-        pbo.minimum, pbo.maximum = 0, 100
-        pbo.progress = int( (d-self.min_value)/(self.max_value-self.min_value) * 100.0 )
-        pbo.text = '{}%'.format(pbo.progress)
-        pbo.textVisible = True
-        pbo.textAlignment = Qt.Qt.AlignCenter
-        pbo.rect = option.rect
-        style.drawControl(Qt.QStyle.CE_ProgressBar, pbo, painter)
+        # pbo = Qt.QStyleOptionProgressBar()
+        # pbo.minimum, pbo.maximum = 0, 100
+        # pbo.progress = int( (d-self.min_value)/(self.max_value-self.min_value) * 100.0 )
+        # pbo.textVisible = False
+        # pbo.rect = option.rect
+        # style.drawControl(Qt.QStyle.CE_ProgressBar, pbo, painter)
+        slider = Qt.QStyleOptionSlider()
+        slider.minimum, slider.maximum = 0, 100
+        slider.sliderPosition = int( (d-self.min_value)/(self.max_value-self.min_value) * 100.0 )
+        slider.rect = option.rect
+        self.style.drawComplexControl(Qt.QStyle.CC_Slider, slider, painter)
 
     def createEditor(self, parent, option, index):
         return None
@@ -92,7 +96,7 @@ class DragGrabber(Qt.QWidget):
         event.accept()
         if event.buttons() != Qt.Qt.LeftButton:
             if event.buttons() == Qt.Qt.NoButton and self._ignore_next_no_button_mouse_move_event:
-                # In the definition of QApplicationPrivate::sendSyntheticEnterLeave(..), line 2788 of 
+                # In the definition of QApplicationPrivate::sendSyntheticEnterLeave(..), line 2788 of
                 # qtbase-opensource-src-5.4.2/src/widgets/kernel/qapplication.cpp, is called when
                 # widget visibility changes, including as a result of the widget's first .show() call.
                 #
