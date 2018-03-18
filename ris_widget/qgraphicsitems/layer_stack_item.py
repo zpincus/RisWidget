@@ -38,7 +38,7 @@ class LayerStackItem(shader_item.ShaderItem):
     da are returned to OpenGL for src-over blending into the view.
 
     LayerStackItem's boundingRect has its top left at (0, 0) and has same dimensions as the first (0th) element of layer_stack,
-    or is 1x1 if layer_stack is empty.  Therefore, if the scale of an LayerStackItem instance containing at least one layer
+    or is 1000x1000 if layer_stack is empty.  Therefore, if the scale of an LayerStackItem instance containing at least one layer
     has not been modified, that LayerStackItem instance will be the same width and height in scene units as the first element
     of layer_stack is in pixel units, making the mapping between scene units and pixel units 1:1 for the layer at the bottom
     of the stack (ie, layer_stack[0])."""
@@ -94,84 +94,73 @@ class LayerStackItem(shader_item.ShaderItem):
 
     def _attach_layers(self, layers):
         for layer in layers:
-            layer.changed.connect(self._on_layer_changed)
+            layer.changed.connect(self.update)
             layer.image_changed.connect(self._on_layer_image_changed)
 
     def _detach_layers(self, layers):
         for layer in layers:
             # no need to keep track of case when layer shows up in the list multiple times: LayerStack prevents that
-            layer.changed.disconnect(self._on_layer_changed)
+            layer.changed.disconnect(self.update)
             layer.image_changed.disconnect(self._on_layer_image_changed)
 
-    def _on_layers_inserted(self, idx, layers):
-        br_change = False
+    def _on_layers_inserted(self, idx, inserted_layers):
         if idx == 0:
-            layer_stack = self.layer_stack
-            nbi = layer_stack.layers[0].image
-            nbi_nN = nbi is not None
-            if len(layer_stack.layers) == len(layers):
-                if nbi_nN:
-                    br_change = True
-            else:
-                obi = layer_stack.layers[1].image
-                obi_nN = obi is not None
-                if nbi_nN != obi_nN or (nbi_nN and nbi.size != obi.size):
-                    br_change = True
-        if br_change:
-            self.prepareGeometryChange()
-            self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(nbi.size)) if nbi_nN else self.DEFAULT_BOUNDING_RECT
-        self._attach_layers(layers)
-        if br_change:
-            self.bounding_rect_changed.emit()
+            new_base = self.layer_stack.layers[0].image
+            has_base = new_base is not None
+            try:
+                old_base = self.layer_stack.layers[len(inserted_layers)].image
+            except IndexError:
+                # the list was empty before insertion...
+                old_base = None
+            had_base = old_base is not None
+            if has_base != had_base or (has_base and new_base.size != old_base.size):
+                self.prepareGeometryChange()
+                self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_base.size)) if has_base else self.DEFAULT_BOUNDING_RECT
+                self.bounding_rect_changed.emit()
+        self._attach_layers(inserted_layers)
         self.update()
         self._update_contextual_info()
 
-    def _on_layers_removed(self, idxs, layers):
-        assert all(idx1 > idx0 for idx0, idx1 in zip(idxs, idxs[1:])), "Implementation of _on_layers_removed relies on idxs being in ascending order"
-        br_change = False
-        if idxs[0] == 0:
-            layer_stack = self.layer_stack
-            obi = layers[0].image
-            obi_nN = obi is not None
-            if not layer_stack.layers:
-                if obi_nN:
-                    br_changed = True
-            else:
-                nbi = layer_stack.layers[0].image
-                nbi_nN = nbi is not None
-                if nbi_nN != obi_nN or (nbi_nN and nbi.size != obi.size):
-                    br_change = True
-        if br_change:
-            self.prepareGeometryChange()
-            self._bounding_rect = self.DEFAULT_BOUNDING_RECT if not layer_stack.layers or not nbi_nN else Qt.QRectF(Qt.QPointF(), Qt.QSizeF(nbi.size))
-        self._detach_layers(layers)
-        if br_change:
-            self.bounding_rect_changed.emit()
+    def _on_layers_removed(self, idxs, removed_layers):
+        try:
+            old_base_i = idxs.index(0)
+        except ValueError:
+            old_base_i = None
+        if old_base_i is not None:
+            try:
+                new_base = self.layer_stack.layers[0].image
+            except IndexError:
+                # all layers were removed
+                new_base = None
+            has_base = new_base is not None
+            old_base = removed_layers[old_base_i].image
+            had_base = old_base is not None
+            if has_base != had_base or (has_base and new_base.size != old_base.size):
+                self.prepareGeometryChange()
+                self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_base.size)) if has_base else self.DEFAULT_BOUNDING_RECT
+                self.bounding_rect_changed.emit()
+        self._detach_layers(removed_layers)
         self.update()
         self._update_contextual_info()
 
-    def _on_layers_replaced(self, idxs, replaced_layers, layers):
-        assert all(idx1 > idx0 for idx0, idx1 in zip(idxs, idxs[1:])), "Implementation of _on_layers_replaced relies on idxs being in ascending order"
-        br_change = False
-        if idxs[0] == 0:
-            obi = replaced_layers[0].image
-            obi_nN = obi is not None
-            nbi = layers[0].image
-            nbi_nN = nbi is not None
-            if nbi_nN != obi_nN or (nbi_nN and nbi.size != obi.size):
-                br_change = True
-        if br_change:
-            self.prepareGeometryChange()
-            self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(nbi.size)) if nbi_nN else self.DEFAULT_BOUNDING_RECT
+    def _on_layers_replaced(self, idxs, old_layers, new_layers):
+        try:
+            base_i = idxs.index(0)
+        except ValueError:
+            base_i = None
+        if base_i is not None:
+            new_base = new_layers[base_i].image
+            has_base = new_base is not None
+            old_base = old_layers[base_i].image
+            had_base = old_base is not None
+            if has_base != had_base or (has_base and new_base.size != old_base.size):
+                self.prepareGeometryChange()
+                self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_base.size)) if has_base else self.DEFAULT_BOUNDING_RECT
+                self.bounding_rect_changed.emit()
         self._detach_layers(replaced_layers)
         self._attach_layers(layers)
-        if br_change:
-            self.bounding_rect_changed.emit()
         self.update()
         self._update_contextual_info()
-
-    def _on_layer_changed(self, layer):
-        self.update()
 
     def _on_layer_image_changed(self, layer):
         idx = self.layer_stack.layers.index(layer)
