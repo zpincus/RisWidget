@@ -57,11 +57,6 @@ class LayerStack(Qt.QObject):
         self._layers.removing.connect(self._on_removing_from_layers)
         self._layers.replacing.connect(self._on_replacing_in_layers)
         self._layers.replaced.connect(self._on_replaced_in_layers)
-        # Must be QueuedConnection in order to avoid race condition where self._on_inserting_into_layers may be called before any associated model's
-        # "inserting" handler, which would cause ensure_layer_focused, if layers was empty before insertion, to attempt to focus row 0 before associated
-        # models are even aware that a row has been inserting.
-        self._layers.inserted.connect(self._delayed_on_inserted_into_layers, Qt.Qt.QueuedConnection)
-        self._layers.removed.connect(self._delayed_on_removed_from_layers, Qt.Qt.QueuedConnection)
         self.layer_focus_changed.connect(self._on_layer_focus_changed)
 
         self._mask_radius = None
@@ -146,20 +141,6 @@ class LayerStack(Qt.QObject):
         idx = self.focused_layer_idx
         return None if idx is None else self._layers[idx].image
 
-
-    def ensure_layer_focused(self):
-        """If we have both a layer list & selection model and no Layer is selected & .layers is not empty:
-           If there is a "current" layer, IE highlighted but not selected, select it.
-           If there is no "current" layer, make .layer_stack[0] current and select it."""
-        sm = self._selection_model
-        if sm is None:
-            return
-        m = sm.model()
-        if not sm.currentIndex().isValid():
-            sm.setCurrentIndex(m.index(0, 0), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
-        if len(sm.selectedRows()) == 0:
-            sm.select(sm.currentIndex(), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
-
     @property
     def examine_layer_mode(self):
         return self.solo_layer_mode_action.isChecked()
@@ -226,16 +207,6 @@ class LayerStack(Qt.QObject):
         old_focused, focused = replaced_layers[change_idx], layers[change_idx]
         if old_focused is not focused:
             self.layer_focus_changed.emit(self, old_focused, focused)
-
-    def _delayed_on_inserted_into_layers(self, idx, layers):
-        self.ensure_layer_focused()
-
-    def _delayed_on_removed_from_layers(self, idxs, layers):
-        # NB: There is a race condition when a layer is removed right before the ris_widget itself
-        # is deleted. If ensure_layer_focused runs after ris_widget goes away, then it fails
-        # because some qt objects have been deleted on the C++ side. This is generally rare, though,
-        # and doesn't break things (it just prints a stack trace), so it's a low priority TODO
-        self.ensure_layer_focused()
 
     def _on_current_row_changed(self, midx, old_midx):
         # TODO: verify that this happens in response to signaling list removing signal and not removed signal
