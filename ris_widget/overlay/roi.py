@@ -18,8 +18,7 @@ from . import base
 
 
 class _ROIMixin(base.RWGeometryItemMixin):
-    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None,
-        on_geometry_change=None, aspect=None):
+    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None, aspect=None):
         """Class for drawing a Region of Interest on a ris_widget.
 
         The ROI can be drawn by clicking on the upper-left of the desired region,
@@ -40,12 +39,10 @@ class _ROIMixin(base.RWGeometryItemMixin):
             color: a Qt color for the ROI
             geometry: ((x1, y1), (x2, y2)) coordinates of upper-left and lower-
                 right corners. If None, the ROI can be drawn by clicking.
-            on_geometry_change: callback that will be called with new geometry,
-                or None if the ROI is removed.
             aspect: width/height ratio to maintain, or None
         """
         self.aspect = aspect
-        super().__init__(ris_widget, color, geometry, on_geometry_change)
+        super().__init__(ris_widget, color, geometry)
         self.dragging = False
         self.handles = {_ResizeHandle(self, self.parentItem(), Qt.Qt.red): coords for coords in [
             (0, 0),
@@ -111,7 +108,7 @@ class _ROIMixin(base.RWGeometryItemMixin):
     def sceneEventFilter(self, watched, event):
         if self.dragging:
             if event.type() == Qt.QEvent.GraphicsSceneHoverMove:
-                # just a resize event: don't call on_geometry_change until done with dragging
+                # just a resize event: don't call official geometry setter (which calls callbacks, etc) until done with dragging
                 rect = self.rect()
                 rect.setBottomRight(event.pos())
                 self.setRect(self._aspect_adjusted_rect(rect))
@@ -122,9 +119,9 @@ class _ROIMixin(base.RWGeometryItemMixin):
         return super().sceneEventFilter(watched, event)
 
     def _done_resizing(self):
-        # called after resize. set self.geometry to clean up position and call on_geometry_change
+        # Now reset self.geometry to clean up position and call callbacks
         x1, y1, x2, y2 = self.rect().getCoords()
-        # call _set_geometry rather than setting .geometry property to keep selected state
+        # NB: call _set_geometry rather than setting .geometry property to keep selected state
         self._set_geometry(((x1, y1), (x2, y2)))
 
     def _reposition_handles(self):
@@ -160,7 +157,8 @@ class _ROIMixin(base.RWGeometryItemMixin):
         self._done_resizing()
 
     def _handle_moved(self, pos, handle):
-        # called during handle dragging: don't call on_geometry_change
+        # called during handle dragging: don't set .geometry propery directly, since we're not
+        # officially done moving. (_done_resizing() is called when that happens)
         xc, yc = self.handles[handle]
         rect = self.rect()
         x1, y1, x2, y2 = rect.getCoords()

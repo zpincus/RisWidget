@@ -89,7 +89,7 @@ class OverlayAnnotation(NonWidgetAnnotation):
         super().__init__(name, default, auto_advance)
         self.overlay = overlay
         self.overlay.hide()
-        self.overlay.on_geometry_change = self.on_geometry_change
+        self.overlay.geometry_change_callbacks.append(self.on_geometry_change)
 
     def on_geometry_change(self, value):
         # don't call our overridden update_widget because that will set the geometry again...

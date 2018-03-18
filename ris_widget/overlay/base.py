@@ -6,25 +6,28 @@ from .. import shared_resources
 
 
 class RWGeometryItemMixin:
-    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None, on_geometry_change=None):
+    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
         """Class for drawing a geometry on a ris_widget.
 
         To remove from the ris_widget, call remove().
 
         Subclasses must implement a geometry property that calls _geometry_changed(),
-        which takes care of calling on_geometry_change if it is defined.
+        which takes care of calling geometry-changed callbacks.
 
         Parameters:
             ris_widget: a ris_widget instance to draw geometry on
             color: a Qt color for the geometry
             geometry: list of (x,y) coordinate pairs.
-            on_geometry_change: callback that will be called with new geometry,
+
+        Class variables:
+            geometry_change_callbacks: list of callbacks that will be called
+                when geometry is changed, with the new geometry as the parameter
                 or None if the geometry is deleted.
         """
         layer_stack = ris_widget.image_scene.layer_stack_item
         self._mouse_connected = False
         self.display_pen = Qt.QPen(color)
-        self.on_geometry_change = on_geometry_change
+        self.geometry_change_callbacks = []
         self.display_pen.setWidth(2)
         self.display_pen.setCosmetic(True)
         self.selected_pen = Qt.QPen(self.display_pen)
@@ -41,8 +44,8 @@ class RWGeometryItemMixin:
         return self.QGRAPHICSITEM_TYPE
 
     def _geometry_changed(self):
-        if self.on_geometry_change:
-            self.on_geometry_change(self.geometry)
+        for callback in self.geometry_change_callbacks:
+            callback(self.geometry)
 
     def remove(self):
         self.parentItem().removeSceneEventFilter(self)
