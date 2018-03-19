@@ -107,6 +107,7 @@ class LayerStack(Qt.QObject):
             raise RuntimeError('only set selection model once, immediately after construction')
         selection_model.currentRowChanged.connect(self._on_current_row_changed)
         self._selection_model = selection_model
+        self.ensure_layer_focused()
 
     @property
     def focused_layer_idx(self):
@@ -165,6 +166,19 @@ class LayerStack(Qt.QObject):
     def mask_radius(self, r):
         for layer in self.layers:
             layer.mask_radius = r
+
+    def ensure_layer_focused(self):
+        """If we have both a layer list & selection model and no Layer is selected & .layers is not empty:
+           If there is a "current" layer, IE highlighted but not selected, select it.
+           If there is no "current" layer, make .layer_stack[0] current and select it."""
+        sm = self._selection_model
+        if sm is None:
+            return
+        m = sm.model()
+        if not sm.currentIndex().isValid():
+            sm.setCurrentIndex(m.index(0, 0), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
+        if len(sm.selectedRows()) == 0:
+            sm.select(sm.currentIndex(), Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
 
     def _attach_layers(self, layers):
         auto_min_max_all = self.auto_min_max_all

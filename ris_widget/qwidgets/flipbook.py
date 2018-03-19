@@ -109,7 +109,7 @@ class Flipbook(Qt.QWidget):
         self.delete_selected_action = Qt.QAction(self)
         self.delete_selected_action.setText('Delete pages')
         self.delete_selected_action.setToolTip('Delete selected pages')
-        self.delete_selected_action.setShortcut(Qt.Qt.Key_Delete)
+        self.delete_selected_action.setShortcuts([Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace])
         self.delete_selected_action.setShortcutContext(Qt.Qt.WidgetShortcut)
         self.delete_selected_action.triggered.connect(self.delete_selected)
         self.pages_view.addAction(self.delete_selected_action)

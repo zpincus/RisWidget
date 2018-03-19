@@ -18,8 +18,6 @@ class HistogramItem(shader_item.ShaderItem):
         self.setAcceptHoverEvents(True)
         self.contextual_info_pos = None
         self.layer_stack = layer_stack
-        layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
-        self.layer = None
         self._hist_tex_needs_upload = True
         self._bounding_rect = Qt.QRectF(0, 0, 1, 1)
         self._tex = None
@@ -29,30 +27,35 @@ class HistogramItem(shader_item.ShaderItem):
         self.gamma_item = GammaItem(self, self.min_item, self.max_item)
         self.gamma_gamma = 1.0
         self.hide()
+        layer_stack.layer_focus_changed.connect(self._on_layer_focus_changed)
+        self._connect_layer(layer_stack.layers[0])
 
-    def _on_layer_focus_changed(self, layer_stack, old_layer, layer):
+    def _on_layer_focus_changed(self, layer_stack, old_layer, new_layer):
         assert layer_stack is self.layer_stack
+        assert self.layer is old_layer
         if old_layer is not None:
-            self.layer.image_changed.disconnect(self._on_layer_histogram_change)
-            self.layer.min_changed.disconnect(self.min_item.arrow_item._on_value_changed)
-            self.layer.max_changed.disconnect(self.max_item.arrow_item._on_value_changed)
-            self.layer.histogram_min_changed.disconnect(self._on_layer_histogram_change)
-            self.layer.histogram_max_changed.disconnect(self._on_layer_histogram_change)
-            self.layer.gamma_changed.disconnect(self.gamma_item._on_value_changed)
-            self.layer = None
-        if layer is None:
+            old_layer.image_changed.disconnect(self._on_layer_histogram_change)
+            old_layer.min_changed.disconnect(self.min_item.arrow_item._on_value_changed)
+            old_layer.max_changed.disconnect(self.max_item.arrow_item._on_value_changed)
+            old_layer.histogram_min_changed.disconnect(self._on_layer_histogram_change)
+            old_layer.histogram_max_changed.disconnect(self._on_layer_histogram_change)
+            old_layer.gamma_changed.disconnect(self.gamma_item._on_value_changed)
+        self._connect_layer(new_layer)
+        if new_layer is None:
             self.hide()
         else:
+            self.gamma_item._on_value_changed()
+            self._on_layer_histogram_change()
+
+    def _connect_layer(self, layer):
+        self.layer = layer
+        if layer is not None:
             layer.image_changed.connect(self._on_layer_histogram_change)
             layer.min_changed.connect(self.min_item.arrow_item._on_value_changed)
             layer.max_changed.connect(self.max_item.arrow_item._on_value_changed)
             layer.histogram_min_changed.connect(self._on_layer_histogram_change)
             layer.histogram_max_changed.connect(self._on_layer_histogram_change)
             layer.gamma_changed.connect(self.gamma_item._on_value_changed)
-            self.layer = layer
-            self.show()
-            self.gamma_item._on_value_changed()
-            self._on_layer_histogram_change()
 
     def boundingRect(self):
         return self._bounding_rect
@@ -186,6 +189,10 @@ class HistogramItem(shader_item.ShaderItem):
         self.scene().contextual_info_item.set_info_text(text)
 
     def _on_layer_histogram_change(self):
+        if self.layer is None or self.layer.image is None:
+            self.hide()
+        else:
+            self.show()
         self._hist_tex_needs_upload = True
         self.min_item.arrow_item._on_value_changed()
         self.max_item.arrow_item._on_value_changed()

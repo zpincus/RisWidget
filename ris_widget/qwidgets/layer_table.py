@@ -65,6 +65,22 @@ class LayerTableView(Qt.QTableView):
         col = layer_table_model.property_columns['opacity']
         self.horizontalHeader().resizeSection(col, 100)
 
+        self.delete_selected_action = Qt.QAction(self)
+        self.delete_selected_action.setText('Delete selected rows')
+        self.delete_selected_action.triggered.connect(self._on_delete_selected_action)
+        self.delete_selected_action.setShortcuts([Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace])
+        self.delete_selected_action.setShortcutContext(Qt.Qt.WidgetShortcut)
+        self.addAction(self.delete_selected_action)
+
+    def _on_delete_selected_action(self):
+        sm = self.selectionModel()
+        m = self.model()
+        if m is None or sm is None:
+            return
+        for midx in sm.selectedRows():
+            if midx.isValid():
+                m.removeRow(midx.row())
+
     def contextMenuEvent(self, event):
         focused_midx = self.selectionModel().currentIndex()
         if not focused_midx.isValid():
@@ -369,3 +385,11 @@ class LayerTableModel(LayerTableDragDropBehavior, property_table_model.PropertyT
     def _handle_layer_focus_change(self):
         self._focused_row = self.layer_stack.focused_layer_idx
         self._on_examine_layer_mode_toggled()
+
+    def _on_inserted(self, idx, elements):
+        super()._on_inserted(idx, elements)
+        self.layer_stack.ensure_layer_focused()
+
+    def _on_removed(self, idxs, elements):
+        super()._on_removed(idxs, elements)
+        self.layer_stack.ensure_layer_focused()
