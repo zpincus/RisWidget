@@ -103,20 +103,28 @@ class LayerStackItem(shader_item.ShaderItem):
             layer.changed.disconnect(self.update)
             layer.image_changed.disconnect(self._on_layer_image_changed)
 
+    def _base_layer_changed(self, old_base, new_base):
+        has_base = new_base is not None and new_base.image is not None
+        had_base = old_base is not None and old_base.image is not None
+        if has_base != had_base or (has_base and new_base.image.size != old_base.image.size):
+            self._change_bounding_rect(new_base.image if new_base is not None else None)
+
+    def _change_bounding_rect(self, base_image):
+        self.prepareGeometryChange()
+        if base_image is None:
+            self._bounding_rect = self.DEFAULT_BOUNDING_RECT
+        else:
+            self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(base_image.size))
+        self.bounding_rect_changed.emit()
+
     def _on_layers_inserted(self, idx, inserted_layers):
         if idx == 0:
-            new_base = self.layer_stack.layers[0].image
-            has_base = new_base is not None
-            try:
-                old_base = self.layer_stack.layers[len(inserted_layers)].image
-            except IndexError:
-                # the list was empty before insertion...
+            new_base = self.layer_stack.layers[0]
+            if len(self.layer_stack.layers) > len(inserted_layers):
+                old_base = self.layer_stack.layers[len(inserted_layers)]
+            else:
                 old_base = None
-            had_base = old_base is not None
-            if has_base != had_base or (has_base and new_base.size != old_base.size):
-                self.prepareGeometryChange()
-                self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_base.size)) if has_base else self.DEFAULT_BOUNDING_RECT
-                self.bounding_rect_changed.emit()
+            self._base_layer_changed(old_base, new_base)
         self._attach_layers(inserted_layers)
         self.update()
         self._update_contextual_info()
@@ -127,18 +135,12 @@ class LayerStackItem(shader_item.ShaderItem):
         except ValueError:
             old_base_i = None
         if old_base_i is not None:
-            try:
-                new_base = self.layer_stack.layers[0].image
-            except IndexError:
-                # all layers were removed
+            if len(self.layer_stack.layers) > 0:
+                new_base = self.layer_stack.layers[0]
+            else:
                 new_base = None
-            has_base = new_base is not None
-            old_base = removed_layers[old_base_i].image
-            had_base = old_base is not None
-            if has_base != had_base or (has_base and new_base.size != old_base.size):
-                self.prepareGeometryChange()
-                self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_base.size)) if has_base else self.DEFAULT_BOUNDING_RECT
-                self.bounding_rect_changed.emit()
+            old_base = removed_layers[old_base_i]
+            self._base_layer_changed(old_base, new_base)
         self._detach_layers(removed_layers)
         self.update()
         self._update_contextual_info()
@@ -149,16 +151,11 @@ class LayerStackItem(shader_item.ShaderItem):
         except ValueError:
             base_i = None
         if base_i is not None:
-            new_base = new_layers[base_i].image
-            has_base = new_base is not None
-            old_base = old_layers[base_i].image
-            had_base = old_base is not None
-            if has_base != had_base or (has_base and new_base.size != old_base.size):
-                self.prepareGeometryChange()
-                self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(new_base.size)) if has_base else self.DEFAULT_BOUNDING_RECT
-                self.bounding_rect_changed.emit()
-        self._detach_layers(replaced_layers)
-        self._attach_layers(layers)
+            new_base = new_layers[base_i]
+            old_base = old_layers[base_i]
+            self._base_layer_changed(old_base, new_base)
+        self._detach_layers(old_layers)
+        self._attach_layers(new_layers)
         self.update()
         self._update_contextual_info()
 
@@ -166,15 +163,9 @@ class LayerStackItem(shader_item.ShaderItem):
         idx = self.layer_stack.layers.index(layer)
         if idx == 0:
             image = layer.image
-            current_br = self.boundingRect()
-            if image is None:
-                new_br = self.DEFAULT_BOUNDING_RECT
-            else:
-                new_br = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(image.size))
-            if new_br != current_br:
-                self.prepareGeometryChange()
-                self._bounding_rect = new_br
-                self.bounding_rect_changed.emit()
+            current_size = self.boundingRect().size()
+            if image is None or Qt.QSizeF(image.size) != current_size:
+                self._change_bounding_rect(image)
         self._update_contextual_info()
 
     def _on_layer_focus_changed(self, old_layer, layer):

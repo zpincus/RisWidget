@@ -231,15 +231,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         m.addAction(self.layer_property_stack_save_action)
         m.addAction(self.layer_property_stack_load_action)
         m = mb.addMenu('View')
-        m.addAction(self.flipbook_focus_prev_page_action)
-        m.addAction(self.flipbook_focus_next_page_action)
-        m.addAction(self.flipbook.toggle_playing_action)
-        m.addSeparator()
-        m.addAction(self.layer_stack_reset_curr_min_max_action)
-        m.addAction(self.layer_stack_reset_curr_gamma_action)
-        m.addAction(self.layer_stack.auto_min_max_all_action)
-        m.addAction(self.layer_stack.solo_layer_mode_action)
-        m.addSeparator()
         m.addAction(self.fps_display_dock_widget.toggleViewAction())
 
     def showEvent(self, event):

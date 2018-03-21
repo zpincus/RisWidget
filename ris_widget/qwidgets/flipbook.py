@@ -102,19 +102,12 @@ class Flipbook(Qt.QWidget):
         layout.addLayout(mergebox)
 
         playbox = Qt.QHBoxLayout()
-        self.toggle_playing_action = Qt.QAction(self)
-        self.toggle_playing_action.setText('Play')
-        self.toggle_playing_action.setCheckable(True)
-        self.toggle_playing_action.setChecked(False)
-        self.toggle_playing_action.setEnabled(False)
-        self.toggle_playing_action.toggled.connect(self._on_toggle_play_action_toggled)
-        self.toggle_playing_action.changed.connect(self._on_toggle_play_action_changed)
-        self.toggle_playing_button = Qt.QPushButton('\N{BLACK RIGHT-POINTING POINTER}')
-        self.toggle_playing_button.setCheckable(True)
-        self.toggle_playing_button.setEnabled(False)
-        self.toggle_playing_button.clicked.connect(self.toggle_playing_action.toggle)
+        self.play_button = Qt.QPushButton('\N{BLACK RIGHT-POINTING POINTER}')
+        self.play_button.setCheckable(True)
+        self.play_button.setEnabled(False)
+        self.play_button.toggled.connect(self._on_play_button_toggled)
         playbox.addSpacerItem(Qt.QSpacerItem(0, 0, Qt.QSizePolicy.Expanding, Qt.QSizePolicy.Minimum))
-        playbox.addWidget(self.toggle_playing_button)
+        playbox.addWidget(self.play_button)
         self.fps_editor = Qt.QLineEdit()
         self.fps_editor.setValidator(Qt.QIntValidator(1, 99, parent=self))
         self.fps_editor.editingFinished.connect(self._on_fps_editing_finished)
@@ -411,7 +404,11 @@ class Flipbook(Qt.QWidget):
                 Qt.QItemSelectionModel.SelectCurrent | Qt.QItemSelectionModel.Rows)
 
     def _on_model_change(self):
-        self.toggle_playing_action.setEnabled(len(self.pages) >= 2)
+        enable_play = len(self.pages) > 1
+        self.play_button.setEnabled(enable_play)
+        if not enable_play:
+            self.play_button.setChecked(False)
+        self.fps_editor.setEnabled(enable_play)
 
     def _on_model_reset_or_rows_inserted_indirect(self):
         self.pages_view.resizeRowsToContents()
@@ -431,21 +428,14 @@ class Flipbook(Qt.QWidget):
         self.playback_fps = int(self.fps_editor.text())
 
     def play(self):
-        if self.toggle_playing_action.isEnabled():
-            self.toggle_playing_action.setChecked(True)
+        if self.play_button.isEnabled():
+            self.play_button.setChecked(True)
 
     def pause(self):
-        self.toggle_playing_action.setChecked(False)
+        self.play_button.setChecked(False)
 
-    def _on_toggle_play_action_changed(self):
-        e = self.toggle_playing_action.isEnabled()
-        self.toggle_playing_button.setEnabled(e)
-        if not e:
-            self.toggle_playing_action.setChecked(False)
-        self.fps_editor.setEnabled(e)
 
-    def _on_toggle_play_action_toggled(self, v):
-        self.toggle_playing_button.setChecked(v)
+    def _on_play_button_toggled(self, v):
         if v:
             self.playback_timer.start()
         else:

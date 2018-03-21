@@ -40,9 +40,9 @@ class LayerStack(Qt.QObject):
     referenced by various other objects such as LayerStackItem, LayerTable, RisWidget, and Flipbooks.
 
     Signals:
-    * layer_focus_changed(layer_stack, old_focused_layer, focused_layer): layer_stack.focused_layer changed from old_focused layer to focused_layer,
+    * layer_focus_changed(layer_stack, old_focused_layer, new_focused_layer): layer_stack.focused_layer changed from old_focused layer to focused_layer,
     its current value.
-    * focused_image_changed(old_focused_image, focused_image): The image of the currently-focused layer has changed, either because the foused layer
+    * focused_image_changed(new_focused_image): The image of the currently-focused layer has changed, either because the foused layer
     itself has changed, or the image in that layer was replaced or modified in-place.
 
     """
@@ -194,33 +194,26 @@ class LayerStack(Qt.QObject):
         for layer in layers:
             layer.auto_min_max_changed.disconnect(self._on_layer_auto_min_max_changed)
 
-    def _on_inserting_into_layers(self, idx, layers):
-        self._attach_layers(layers)
+    def _on_inserting_into_layers(self, idx, inserted_layers):
+        self._attach_layers(inserted_layers)
 
-    def _on_removing_from_layers(self, idxs, layers):
-        self._detach_layers(layers)
+    def _on_removing_from_layers(self, idxs, removed_layers):
+        self._detach_layers(removed_layers)
 
     def _on_replacing_in_layers(self, idxs, replaced_layers, layers):
         self._detach_layers(replaced_layers)
         self._attach_layers(layers)
 
-    def _on_replaced_in_layers(self, idxs, replaced_layers, layers):
-        # Note: the selection model may be associated with a proxy model, in which case this method's idxs argument is in terms of the proxy.  Therefore,
-        # we can't use self.focused_layer_idx (if the selection model is attached to a proxy, self.focused_layer_idx is in terms of the proxied model,
-        # not the proxy).
+    def _on_replaced_in_layers(self, idxs, old_layers, new_layers):
         if self._selection_model is None:
             return
-        focused_midx = self._selection_model.currentIndex()
-        if focused_midx is None:
-            return
-        focused_row = focused_midx.row()
         try:
-            change_idx = idxs.index(focused_row)
+            focused_idx = idxs.index(self.focused_layer_idx)
         except ValueError:
             return
-        old_focused, focused = replaced_layers[change_idx], layers[change_idx]
-        if old_focused is not focused:
-            self.layer_focus_changed.emit(self, old_focused, focused)
+        old_focused, new_focused = old_layers[focused_idx], new_layers[focused_idx]
+        if old_focused is not new_focused:
+            self.layer_focus_changed.emit(self, old_focused, new_focused)
 
     def _on_current_row_changed(self, midx, old_midx):
         # TODO: verify that this happens in response to signaling list removing signal and not removed signal
@@ -253,12 +246,12 @@ class LayerStack(Qt.QObject):
         if self.auto_min_max_all and not layer.auto_min_max:
             self.auto_min_max_all = False
 
-    def _on_layer_focus_changed(self, layer_stack, old_focused_layer, focused_layer):
+    def _on_layer_focus_changed(self, layer_stack, old_focused_layer, new_focused_layer):
         if old_focused_layer is not None:
             old_focused_layer.image_changed.disconnect(self._on_focused_layer_image_changed)
-        if focused_layer is not None:
-            focused_layer.image_changed.connect(self._on_focused_layer_image_changed)
-        image = None if focused_layer is None else focused_layer.image
+        if new_focused_layer is not None:
+            new_focused_layer.image_changed.connect(self._on_focused_layer_image_changed)
+        image = None if new_focused_layer is None else new_focused_layer.image
         self.focused_image_changed.emit(image)
 
     def _on_focused_layer_image_changed(self, focused_layer):

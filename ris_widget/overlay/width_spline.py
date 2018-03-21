@@ -18,18 +18,25 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         super().__init__(ris_widget, color, geometry)
         self.bandwidth = 15
         self.display_pen.setWidth(1)
-        ris_widget.layer_stack.focused_image_changed.connect(self._update_path)
+        self.layer = None
+        self.parentItem().bounding_rect_changed.connect(self._update_image_shape)
+        self._update_image_shape()
+
+    def _update_image_shape(self):
+        # bounding rect change means that the image at layers[0] has changed in some way
+        self.image_shape = None
+        layers = self.rw.layer_stack.layers
+        if len(layers) > 0 and layers[0].image is not None:
+            self.image_shape = layers[0].image.data.shape
         self._update_path()
 
     def remove(self):
         super().remove()
-        self.rw.layer_stack.focused_image_changed.disconnect(self._update_path)
+        self.parentItem().bounding_rect_changed.disconnect(self._update_image_shape)
 
     def _update_path(self):
         self.path = Qt.QPainterPath()
         tck = self._tck
-        image = self.rw.layer_stack.focused_image
-        self.image_shape = None if image is None else image.data.shape
         if tck is not None and self.image_shape is not None:
             width, height = self.image_shape
             centerline_y = height / 2
@@ -82,6 +89,8 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         else:
             # invert widths if we started out past the centerline
             y_sign = 1 if y < centerline_y else -1
+        if not 0 <= x <= width:
+            return
         x_i = round((len(self._points) - 1) * x / width)
         self._points[x_i] = max(y_sign * (centerline_y - y), 0.1)
         self._last_pos = (x, y_sign)
@@ -103,6 +112,7 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         self._warp_points = self._points
 
     def _warp_spline(self, pos, bandwidth_factor):
+        self._last_pos = pos
         if self.image_shape is None:
             return
         width, height = self.image_shape

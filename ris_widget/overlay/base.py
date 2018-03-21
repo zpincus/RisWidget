@@ -4,7 +4,6 @@ from PyQt5 import Qt
 
 from .. import shared_resources
 
-
 class RWGeometryItemMixin:
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
         """Class for drawing a geometry on a ris_widget.
@@ -107,6 +106,23 @@ class RWGeometryItemMixin:
             self.geometry = None
             return True
         return False
+
+
+class SceneListener(Qt.QGraphicsItem):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setFlag(Qt.QGraphicsItem.ItemHasNoContents)
+        parent.installSceneEventFilter(self)
+
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+    def type(self):
+        return self.QGRAPHICSITEM_TYPE
+
+    def remove(self):
+        self.parentItem().removeSceneEventFilter(self)
+
+    def boundingRect(self):
+        return Qt.QRectF()
 
 
 class Handle(Qt.QGraphicsRectItem):

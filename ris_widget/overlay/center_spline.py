@@ -6,21 +6,22 @@ import numpy
 from zplib.curve import interpolate
 from zplib.image import resample
 
+from .. import internal_util
 from .. import shared_resources
 from . import base
 
 class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
-    SPLINE_POINTS = 400
+    SPLINE_POINTS = 250
     SMOOTH_BASE = 8
     BANDWIDTH = 20
 
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
-        self._drawing = False
         self._smoothing = 1
         self._tck = None
         self._points = []
-        self._on_reversed = None
+        self.warping = False
+        self._drawing = False
         super().__init__(ris_widget, color, geometry)
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
 
@@ -109,6 +110,7 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._warp_bandwidth = self._tck[0][-1] / self.BANDWIDTH # tck[0][-1] is approximate spline length
 
     def _warp_spline(self, pos, bandwidth_factor):
+        self._last_pos = pos
         end = numpy.array([pos.x(), pos.y()])
         delta = end - self._warp_start
         bandwidth = self._warp_bandwidth * bandwidth_factor
@@ -130,11 +132,9 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._points = numpy.concatenate(new_points)
         self._generate_tck_from_points()
 
-    def _reverse_spline(self):
+    def reverse_spline(self):
         self._set_tck(interpolate.reverse_spline(self._tck))
         self._points = self._points[::-1]
-        if self._on_reversed is not None:
-            self._on_reversed()
 
     def sceneEventFilter(self, watched, event):
         tck, drawing = self._tck, self._drawing
@@ -147,14 +147,20 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         elif tck is not None and event.type() == Qt.QEvent.GraphicsSceneMousePress and event.modifiers() & Qt.Qt.ShiftModifier:
             self._extend_endpoint(event.pos())
             return True
-        elif tck is None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
+        elif self.warping and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
+            self._warp_spline(self._last_pos, bandwidth_factor=2)
+            return True
+        elif self.warping and event.type() == Qt.QEvent.KeyRelease and event.key() == Qt.Qt.Key_Shift:
+            self._warp_spline(self._last_pos, bandwidth_factor=1)
+            return True
+        elif tck is None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Escape:
             if not drawing:
                 self._start_drawing()
             else:
                 self._stop_drawing()
             return True
         elif tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_R:
-            self._reverse_spline()
+            self.reverse_spline()
             return True
         elif tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_D:
             self._update_points()
@@ -172,33 +178,37 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         bandwidth_factor = 1
         if event.modifiers() & Qt.Qt.ShiftModifier:
             bandwidth_factor = 2
+        self.warping = True
         self._warp_spline(event.pos(), bandwidth_factor)
 
-class WarpedViewCenterSplineListener(Qt.QGraphicsObject):
+    def mouseReleaseEvent(self, event):
+        if self.warping:
+            self.warping = False
+            self._geometry_changed()
+        else:
+            # allow the rest of the release event mechanism to work
+            super().mouseReleaseEvent(event)
+
+class CenterSplineWarper(base.SceneListener):
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+
     def __init__(self, center_spline, warped_view):
+        super().__init__(warped_view.image_scene.layer_stack_item)
         self.warped_view = warped_view
-        layer_stack_item = warped_view.image_scene.layer_stack_item
-        super().__init__(layer_stack_item)
-        self.setFlag(Qt.QGraphicsItem.ItemHasNoContents)
-        layer_stack_item.installSceneEventFilter(self)
+        self.warped_view.image_view.zoom_to_fit = False
+        self._interpolate_order = 1
+        self._ignore_mouse_moves = internal_util.Condition()
         self.center_spline = center_spline
         center_spline.geometry_change_callbacks.append(self._update_warped_view)
         center_spline.rw.layer_stack.focused_image_changed.connect(self._update_warped_view)
-        self._on_focused_image_changed(center_spline.rw.layer_stack.focused_image)
-
-    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
-    def type(self):
-        return self.QGRAPHICSITEM_TYPE
-
-    def boundingRect(self):
-        return Qt.QRectF()
+        self._update_warped_view()
 
     def remove(self):
-        self.parentItem().removeSceneEventFilter(self)
+        super().remove()
         self.center_spline.rw.layer_stack.focused_image_changed.disconnect(self._update_warped_view)
         self.center_spline.geometry_change_callbacks.remove(self._update_warped_view)
 
-    def _update_warped_view(self, _, order=0):
+    def _update_warped_view(self, _=None):
         # dummy parameter _ will either be image if called from focused_image_changed or
         # tck if called from geometry_change_callbacks... we ignore and fetch both as
         # needed.
@@ -208,7 +218,7 @@ class WarpedViewCenterSplineListener(Qt.QGraphicsObject):
             self.warped_view.image = None
         else:
             width = int(tck[0][-1] // 5)
-            warped = resample.sample_image_along_spline(image, tck, width, order=order)
+            warped = resample.sample_image_along_spline(image.data, tck, width, order=self._interpolate_order)
             self.warped_view.image = warped
 
     def _start_warp(self, pos):
@@ -219,9 +229,10 @@ class WarpedViewCenterSplineListener(Qt.QGraphicsObject):
         perps = numpy.transpose([py, -px])
         self._perps = perps / numpy.sqrt((perps**2).sum(axis=1))[:, numpy.newaxis]
         self._warp_positions = numpy.linspace(0, tck[0][-1], len(perps))
-        self._warp_bandwidth = tck[0][-1] / self.center_spline.bandwidth # tck[0][-1] is approximate spline length
+        self._warp_bandwidth = tck[0][-1] / self.center_spline.BANDWIDTH # tck[0][-1] is approximate spline length
 
     def _warp_spline(self, pos, bandwidth_factor):
+        self._last_pos = pos
         bandwidth = self._warp_bandwidth * bandwidth_factor
         distances = self._warp_positions - pos.x()
         warp_coefficients = numpy.exp(-(distances/bandwidth)**2)
@@ -230,7 +241,8 @@ class WarpedViewCenterSplineListener(Qt.QGraphicsObject):
         disp_sqdist = (displacements**2).sum(axis=1)
         displacements[disp_sqdist < 4] = 0
         self.center_spline._points = self._warp_points + displacements
-        self.center_spline._generate_tck_from_points()
+        with self._ignore_mouse_moves:
+            self.center_spline._generate_tck_from_points()
 
     def sceneEventFilter(self, watched, event):
         tck = self.center_spline._tck
@@ -238,14 +250,33 @@ class WarpedViewCenterSplineListener(Qt.QGraphicsObject):
             return False
         elif event.type() == Qt.QEvent.GraphicsSceneMousePress:
             self._start_warp(event.pos())
+            self._interpolate_order = 0
             return True
-        elif event.type() == Qt.QEvent.GraphicsSceneMouseMove:
+        elif not self._ignore_mouse_moves and event.type() == Qt.QEvent.GraphicsSceneMouseMove:
+            # can get spurious mouse moves if image zoom changes while warping
+            # (due to zoom-to-fit being enabled), which can then lead to
+            # infinite recursion of zoom / warp / zoom / warp etc.
+            # Break the chain by not warping if self.warping is set.
             bandwidth_factor = 1
             if event.modifiers() & Qt.Qt.ShiftModifier:
                 bandwidth_factor = 2
+            self.center_spline.warping = True
             self._warp_spline(event.pos(), bandwidth_factor)
             return True
-        elif event.type() == Qt.QEvent.GraphicsSceneMouseRelease:
-            self._update_warped_view(None, order=1)
+        elif self.center_spline.warping and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
+            self._warp_spline(self._last_pos, bandwidth_factor=2)
             return True
+        elif self.center_spline.warping and event.type() == Qt.QEvent.KeyRelease and event.key() == Qt.Qt.Key_Shift:
+            self._warp_spline(self._last_pos, bandwidth_factor=1)
+            return True
+        elif event.type() == Qt.QEvent.GraphicsSceneMouseRelease:
+            if self.center_spline.warping:
+                self.center_spline.warping = False
+                self.center_spline._geometry_changed()
+                self._interpolate_order = 1
+                self._update_warped_view()
+                return True
+            else:
+                # allow the rest of the release event mechanism to work
+                return False
         return False

@@ -7,7 +7,7 @@ def basic_auto_advance(old_value, value):
     return old_value != value
 
 class AnnotationField:
-    enablable = True
+    ENABLABLE = True
     def __init__(self, name, default=None, auto_advance=None):
         self.name = name
         self.init_widget()
@@ -20,20 +20,21 @@ class AnnotationField:
         """Overrride in subclass to initialize widget."""
         raise NotImplementedError
 
-    def set_annotations(self, annotations):
+    def set_annotations(self, page, annotations):
         """Receive a new annotation dictionary, which may be None to indicate
         an invalid state where the widget should be disabled."""
         self.annotations = annotations
+        self.current_page = page
         if annotations is None:
             self.widget.setEnabled(False)
             self.update_widget(None)
         else:
-            if self.enablable:
+            if self.ENABLABLE:
                 self.widget.setEnabled(True)
-            self.update_widget(annotations.setdefault(self.name, self.default))
+            self.update_widget(self.get_annotation_for_page(page, annotations))
 
     def update_annotation_data(self, value):
-        """Call from subclass when there is a new value from the GUI."""
+        """Call this function from each subclass when there is a new value from the GUI."""
         if self.annotations is not None:
             old_value = self.annotations.get(self.name, None)
             self.annotations[self.name] = value
@@ -43,6 +44,17 @@ class AnnotationField:
             if self.auto_advance(old_value, value) and self.flipbook is not None:
                 if self.flipbook.current_page_idx < len(self.flipbook.pages) - 1:
                     self.flipbook.current_page_idx += 1
+
+    def get_annotation_for_page(self, page, annotations):
+        """If self.default is a function, call it with the current flipbook page to
+        calculate an appropriate default."""
+        if self.name not in annotations:
+            if callable(self.default):
+                default = self.default(page)
+            else:
+                default = self.default
+            annotations[self.name] = default
+        return annotations[self.name]
 
 
     def update_widget(self, value):
@@ -70,7 +82,7 @@ class NonWidgetAnnotation(AnnotationField):
     """Annotation 'field' that presents a checkbox about whether some other
     data source has provided annotation data. This source could be an overlay
     for drawing on the image, e.g."""
-    enablable = False
+    ENABLABLE = False
 
     def init_widget(self):
         self.widget = Qt.QCheckBox()
@@ -88,7 +100,6 @@ class OverlayAnnotation(NonWidgetAnnotation):
         """
         super().__init__(name, default, auto_advance)
         self.overlay = overlay
-        self.overlay.hide()
         self.overlay.geometry_change_callbacks.append(self.on_geometry_change)
 
     def on_geometry_change(self, value):
@@ -99,11 +110,6 @@ class OverlayAnnotation(NonWidgetAnnotation):
     def update_widget(self, value):
         super().update_widget(value)
         self.overlay.geometry = value
-
-    def set_annotations(self, annotations):
-        super().set_annotations(annotations)
-        # hide if annotations is None
-        self.overlay.setVisible(annotations is not None)
 
 
 class StringField(AnnotationField):
@@ -167,7 +173,10 @@ class Annotator(Qt.QWidget):
         self.setLayout(layout)
         self.fields = fields
         for field in self.fields:
-            layout.addRow(field.name, field.widget)
+            if isinstance(field.widget, Qt.QGroupBox):
+                layout.addWidget(field.widget)
+            else:
+                layout.addRow(field.name, field.widget)
             field.flipbook = rw.flipbook
         self.flipbook = rw.flipbook
         self.flipbook.current_page_changed.connect(self.update_fields)
@@ -181,10 +190,12 @@ class Annotator(Qt.QWidget):
             except AttributeError:
                 self.current_annotations = page.annotations = {}
         else:
-            self.current_annotations = None
+            page = self.current_annotations = None
         for field in self.fields:
-            self.layout().labelForField(field.widget).setEnabled(self.current_annotations is not None)
-            field.set_annotations(self.current_annotations)
+            label = self.layout().labelForField(field.widget)
+            if label is not None:
+                label.setEnabled(self.current_annotations is not None)
+            field.set_annotations(page, self.current_annotations)
 
     def showEvent(self, event):
         if not event.spontaneous(): # event is from Qt and widget became visible
@@ -205,8 +216,8 @@ class Annotator(Qt.QWidget):
             except AttributeError:
                 page_annotations = {}
             for field in self.fields:
-                # make sure the annotations are present in at least default value for each field
-                page_annotations.setdefault(field.name, field.default)
+                # the below will set the field's annotation to the default value if it's not present
+                field.get_annotation_for_page(page, page_annotations)
             all_annotations.append(page_annotations)
         return all_annotations
 
@@ -221,6 +232,6 @@ class Annotator(Qt.QWidget):
                 page_annotations = page.annotations = {}
             page_annotations.update(new_annotations)
             for field in self.fields:
-                # make sure the annotations are present in at least default value for each field
-                page_annotations.setdefault(field.name, field.default)
+                # the below will set the field's annotation to the default value if it's not present
+                field.get_annotation_for_page(page, page_annotations)
         self.update_fields()

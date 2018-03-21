@@ -124,6 +124,7 @@ def generate_unique_qgraphicsitem_type():
     _NEXT_QGRAPHICSITEM_USERTYPE += 1
     return _NEXT_QGRAPHICSITEM_USERTYPE
 
+
 _QGL_CACHE = {}
 def QGL():
     current_thread = Qt.QThread.currentThread()
