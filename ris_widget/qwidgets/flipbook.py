@@ -56,23 +56,6 @@ _FLIPBOOK_PAGES_DOCSTRING = ("""
     than copied).
     """)
 
-class ActionButton(Qt.QPushButton):
-    def __init__(self, action, parent=None):
-        super().__init__(parent)
-        self.action = action
-        self.updateButtonStatusFromAction()
-        self.action.changed.connect(self.updateButtonStatusFromAction)
-        self.clicked.connect(self.action.triggered)
-
-    def updateButtonStatusFromAction(self):
-        self.setText(self.action.text())
-        self.setStatusTip(self.action.statusTip())
-        self.setToolTip(self.action.toolTip())
-        self.setIcon(self.action.icon())
-        self.setEnabled(self.action.isEnabled())
-        self.setCheckable(self.action.isCheckable())
-        self.setChecked(self.action.isChecked())
-
 class Flipbook(Qt.QWidget):
     """
     Flipbook: A Qt widget with a list view containing pages.  Calling a Flipbook instance's
@@ -106,23 +89,15 @@ class Flipbook(Qt.QWidget):
         self.pages_view.selectionModel().selectionChanged.connect(self._on_page_selection_changed)
         layout.addWidget(self.pages_view)
         self._attached_page = None
-        self.delete_selected_action = Qt.QAction(self)
-        self.delete_selected_action.setText('Delete pages')
-        self.delete_selected_action.setToolTip('Delete selected pages')
-        self.delete_selected_action.setShortcuts([Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace])
-        self.delete_selected_action.setShortcutContext(Qt.Qt.WidgetShortcut)
-        self.delete_selected_action.triggered.connect(self.delete_selected)
-        self.pages_view.addAction(self.delete_selected_action)
-        self.merge_selected_action = Qt.QAction(self)
-        self.merge_selected_action.setText('Merge pages')
-        self.merge_selected_action.setToolTip('Merge selected pages into one page with multiple layers')
-        self.merge_selected_action.triggered.connect(self.merge_selected)
-        self.addAction(self.merge_selected_action)
 
         mergebox = Qt.QHBoxLayout()
-        self.merge_button = ActionButton(self.merge_selected_action)
+        self.merge_button = Qt.QPushButton('Merge pages')
+        self.merge_button.clicked.connect(self.merge_selected)
         mergebox.addWidget(self.merge_button)
-        self.delete_button = ActionButton(self.delete_selected_action)
+        self.delete_button = Qt.QPushButton('Delete pages')
+        self.delete_button.clicked.connect(self.delete_selected)
+        Qt.QShortcut(Qt.Qt.Key_Delete, self.pages_view, self.delete_button.click, context=Qt.Qt.WidgetShortcut)
+        Qt.QShortcut(Qt.Qt.Key_Backspace, self.pages_view, self.delete_button.click, context=Qt.Qt.WidgetShortcut)
         mergebox.addWidget(self.delete_button)
         layout.addLayout(mergebox)
 
@@ -289,12 +264,6 @@ class Flipbook(Qt.QWidget):
                 # page removal calls the on_removal function, which as above is the future's cancel()
                 self.pages_model.removeRows(i, 1)
 
-    def contextMenuEvent(self, event):
-        menu = Qt.QMenu(self)
-        menu.addAction(self.merge_selected_action)
-        menu.addAction(self.delete_selected_action)
-        menu.exec(event.globalPos())
-
     def delete_selected(self):
         sm = self.pages_view.selectionModel()
         m = self.pages_model
@@ -344,8 +313,8 @@ class Flipbook(Qt.QWidget):
 
     def _on_page_selection_changed(self, newly_selected_midxs=None, newly_deselected_midxs=None):
         midxs = self.pages_view.selectionModel().selectedRows()
-        self.delete_selected_action.setEnabled(len(midxs) >= 1)
-        self.merge_selected_action.setEnabled(len(midxs) >= 2)
+        self.delete_button.setEnabled(len(midxs) >= 1)
+        self.merge_button.setEnabled(len(midxs) >= 2)
 
     def _on_pages_replaced(self, idxs, replaced_pages, pages):
         if self.current_page_idx in idxs:
@@ -379,7 +348,10 @@ class Flipbook(Qt.QWidget):
 
     @pages.setter
     def pages(self, pages):
-        self.pages[:] = pages
+        if pages is not self.pages:
+            #pages is self.pages when doing "self.pages += [...]", which translates into an iadd and then a set.
+            # no need to replace with self...
+            self.pages[:] = pages
 
     pages.__doc__ = _FLIPBOOK_PAGES_DOCSTRING
 
@@ -577,8 +549,8 @@ class PagesModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_
 
     def _on_replaced(self, idxs, replaced_elements, elements):
         super()._on_replaced(idxs, replaced_elements, elements)
-        self._add_listeners(elements)
         self._remove_listeners(replaced_elements)
+        self._add_listeners(elements)
 
     def _on_removed(self, idxs, elements):
         super()._on_removed(idxs, elements)
