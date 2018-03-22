@@ -155,16 +155,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self.fps_display_dock_widget.hide()
 
     def _init_actions(self):
-        self.flipbook_focus_prev_page_action = Qt.QAction(self)
-        self.flipbook_focus_prev_page_action.setText('Previous Page')
-        self.flipbook_focus_prev_page_action.setShortcut(Qt.Qt.Key_Up)
-        self.flipbook_focus_prev_page_action.triggered.connect(self.flipbook.focus_prev_page)
-        self.flipbook_focus_prev_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
-        self.flipbook_focus_next_page_action = Qt.QAction(self)
-        self.flipbook_focus_next_page_action.setText('Next Page')
-        self.flipbook_focus_next_page_action.setShortcut(Qt.Qt.Key_Down)
-        self.flipbook_focus_next_page_action.triggered.connect(self.flipbook.focus_next_page)
-        self.flipbook_focus_next_page_action.setShortcutContext(Qt.Qt.ApplicationShortcut)
         self.layer_stack_reset_curr_min_max_action = Qt.QAction(self)
         self.layer_stack_reset_curr_min_max_action.setText('Reset Min/Max')
         self.layer_stack_reset_curr_min_max_action.triggered.connect(self._on_reset_min_max)

@@ -14,14 +14,15 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     SPLINE_POINTS = 250
     SMOOTH_BASE = 8
-    BANDWIDTH = 20
+    BANDWIDTH = 10
 
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
         self._smoothing = 1
         self._tck = None
         self._points = []
         self.warping = False
-        self._drawing = False
+        self.drawing = False
+        self.fine_warp = False # if True, warp bandwidth is halved
         super().__init__(ris_widget, color, geometry)
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
 
@@ -58,11 +59,11 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         else:
             self._points = []
 
-    def _modify_smoothing(self, increase):
-        if increase:
-            self._smoothing = min(self._smoothing * 2, 32)
-        else:
+    def _modify_smoothing(self, decrease):
+        if decrease:
             self._smoothing = max(self._smoothing / 2, 0.25)
+        else:
+            self._smoothing = min(self._smoothing * 2, 32)
         if self._tck is not None:
             self._generate_tck_from_points()
 
@@ -74,8 +75,8 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             tck = None
         self._set_tck(tck)
 
-    def _start_drawing(self):
-        self._drawing = True
+    def start_drawing(self):
+        self.drawing = True
         self.display_pen.setStyle(Qt.Qt.DotLine)
         self.setPen(self.display_pen)
         self._last_pos = None
@@ -88,7 +89,7 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._generate_tck_from_points()
         # _generate_tck_from_points might act differently at the end of drawing
         # (in a subclass), so set _drawing False only at end.
-        self._drawing = False
+        self.drawing = False
 
     def _add_point(self, pos):
         x, y = pos.x(), pos.y()
@@ -109,10 +110,11 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._warp_distances = numpy.sqrt(((self._warp_start - self._points)**2).sum(axis=1))
         self._warp_bandwidth = self._tck[0][-1] / self.BANDWIDTH # tck[0][-1] is approximate spline length
 
-    def _warp_spline(self, pos, bandwidth_factor):
+    def _warp_spline(self, pos):
         self._last_pos = pos
         end = numpy.array([pos.x(), pos.y()])
         delta = end - self._warp_start
+        bandwidth_factor = 0.5 if self.fine_warp else 1
         bandwidth = self._warp_bandwidth * bandwidth_factor
         warp_coefficients = numpy.exp(-(self._warp_distances/bandwidth)**2)
         displacements = numpy.outer(warp_coefficients, delta)
@@ -136,8 +138,12 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._set_tck(interpolate.reverse_spline(self._tck))
         self._points = self._points[::-1]
 
+    def smooth(self):
+        self._update_points()
+        self._generate_tck_from_points()
+
     def sceneEventFilter(self, watched, event):
-        tck, drawing = self._tck, self._drawing
+        tck, drawing = self._tck, self.drawing
         if drawing and event.type() in {Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove}:
             self._add_point(event.pos())
             return True
@@ -148,26 +154,24 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             self._extend_endpoint(event.pos())
             return True
         elif self.warping and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
-            self._warp_spline(self._last_pos, bandwidth_factor=2)
+            self.fine_warp = True
+            self._warp_spline(self._last_pos)
             return True
         elif self.warping and event.type() == Qt.QEvent.KeyRelease and event.key() == Qt.Qt.Key_Shift:
-            self._warp_spline(self._last_pos, bandwidth_factor=1)
+            self.fine_warp = False
+            self._warp_spline(self._last_pos)
             return True
-        elif tck is None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Escape:
-            if not drawing:
-                self._start_drawing()
-            else:
-                self._stop_drawing()
+        elif tck is None and not drawing and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Escape:
+            self.start_drawing()
             return True
         elif tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_R:
             self.reverse_spline()
             return True
         elif tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_D:
-            self._update_points()
-            self._generate_tck_from_points()
+            self.smooth()
             return True
         elif event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
-            self._modify_smoothing(increase=(event.modifiers() & Qt.Qt.ShiftModifier))
+            self._modify_smoothing(decrease=(event.modifiers() & Qt.Qt.ShiftModifier))
             return True
         return super().sceneEventFilter(watched, event)
 
@@ -175,11 +179,8 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._start_warp(event.pos())
 
     def mouseMoveEvent(self, event):
-        bandwidth_factor = 1
-        if event.modifiers() & Qt.Qt.ShiftModifier:
-            bandwidth_factor = 2
         self.warping = True
-        self._warp_spline(event.pos(), bandwidth_factor)
+        self._warp_spline(event.pos())
 
     def mouseReleaseEvent(self, event):
         if self.warping:
@@ -231,8 +232,9 @@ class CenterSplineWarper(base.SceneListener):
         self._warp_positions = numpy.linspace(0, tck[0][-1], len(perps))
         self._warp_bandwidth = tck[0][-1] / self.center_spline.BANDWIDTH # tck[0][-1] is approximate spline length
 
-    def _warp_spline(self, pos, bandwidth_factor):
+    def _warp_spline(self, pos):
         self._last_pos = pos
+        bandwidth_factor = 0.5 if self.center_spline.fine_warp else 1
         bandwidth = self._warp_bandwidth * bandwidth_factor
         distances = self._warp_positions - pos.x()
         warp_coefficients = numpy.exp(-(distances/bandwidth)**2)
@@ -257,17 +259,16 @@ class CenterSplineWarper(base.SceneListener):
             # (due to zoom-to-fit being enabled), which can then lead to
             # infinite recursion of zoom / warp / zoom / warp etc.
             # Break the chain by not warping if self.warping is set.
-            bandwidth_factor = 1
-            if event.modifiers() & Qt.Qt.ShiftModifier:
-                bandwidth_factor = 2
             self.center_spline.warping = True
-            self._warp_spline(event.pos(), bandwidth_factor)
+            self._warp_spline(event.pos())
             return True
         elif self.center_spline.warping and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
-            self._warp_spline(self._last_pos, bandwidth_factor=2)
+            self.fine_warp = True
+            self._warp_spline(self._last_pos)
             return True
         elif self.center_spline.warping and event.type() == Qt.QEvent.KeyRelease and event.key() == Qt.Qt.Key_Shift:
-            self._warp_spline(self._last_pos, bandwidth_factor=1)
+            self.fine_warp = False
+            self._warp_spline(self._last_pos)
             return True
         elif event.type() == Qt.QEvent.GraphicsSceneMouseRelease:
             if self.center_spline.warping:

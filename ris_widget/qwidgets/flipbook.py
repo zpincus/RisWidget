@@ -90,14 +90,17 @@ class Flipbook(Qt.QWidget):
         layout.addWidget(self.pages_view)
         self._attached_page = None
 
+        Qt.QShortcut(Qt.Qt.Key_Up, self, self.focus_prev_page)
+        Qt.QShortcut(Qt.Qt.Key_Down, self, self.focus_next_page)
+
         mergebox = Qt.QHBoxLayout()
         self.merge_button = Qt.QPushButton('Merge pages')
         self.merge_button.clicked.connect(self.merge_selected)
         mergebox.addWidget(self.merge_button)
         self.delete_button = Qt.QPushButton('Delete pages')
         self.delete_button.clicked.connect(self.delete_selected)
-        Qt.QShortcut(Qt.Qt.Key_Delete, self.pages_view, self.delete_button.click, context=Qt.Qt.WidgetShortcut)
-        Qt.QShortcut(Qt.Qt.Key_Backspace, self.pages_view, self.delete_button.click, context=Qt.Qt.WidgetShortcut)
+        Qt.QShortcut(Qt.Qt.Key_Delete, self, self.delete_button.click, context=Qt.Qt.WidgetWithChildrenShortcut)
+        Qt.QShortcut(Qt.Qt.Key_Backspace, self, self.delete_button.click, context=Qt.Qt.WidgetWithChildrenShortcut)
         mergebox.addWidget(self.delete_button)
         layout.addLayout(mergebox)
 

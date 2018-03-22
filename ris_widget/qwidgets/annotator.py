@@ -10,11 +10,11 @@ class AnnotationField:
     ENABLABLE = True
     def __init__(self, name, default=None, auto_advance=None):
         self.name = name
-        self.init_widget()
-        self.widget.setEnabled(False)
         self.default = default
         self.auto_advance = auto_advance
         self.flipbook = None
+        self.init_widget()
+        self.widget.setEnabled(False)
 
     def init_widget(self):
         """Overrride in subclass to initialize widget."""

@@ -15,10 +15,11 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
 
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
         self._tck_x = numpy.linspace(0, 1, self.SPLINE_POINTS)
+        self.image_shape = None
         super().__init__(ris_widget, color, geometry)
         self.bandwidth = 15
-        self.display_pen.setWidth(1)
         self.layer = None
+        self.draw_midline = True
         self.parentItem().bounding_rect_changed.connect(self._update_image_shape)
         self._update_image_shape()
 
@@ -36,24 +37,25 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
 
     def _update_path(self):
         self.path = Qt.QPainterPath()
-        tck = self._tck
-        if tck is not None and self.image_shape is not None:
+        if self.image_shape is not None:
             width, height = self.image_shape
             centerline_y = height / 2
             self.path.moveTo(0, centerline_y)
-            image_x = self._tck_x * (width - 1)
-            points = interpolate.spline_evaluate(tck, self._tck_x)
-            for x, y in zip(image_x, centerline_y - points):
-                self.path.lineTo(x, y)
-            for x, y in zip(image_x[::-1], centerline_y + points[::-1]):
-                self.path.lineTo(x, y)
-            self.path.closeSubpath()
+            if self._tck is not None:
+                image_x = self._tck_x * (width - 1)
+                points = self.evaluate_tck()
+                for x, y in zip(image_x, centerline_y - points):
+                    self.path.lineTo(x, y)
+                for x, y in zip(image_x[::-1], centerline_y + points[::-1]):
+                    self.path.lineTo(x, y)
+                self.path.closeSubpath()
+            elif self.draw_midline:
+                self.path.lineTo(width, centerline_y)
         self.setPath(self.path)
 
     def _update_points(self):
-        tck = self._tck
-        if tck is not None:
-            self._points = numpy.maximum(interpolate.spline_evaluate(tck, self._tck_x), 0.1)
+        if self._tck is not None:
+            self._points = numpy.maximum(self.evaluate_tck(), 0.1)
         else:
             self._points = numpy.empty_like(self._tck_x)
             self._points.fill(numpy.nan)
@@ -61,20 +63,29 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
     def _generate_tck_from_points(self):
         x = self._tck_x
         widths = numpy.asarray(self._points)
-        if self._drawing:
+        drawing = self.drawing
+        # need to cache self.drawing here, because _set_tck sets drawing to false...
+        if drawing:
             # un-filled widths may be nan
             good_widths = numpy.isfinite(widths)
             x = x[good_widths]
             widths = widths[good_widths]
-        l = len(widths)
-        if l > 4:
-            tck = interpolate.fit_nonparametric_spline(x, widths, smoothing=self._smoothing * l)
+        if len(widths) > 4:
+            tck = self.calculate_tck(x, widths)
         else:
             tck = None
         self._set_tck(tck)
-        if self._drawing:
+        if drawing:
             # now make a new _points that doesn't have nans in it
             self._update_points()
+
+    def calculate_tck(self, x, widths):
+        return interpolate.fit_nonparametric_spline(x, widths, smoothing=self._smoothing * len(widths))
+
+    def evaluate_tck(self, x=None):
+        if x is None:
+            x = self._tck_x
+        return interpolate.spline_evaluate(self._tck, x)
 
     def _add_point(self, pos):
         if self.image_shape is None:
@@ -111,12 +122,13 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         self._warp_start = pos.y()
         self._warp_points = self._points
 
-    def _warp_spline(self, pos, bandwidth_factor):
+    def _warp_spline(self, pos):
         self._last_pos = pos
         if self.image_shape is None:
             return
         width, height = self.image_shape
         centerline_y = height / 2
+        bandwidth_factor = 0.5 if self.fine_warp else 1
         bandwidth = bandwidth_factor / self.bandwidth
         distances = self._tck_x - pos.x() / width
         warp_coefficients = numpy.exp(-(distances/bandwidth)**2)
