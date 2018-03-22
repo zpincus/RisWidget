@@ -19,7 +19,6 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
         self._smoothing = 1
         self._tck = None
-        self._points = []
         self.warping = False
         self.drawing = False
         self.fine_warp = False # if True, warp bandwidth is halved
@@ -54,10 +53,10 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _update_points(self):
         tck = self._tck
-        if tck is not None:
-            self._points = interpolate.spline_interpolate(tck, num_points=self.SPLINE_POINTS)
-        else:
+        if tck is None:
             self._points = []
+        else:
+            self._points = interpolate.spline_interpolate(tck, num_points=self.SPLINE_POINTS)
 
     def _modify_smoothing(self, decrease):
         if decrease:
@@ -84,6 +83,7 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self.setPath(self.path)
 
     def _stop_drawing(self):
+        self._points = numpy.array(self._points)
         self.display_pen.setStyle(Qt.Qt.SolidLine)
         self.setPen(self.display_pen)
         self._generate_tck_from_points()
@@ -150,15 +150,15 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         elif drawing and event.type() == Qt.QEvent.GraphicsSceneMouseRelease:
             self._stop_drawing()
             return True
-        elif tck is not None and event.type() == Qt.QEvent.GraphicsSceneMousePress and event.modifiers() & Qt.Qt.ShiftModifier:
+        elif tck is not None and event.type() == Qt.QEvent.GraphicsSceneMouseDoubleClick:
             self._extend_endpoint(event.pos())
             return True
         elif self.warping and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
-            self.fine_warp = True
+            self.fine_warp = not self.fine_warp
             self._warp_spline(self._last_pos)
             return True
         elif self.warping and event.type() == Qt.QEvent.KeyRelease and event.key() == Qt.Qt.Key_Shift:
-            self.fine_warp = False
+            self.fine_warp = not self.fine_warp
             self._warp_spline(self._last_pos)
             return True
         elif tck is None and not drawing and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Escape:
@@ -167,10 +167,10 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         elif tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_R:
             self.reverse_spline()
             return True
-        elif tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_D:
+        elif tck is not None and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
             self.smooth()
             return True
-        elif event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_S:
+        elif event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_F:
             self._modify_smoothing(decrease=(event.modifiers() & Qt.Qt.ShiftModifier))
             return True
         return super().sceneEventFilter(watched, event)
@@ -194,7 +194,7 @@ class CenterSplineWarper(base.SceneListener):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
     def __init__(self, center_spline, warped_view):
-        super().__init__(warped_view.image_scene.layer_stack_item)
+        super().__init__(warped_view)
         self.warped_view = warped_view
         self.warped_view.image_view.zoom_to_fit = False
         self._interpolate_order = 1
@@ -263,11 +263,11 @@ class CenterSplineWarper(base.SceneListener):
             self._warp_spline(event.pos())
             return True
         elif self.center_spline.warping and event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_Shift:
-            self.fine_warp = True
+            self.fine_warp = not self.fine_warp
             self._warp_spline(self._last_pos)
             return True
         elif self.center_spline.warping and event.type() == Qt.QEvent.KeyRelease and event.key() == Qt.Qt.Key_Shift:
-            self.fine_warp = False
+            self.fine_warp = not self.fine_warp
             self._warp_spline(self._last_pos)
             return True
         elif event.type() == Qt.QEvent.GraphicsSceneMouseRelease:

@@ -7,7 +7,9 @@ from zplib.curve import interpolate
 from zplib.image import resample
 
 from .. import shared_resources
+from . import base
 from . import center_spline
+
 
 class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
@@ -54,15 +56,15 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         self.setPath(self.path)
 
     def _update_points(self):
-        if self._tck is not None:
-            self._points = numpy.maximum(self.evaluate_tck(), 0.1)
-        else:
+        if self._tck is None:
             self._points = numpy.empty_like(self._tck_x)
             self._points.fill(numpy.nan)
+        else:
+            self._points = numpy.maximum(self.evaluate_tck(), 0.1)
 
     def _generate_tck_from_points(self):
         x = self._tck_x
-        widths = numpy.asarray(self._points)
+        widths = self._points
         drawing = self.drawing
         # need to cache self.drawing here, because _set_tck sets drawing to false...
         if drawing:
@@ -143,3 +145,18 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
     def _extend_endpoint(self, pos):
         # no endpoint-extending for width splines...
         pass
+
+class WidthsDeselector(base.SceneListener):
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+
+    def __init__(self, width_spline):
+        super().__init__(width_spline.rw)
+        self.width_spline = width_spline
+
+    def sceneEventFilter(self, watched, event):
+        # work around obscure interaction between CenterSplineWarper and WidthSpline,
+        # where the former will steal a click that would otherwise deselect the latter
+        if event.type() == Qt.QEvent.GraphicsSceneMousePress and self.width_spline.isSelected():
+            self.width_spline.setSelected(False)
+            return False
+        return super().sceneEventFilter(watched, event)

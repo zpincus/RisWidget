@@ -10,7 +10,6 @@ from . import annotator
 from .. import split_view
 from .. import shared_resources
 from .. import internal_util
-from ..overlay import base
 from ..overlay import center_spline
 from ..overlay import width_spline
 
@@ -27,11 +26,13 @@ class WormSplineAnnotation(annotator.AnnotationField):
         super().__init__(name)
 
     def init_widget(self):
-        self.centerline = center_spline.CenterSpline(self.ris_widget)
+        color = Qt.QColor(0, 255, 0, 128)
+        self.centerline = center_spline.CenterSpline(self.ris_widget, color=color)
         if not hasattr(self.ris_widget, 'alt_view'):
             split_view.split_view_rw(self.ris_widget)
         self.warper = center_spline.CenterSplineWarper(self.centerline, self.ris_widget.alt_view)
-        self.widths = width_spline.WidthSpline(self.ris_widget.alt_view)
+        self.widths = width_spline.WidthSpline(self.ris_widget.alt_view, color=color)
+        self.widths_deselector = width_spline.WidthsDeselector(self.widths)
 
         if self.mean_widths is None:
             self.default_widths = None
@@ -39,9 +40,6 @@ class WormSplineAnnotation(annotator.AnnotationField):
             x = numpy.linspace(0, 1, len(self.mean_widths))
             self.default_widths = self.widths.calculate_tck(x, self.mean_widths)
         self.default = (None, self.default_widths)
-
-        self.centerline_reverser = ReverserListener(self.ris_widget, self.centerline, self.widths)
-        self.widths_reverser = WidthsReverserListener(self.ris_widget.alt_view, self.centerline, self.widths)
 
         self.centerline.geometry_change_callbacks.append(self.on_centerline_change)
         self.widths.geometry_change_callbacks.append(self.on_widths_change)
@@ -72,10 +70,10 @@ class WormSplineAnnotation(annotator.AnnotationField):
         self.redo_stack = collections.deque(maxlen=100)
         self.undo_button = Qt.QPushButton('Undo')
         self.undo_button.clicked.connect(self.undo)
-        Qt.QShortcut(Qt.QKeySequence.Undo, self.widget, self.undo_button.click)
+        Qt.QShortcut(Qt.QKeySequence.Undo, self.widget, self.undo)
         self.redo_button = Qt.QPushButton('Redo')
         self.redo_button.clicked.connect(self.redo)
-        Qt.QShortcut(Qt.QKeySequence.Redo, self.widget, self.redo_button.click)
+        Qt.QShortcut(Qt.QKeySequence.Redo, self.widget, self.redo)
         self._add_row(layout, self.undo_button, self.redo_button)
 
 
@@ -99,10 +97,13 @@ class WormSplineAnnotation(annotator.AnnotationField):
         self.pca_button.clicked.connect(self.pca_smooth_widths)
         self._add_row(layout, self.default_button, self.pca_button)
 
+        self.reverse_button = Qt.QPushButton('Reverse')
+        self.reverse_button.clicked.connect(self.reverse_spline)
+        Qt.QShortcut(Qt.Qt.Key_R, self.widget, self.reverse_spline)
         self.fine_mode = Qt.QCheckBox('Fine Warping')
         self.fine_mode.setChecked(False)
         self.fine_mode.toggled.connect(self.toggle_fine_mode)
-        self._add_row(layout, self.fine_mode)
+        self._add_row(layout, self.reverse_button, self.fine_mode)
 
     def _add_row(self, layout, *widgets):
         if len(widgets) == 1:
@@ -143,15 +144,18 @@ class WormSplineAnnotation(annotator.AnnotationField):
             self._enable_buttons(*new_state)
 
     def _enable_buttons(self, center_tck, width_tck):
+        has_center = center_tck is not None
+        has_center_and_widths = has_center and width_tck is not None
         self.undo_button.setEnabled(len(self.undo_stack) > 0)
         self.redo_button.setEnabled(len(self.redo_stack) > 0)
-        self.smooth_center_button.setEnabled(center_tck is not None)
-        self.smooth_width_button.setEnabled(center_tck is not None and width_tck is not None)
+        self.smooth_center_button.setEnabled(has_center)
+        self.smooth_width_button.setEnabled(has_center_and_widths)
         self.draw_center_button.setChecked(self.centerline.drawing)
-        self.draw_width_button.setEnabled(center_tck is not None)
+        self.draw_width_button.setEnabled(has_center)
         self.draw_width_button.setChecked(self.widths.drawing)
-        self.default_button.setEnabled(self.default_widths is not None and center_tck is not None)
-        self.pca_button.setEnabled(self.width_pca_basis is not None and center_tck is not None and width_tck is not None)
+        self.default_button.setEnabled(self.default_widths is not None and has_center)
+        self.pca_button.setEnabled(self.width_pca_basis is not None and has_center_and_widths)
+        self.reverse_button.setEnabled(has_center)
 
     def set_default_widths(self):
         if self.default_widths is not None:
@@ -176,6 +180,16 @@ class WormSplineAnnotation(annotator.AnnotationField):
             self.widths.geometry = None
         if draw:
             self.widths.start_drawing()
+
+    def reverse_spline(self):
+        if self.centerline.geometry is not None:
+            if self.widths.geometry is not None:
+                # Ignore this change so as not to add the width reversal to the
+                # undo stack separately from the centerline reversal. The latter
+                # will cause both reversals to be added to the stack.
+                with self._ignore_geometry_change:
+                    self.widths.reverse_spline()
+            self.centerline.reverse_spline()
 
     def update_widget(self, value):
         # called only when switching pages
@@ -224,32 +238,4 @@ class WormSplineAnnotation(annotator.AnnotationField):
                 path.closeSubpath()
                 self.outline.setPath(path)
         self.outline.setVisible(show)
-
-class ReverserListener(base.SceneListener):
-    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
-
-    def __init__(self, ris_widget, centerline, widths):
-        super().__init__(ris_widget.image_scene.layer_stack_item)
-        self.centerline = centerline
-        self.widths = widths
-
-    def sceneEventFilter(self, watched, event):
-        if event.type() == Qt.QEvent.KeyPress and event.key() == Qt.Qt.Key_R:
-            if self.centerline.geometry is not None:
-                self.centerline.reverse_spline()
-            if self.widths.geometry is not None:
-                self.widths.reverse_spline()
-            return True
-        return False
-
-class WidthsReverserListener(ReverserListener):
-    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
-
-    def sceneEventFilter(self, watched, event):
-        # work around obscure interaction between CenterSplineWarper and WidthSpline,
-        # where the former will steal a click that would otherwise deselect the latter
-        if event.type() == Qt.QEvent.GraphicsSceneMousePress and self.widths.isSelected():
-            self.widths.setSelected(False)
-            return False
-        return super().sceneEventFilter(watched, event)
 

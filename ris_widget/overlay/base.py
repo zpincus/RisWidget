@@ -109,10 +109,10 @@ class RWGeometryItemMixin:
 
 
 class SceneListener(Qt.QGraphicsItem):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, ris_widget):
+        super().__init__(ris_widget.image_scene.layer_stack_item)
         self.setFlag(Qt.QGraphicsItem.ItemHasNoContents)
-        parent.installSceneEventFilter(self)
+        self.parentItem().installSceneEventFilter(self)
 
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     def type(self):
