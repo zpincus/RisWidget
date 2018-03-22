@@ -13,7 +13,7 @@ from . import base
 class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     SPLINE_POINTS = 250
-    SMOOTH_BASE = 8
+    SMOOTH_BASE = 16
     BANDWIDTH = 10
 
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
@@ -61,9 +61,9 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _modify_smoothing(self, decrease):
         if decrease:
-            self._smoothing = max(self._smoothing / 2, 0.25)
+            self._smoothing = max(self._smoothing / 2, self.SMOOTH_BASE / 8)
         else:
-            self._smoothing = min(self._smoothing * 2, 32)
+            self._smoothing = min(self._smoothing * 2, self.SMOOTH_BASE * 8)
         if self._tck is not None:
             self._generate_tck_from_points()
 

@@ -12,12 +12,12 @@ from . import center_spline
 class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     SMOOTH_BASE = 32
+    BANDWIDTH = 8
 
     def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
         self._tck_x = numpy.linspace(0, 1, self.SPLINE_POINTS)
         self.image_shape = None
         super().__init__(ris_widget, color, geometry)
-        self.bandwidth = 15
         self.layer = None
         self.draw_midline = True
         self.parentItem().bounding_rect_changed.connect(self._update_image_shape)
@@ -129,7 +129,7 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         width, height = self.image_shape
         centerline_y = height / 2
         bandwidth_factor = 0.5 if self.fine_warp else 1
-        bandwidth = bandwidth_factor / self.bandwidth
+        bandwidth = bandwidth_factor / self.BANDWIDTH
         distances = self._tck_x - pos.x() / width
         warp_coefficients = numpy.exp(-(distances/bandwidth)**2)
         displacement = self._warp_start - pos.y()
