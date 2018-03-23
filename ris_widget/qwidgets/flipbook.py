@@ -3,6 +3,7 @@
 
 import numpy
 import pathlib
+import glob
 from PyQt5 import Qt
 import os.path
 
@@ -155,12 +156,27 @@ class Flipbook(Qt.QWidget):
             self._attached_page.replaced.disconnect(self.apply)
             self._attached_page = None
 
+    @staticmethod
+    def _expand_to_path_list(path):
+        if isinstance(path, str):
+            if '?' in path or '*' in path:
+                return list(map(pathlib.Path, glob.glob(path)))
+            else:
+                return [pathlib.Path(path)]
+        elif isinstance(path, pathlib.Path):
+            return [path]
+        else:
+            return list(path)
+
     def add_image_files(self, image_paths, page_names=None, image_names=None, insertion_point=None):
         """Add image files (or stacks of image files) to the flipbook.
 
         Parameters:
-            image_paths: A list containing filenames and/or lists of filenames,
-                where a filename is either a pathlib.Path object or a string.
+            image_paths: A single filename, a list containing filenames, or a list
+                containing lists of filenames, where:
+                    - a filename is either a pathlib.Path object or a string.
+                    - a glob-string (i.e. contains wildcards * or ?) can be
+                      provided anywhere a list of filenames is accepted.
             page_names: A list of the same length as image_paths, containing
                 names for each entry to display in the flipbook. If not
                 specified, the page names will be derived from the unique
@@ -178,10 +194,8 @@ class Flipbook(Qt.QWidget):
         if freeimage is None:
             raise RuntimeError('Could not import freeimage module for image IO')
         paths = []
-        for p in image_paths:
-            if isinstance(p, (str, pathlib.Path)):
-                p = [p]
-            paths.append([pathlib.Path(pp) for pp in p])
+        for page_paths in self._expand_to_path_list(image_paths):
+            paths.append(list(map(pathlib.Path, self._expand_to_path_list(page_paths))))
 
         if page_names is None:
             abspaths = []

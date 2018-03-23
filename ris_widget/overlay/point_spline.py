@@ -10,9 +10,9 @@ from . import polyline
 class Spline(polyline.Polyline):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, ris_widget, smoothing=10, color=Qt.Qt.green, geometry=None):
+    def __init__(self, ris_widget, smoothing=10, .drawing, geometry=None):
         self._smoothing = smoothing
-        super().__init__(ris_widget, color, geometry)
+        super().__init__(ris_widget, pen, geometry)
 
     @property
     def smoothing(self):

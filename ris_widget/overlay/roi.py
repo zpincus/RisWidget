@@ -18,7 +18,7 @@ from . import base
 
 
 class _ROIMixin(base.RWGeometryItemMixin):
-    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None, aspect=None):
+    def __init__(self, ris_widget, pen=None, geometry=None, aspect=None):
         """Class for drawing a Region of Interest on a ris_widget.
 
         The ROI can be drawn by clicking on the upper-left of the desired region,
@@ -36,15 +36,15 @@ class _ROIMixin(base.RWGeometryItemMixin):
 
         Parameters:
             ris_widget: a ris_widget instance to draw an ROI on
-            color: a Qt color for the ROI
+            pen: a QPen for the ROI
             geometry: ((x1, y1), (x2, y2)) coordinates of upper-left and lower-
                 right corners. If None, the ROI can be drawn by clicking.
             aspect: width/height ratio to maintain, or None
         """
         self.aspect = aspect
-        super().__init__(ris_widget, color, geometry)
+        super().__init__(ris_widget, pen, geometry)
         self.dragging = False
-        self.handles = {_ResizeHandle(self, self.parentItem(), Qt.Qt.red): coords for coords in [
+        self.handles = {_ResizeHandle(self, self.parentItem(), self.selected_pen.color()): coords for coords in [
             (0, 0),
             (0.5, 0),
             (1, 0),

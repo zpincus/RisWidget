@@ -21,12 +21,11 @@ class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     POINT_TYPE = _PointHandle
 
     # just need to inherit from some QGraphicsItem that can have a pen set
-    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None, max_points=None):
+    def __init__(self, ris_widget, pen=None, geometry=None, max_points=None):
         self.max_points = max_points
-        self.color = color
         self.points = []
         self._last_click_deselected = False
-        super().__init__(ris_widget, color, geometry)
+        super().__init__(ris_widget, pen, geometry)
 
     @property
     def geometry(self):
@@ -51,7 +50,7 @@ class PointSet(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _add_point(self, pos, skip_change=False):
         if self.max_points is None or len(self.points) < self.max_points:
-            point = self.POINT_TYPE(self, self.parentItem(), self.color)
+            point = self.POINT_TYPE(self, self.parentItem(), self.getPen().color())
             point.setPos(pos)
             self.points.append(point)
             if not skip_change:

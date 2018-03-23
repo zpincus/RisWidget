@@ -19,10 +19,10 @@ class Polyline(point_set.PointSet):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     POINT_TYPE = _PolylinePointHandle
 
-    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
+    def __init__(self, ris_widget, pen=None, geometry=None):
         self._active_drawing = False
         self._last_pos = None
-        super().__init__(ris_widget, color, geometry, max_points=None)
+        super().__init__(ris_widget, pen, geometry, max_points=None)
 
     @point_set.PointSet.geometry.setter
     def geometry(self, geometry):

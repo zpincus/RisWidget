@@ -5,7 +5,7 @@ from PyQt5 import Qt
 from .. import shared_resources
 
 class RWGeometryItemMixin:
-    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
+    def __init__(self, ris_widget, pen=None, geometry=None):
         """Class for drawing a geometry on a ris_widget.
 
         To remove from the ris_widget, call remove().
@@ -15,8 +15,8 @@ class RWGeometryItemMixin:
 
         Parameters:
             ris_widget: a ris_widget instance to draw geometry on
-            color: a Qt color for the geometry
-            geometry: list of (x,y) coordinate pairs.
+            pen: a QPen with which to draw the geometry
+            geometry: interpreted by subclasses for drawing the overlay
 
         Class variables:
             geometry_change_callbacks: list of callbacks that will be called
@@ -24,17 +24,19 @@ class RWGeometryItemMixin:
                 or None if the geometry is deleted.
         """
         layer_stack = ris_widget.image_scene.layer_stack_item
-        self._mouse_connected = False
-        self.display_pen = Qt.QPen(color)
-        self.geometry_change_callbacks = []
-        self.display_pen.setWidth(2)
+        super().__init__(layer_stack)
+        if pen is None:
+            pen = Qt.QPen(Qt.Qt.green)
+            pen.setWidth(2)
+        self.display_pen = pen
         self.display_pen.setCosmetic(True)
         self.selected_pen = Qt.QPen(self.display_pen)
         self.selected_pen.setColor(Qt.Qt.red)
         self.rw = ris_widget
-        super().__init__(layer_stack)
-        layer_stack.installSceneEventFilter(self)
         self.setPen(self.display_pen)
+        self.geometry_change_callbacks = []
+        self._mouse_connected = False
+        layer_stack.installSceneEventFilter(self)
         self.geometry = geometry
 
     # all subclasses must define their own unique QGRAPHICSITEM_TYPE

@@ -12,7 +12,7 @@ from . import base
 class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, ris_widget, color=Qt.Qt.green, geometry=None):
+    def __init__(self, ris_widget, pen=None, geometry=None):
         self.drawing = False
         self._smoothing = 5
         self._tck = None
@@ -22,7 +22,7 @@ class FreeSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             ris_widget.layer_stack.focused_image_changed.connect(self._on_focused_image_changed)
             self._on_focused_image_changed(ris_widget.layer_stack.focused_image)
             self._drag_detector = WarpedViewDragDetector(self, self.warped_view)
-        super().__init__(ris_widget, color, geometry)
+        super().__init__(ris_widget, pen, geometry)
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
 
     def remove(self):
