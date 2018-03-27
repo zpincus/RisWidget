@@ -91,8 +91,8 @@ class Flipbook(Qt.QWidget):
         layout.addWidget(self.pages_view)
         self._attached_page = None
 
-        Qt.QShortcut(Qt.Qt.Key_Up, self, self.focus_prev_page)
-        Qt.QShortcut(Qt.Qt.Key_Down, self, self.focus_next_page)
+        Qt.QShortcut(Qt.Qt.Key_Up, self, self.focus_prev_page, context=Qt.Qt.ApplicationShortcut)
+        Qt.QShortcut(Qt.Qt.Key_Down, self, self.focus_next_page, context=Qt.Qt.ApplicationShortcut)
 
         mergebox = Qt.QHBoxLayout()
         self.merge_button = Qt.QPushButton('Merge pages')

@@ -24,8 +24,10 @@ class SplineOutline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
             split_view.split_view_rw(ris_widget)
         width_pen = Qt.QPen(color)
         width_pen.setWidth(1)
+        self.warper = CenterSplineWarper(self.center_spline, ris_widget.alt_view)
+        # need to construct width_spline second to make sure its scene event filter is added last
         self.width_spline = width_spline.WidthSpline(ris_widget.alt_view, pen=width_pen)
-        self.warper = CenterSplineWarper(self.center_spline, self.width_spline, ris_widget.alt_view)
+        self.warper.width_spline = width_spline
         outline_pen = Qt.QPen(color)
         outline_pen.setWidth(1)
         super().__init__(ris_widget, pen=outline_pen)
@@ -49,14 +51,13 @@ class SplineOutline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 class CenterSplineWarper(base.SceneListener):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, center_spline, width_spline, warped_view):
+    def __init__(self, center_spline, warped_view):
         super().__init__(warped_view)
         self.warped_view = warped_view
         self.warped_view.image_view.zoom_to_fit = False
         self._interpolate_order = 1
         self._ignore_mouse_moves = internal_util.Condition()
         self.center_spline = center_spline
-        self.width_spline = width_spline
         center_spline.geometry_change_callbacks.append(self._update_warped_view)
         center_spline.rw.layer_stack.focused_image_changed.connect(self._update_warped_view)
         self._update_warped_view()
