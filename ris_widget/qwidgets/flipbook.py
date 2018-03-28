@@ -104,9 +104,7 @@ class Flipbook(Qt.QWidget):
         self.pages_model.handle_dropped_files = self._handle_dropped_files
         self.pages_model.rowsInserted.connect(self._on_model_change)
         self.pages_model.rowsRemoved.connect(self._on_model_change)
-        self.pages_model.modelReset.connect(self._on_model_change)
-        self.pages_model.rowsInserted.connect(self._on_model_reset_or_rows_inserted_indirect, Qt.Qt.QueuedConnection)
-        self.pages_model.modelReset.connect(self._on_model_reset_or_rows_inserted_indirect, Qt.Qt.QueuedConnection)
+        self.pages_model.rowsInserted.connect(self._on_rows_inserted_indirect, Qt.Qt.QueuedConnection)
         self.pages_view.setModel(self.pages_model)
         self.pages_view.selectionModel().currentRowChanged.connect(self.apply)
         self.pages_view.selectionModel().selectionChanged.connect(self._on_page_selection_changed)
@@ -455,7 +453,7 @@ class Flipbook(Qt.QWidget):
             self.play_button.setChecked(False)
         self.fps_editor.setEnabled(enable_play)
 
-    def _on_model_reset_or_rows_inserted_indirect(self):
+    def _on_rows_inserted_indirect(self):
         self.pages_view.resizeRowsToContents()
         self.ensure_page_focused()
 

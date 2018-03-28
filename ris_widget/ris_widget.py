@@ -126,7 +126,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self.layer_table_model.setParent(self.layer_table_view)
         self.layer_table_model.rowsInserted.connect(self._update_layer_stack_visibility)
         self.layer_table_model.rowsRemoved.connect(self._update_layer_stack_visibility)
-        self.layer_table_model.modelReset.connect(self._update_layer_stack_visibility)
         self.layer_table_dock_widget.setWidget(self.layer_table_view)
         self.layer_table_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
         self.layer_table_dock_widget.setFeatures(
@@ -188,7 +187,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self.addDockWidget(Qt.Qt.RightDockWidgetArea, self.flipbook_dock_widget)
         fb.pages_model.rowsInserted.connect(self._update_flipbook_visibility)
         fb.pages_model.rowsRemoved.connect(self._update_flipbook_visibility)
-        fb.pages_model.modelReset.connect(self._update_flipbook_visibility)
         self.flipbook_dock_widget.hide()
         # Make the flipbook deal with drop events
         self.dragEnterEvent = self.flipbook.pages_view.dragEnterEvent

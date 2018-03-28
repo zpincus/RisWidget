@@ -111,7 +111,7 @@ class PropertyTableModel(Qt.QAbstractTableModel):
         self.signaling_list = signaling_list
         self.allow_duplicates = allow_duplicates
         self._attached = set()
-        self.beginResetModel() # TODO: is this begin/end necessary?
+        self.beginResetModel()
         self._attach_elements(signaling_list)
         self.endResetModel()
 
