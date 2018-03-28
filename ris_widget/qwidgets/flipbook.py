@@ -36,8 +36,13 @@ class ImageList(uniform_signaling_list.UniformSignalingList):
         return self._color
 
     @color.setter
-    def color(self, v):
-        self._color = Qt.QColor(v)
+    def color(self, color):
+        if color is None:
+            self._color = None
+        elif isinstance(color, (list, tuple)):
+            self._color = Qt.QColor(*color)
+        else:
+            self._color = Qt.QColor(color)
         self._on_change()
 
     def take_input_element(self, obj):
