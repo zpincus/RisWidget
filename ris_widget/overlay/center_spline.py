@@ -58,9 +58,9 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _modify_smoothing(self, decrease):
         if decrease:
-            self._smoothing = max(self._smoothing / 2, self.SMOOTH_BASE / 8)
+            self._smoothing = max(self._smoothing / 2, self.SMOOTH_BASE / 16)
         else:
-            self._smoothing = min(self._smoothing * 2, self.SMOOTH_BASE * 8)
+            self._smoothing = min(self._smoothing * 2, self.SMOOTH_BASE * 16)
         if self._tck is not None:
             self._generate_tck_from_points()
 
