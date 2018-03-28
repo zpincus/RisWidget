@@ -40,9 +40,3 @@ class Annotator(_RWDockWidget):
         self.widget = annotator.Annotator(rw, self.fields, parent=self)
 
     all_annotations = internal_util.ProxyProperty('widget', annotator.Annotator.all_annotations)
-
-    @property
-    def current_annotations(self):
-        return self.widget.current_annotations
-
-

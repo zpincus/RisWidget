@@ -116,7 +116,7 @@ class CenterSplineWarper(base.SceneListener):
             self._start_warp(event.pos())
             self._interpolate_order = 0
             return True
-        elif not self._ignore_mouse_moves and event.type() == Qt.QEvent.GraphicsSceneMouseMove:
+        elif not self.width_spline.drawing and not self._ignore_mouse_moves and event.type() == Qt.QEvent.GraphicsSceneMouseMove:
             # can get spurious mouse moves if image zoom changes while warping
             # (due to zoom-to-fit being enabled), which can then lead to
             # infinite recursion of zoom / warp / zoom / warp etc.

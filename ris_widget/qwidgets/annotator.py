@@ -47,6 +47,8 @@ class AnnotationField:
         also set that default as the current annotation)"""
         if page is None:
             page = self.page
+        if not hasattr(page, 'annotations'):
+            page.annotations = {}
         if self.name not in page.annotations:
             default = self.default_annotation_for_page(page)
             if setdefault:
@@ -86,6 +88,42 @@ class BoolField(AnnotationField):
     def update_widget(self, value):
         self.widget.setChecked(bool(value))
 
+class StringField(AnnotationField):
+    def init_widget(self):
+        self.widget = Qt.QLineEdit()
+        self.widget.textEdited.connect(self._on_widget_change)
+
+    def _on_widget_change(self):
+        self.update_annotation(self.widget.text())
+
+    def update_widget(self, value):
+        self.widget.setText(value)
+
+
+class ChoicesField(AnnotationField):
+    def __init__(self, name, choices, default=None):
+        self.choices = choices
+        super().__init__(name, default)
+
+    def init_widget(self):
+        self.widget = Qt.QComboBox()
+        for choice in self.choices:
+            self.widget.addItem(choice)
+        self.widget.currentTextChanged.connect(self.update_annotation)
+
+    def update_annotation(self, value):
+        if value == '':
+            value = None
+        super().update_annotation(value)
+
+    def update_widget(self, value):
+        if value is None:
+            self.widget.setCurrentIndex(-1)
+        elif value not in self.choices:
+            raise ValueError('Value {} not in list of choices.'.format(value))
+        else:
+            self.widget.setCurrentText(value)
+
 
 class NonWidgetAnnotation(AnnotationField):
     """Annotation 'field' that presents a checkbox about whether some other
@@ -121,38 +159,6 @@ class OverlayAnnotation(NonWidgetAnnotation):
         self.overlay.geometry = value
 
 
-class StringField(AnnotationField):
-    def init_widget(self):
-        self.widget = Qt.QLineEdit()
-        self.widget.textEdited.connect(self._on_widget_change)
-
-    def _on_widget_change(self):
-        self.update_annotation(self.widget.text())
-
-    def update_widget(self, value):
-        self.widget.setText(value)
-
-
-class ChoicesField(AnnotationField):
-    def __init__(self, name, choices, default=None):
-        self.choices = choices
-        super().__init__(name, default)
-
-    def init_widget(self):
-        self.widget = Qt.QComboBox()
-        for choice in self.choices:
-            self.widget.addItem(choice)
-        self.widget.currentTextChanged.connect(self.update_annotation)
-
-    def update_widget(self, value):
-        if value is None:
-            self.widget.setCurrentIndex(-1)
-        elif value not in self.choices:
-            raise ValueError('Value {} not in list of choices.'.format(value))
-        else:
-            self.widget.setCurrentText(value)
-
-
 class Annotator(Qt.QWidget):
     """Widget to annotate flipbook pages with notes or geometry from the GUI.
 
@@ -181,7 +187,7 @@ class Annotator(Qt.QWidget):
         self.fields = fields
         for field in self.fields:
             if isinstance(field.widget, Qt.QGroupBox):
-                layout.addWidget(field.widget)
+                layout.addRow(field.widget)
             else:
                 layout.addRow(field.name, field.widget)
             field.flipbook = rw.flipbook
@@ -192,8 +198,6 @@ class Annotator(Qt.QWidget):
     def update_fields(self):
         if self.isVisible() and len(self.flipbook.selected_pages) == 1:
             page = self.flipbook.current_page
-            if not hasattr(page, 'annotations'):
-                page.annotations = {}
         else:
             page = None
         for field in self.fields:
