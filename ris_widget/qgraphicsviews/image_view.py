@@ -128,7 +128,9 @@ class ImageView(base_view.BaseView):
         if wheel_delta == 0:
             return
         zoom_in = wheel_delta > 0
+        self.change_zoom(zoom_in)
 
+    def change_zoom(self, zoom_in):
         # mouse wheel up/down changes the zoom among values of 2**(i*ZOOM_EXPONENT) where i is an integer
         # first, figure out what the current i value is (may be non-integer if custom zoom was set)
         exponent_multiplier = math.log2(self._zoom)/self.ZOOM_EXPONENT
@@ -146,7 +148,7 @@ class ImageView(base_view.BaseView):
         else:
             exponent_multiplier -= 1
         current_zoom = self._zoom
-        self._zoom = 2**(exponent_multiplier*self.ZOOM_EXPONENT)
+        self._zoom = numpy.clip(2**(exponent_multiplier*self.ZOOM_EXPONENT), 0.005, 512)
 
         scale_zoom = self._zoom / current_zoom
         self.setTransformationAnchor(Qt.QGraphicsView.AnchorUnderMouse)
