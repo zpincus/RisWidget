@@ -85,8 +85,10 @@ class SignalingList(Qt.QObject, MutableSequence, metaclass=_QtAbcMeta):
 
     def clear(self):
         'S.clear() -> None -- remove all items from S'
-        idxs = list(range(0, len(self._list)))
+        if len(self._list) == 0:
+            return
         objs = list(self._list)
+        idxs = list(range(0, len(self._list)))
         self.removing.emit(idxs, objs)
         del self._list[:]
         self.removed.emit(idxs, objs)
@@ -160,6 +162,8 @@ class SignalingList(Qt.QObject, MutableSequence, metaclass=_QtAbcMeta):
         'S.extend(iterable) -- extend sequence by appending elements from the iterable'
         idx = len(self._list)
         srcs = list(srcs)
+        if len(srcs) == 0:
+            return
         self.inserting.emit(idx, srcs)
         self._list.extend(srcs)
         self.inserted.emit(idx, srcs)

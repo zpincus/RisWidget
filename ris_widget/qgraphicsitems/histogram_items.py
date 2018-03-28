@@ -41,11 +41,6 @@ class HistogramItem(shader_item.ShaderItem):
             old_layer.histogram_max_changed.disconnect(self._on_layer_histogram_change)
             old_layer.gamma_changed.disconnect(self.gamma_item._on_value_changed)
         self._connect_layer(new_layer)
-        if new_layer is None:
-            self.hide()
-        else:
-            self.gamma_item._on_value_changed()
-            self._on_layer_histogram_change()
 
     def _connect_layer(self, layer):
         self.layer = layer
@@ -56,6 +51,8 @@ class HistogramItem(shader_item.ShaderItem):
             layer.histogram_min_changed.connect(self._on_layer_histogram_change)
             layer.histogram_max_changed.connect(self._on_layer_histogram_change)
             layer.gamma_changed.connect(self.gamma_item._on_value_changed)
+        self._on_layer_histogram_change()
+
 
     def boundingRect(self):
         return self._bounding_rect
@@ -196,7 +193,9 @@ class HistogramItem(shader_item.ShaderItem):
         self._hist_tex_needs_upload = True
         self.min_item.arrow_item._on_value_changed()
         self.max_item.arrow_item._on_value_changed()
-        self._update_contextual_info()
+        self.gamma_item._on_value_changed()
+        if self.scene() is not None:
+            self._update_contextual_info()
         self.update()
 
 class MinMaxItem(Qt.QGraphicsObject):

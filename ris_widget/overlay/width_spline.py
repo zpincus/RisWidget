@@ -13,6 +13,7 @@ from . import center_spline
 class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     BANDWIDTH = 8
+    SMOOTH_BASE = 16
 
     def __init__(self, ris_widget, pen=None, geometry=None):
         self._tck_x = numpy.linspace(0, 1, self.SPLINE_POINTS)
