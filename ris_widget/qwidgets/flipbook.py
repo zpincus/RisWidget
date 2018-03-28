@@ -74,6 +74,7 @@ class Flipbook(Qt.QWidget):
         super().__init__(parent)
         self.layer_stack = layer_stack
         layout = Qt.QVBoxLayout()
+        layout.setSpacing(0)
         self.setLayout(layout)
         self.pages_view = PagesView()
         pages = PageList()
@@ -95,6 +96,7 @@ class Flipbook(Qt.QWidget):
         Qt.QShortcut(Qt.Qt.Key_Down, self, self.focus_next_page, context=Qt.Qt.ApplicationShortcut)
 
         mergebox = Qt.QHBoxLayout()
+        mergebox.setSpacing(11)
         self.merge_button = Qt.QPushButton('Merge pages')
         self.merge_button.clicked.connect(self.merge_selected)
         mergebox.addWidget(self.merge_button)
@@ -106,6 +108,7 @@ class Flipbook(Qt.QWidget):
         layout.addLayout(mergebox)
 
         playbox = Qt.QHBoxLayout()
+        playbox.setSpacing(11)
         self.play_button = Qt.QPushButton('\N{BLACK RIGHT-POINTING POINTER}')
         self.play_button.setCheckable(True)
         self.play_button.setEnabled(False)

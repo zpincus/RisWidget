@@ -195,7 +195,8 @@ class PropertyTableModel(Qt.QAbstractTableModel):
     def _on_property_changed(self, element, property_name):
         column = self.property_columns[property_name]
         row = self.signaling_list.index(element)
-        self.dataChanged.emit(self.createIndex(row, column), self.createIndex(row, column))
+        index = self.createIndex(row, column)
+        self.dataChanged.emit(index, index)
 
     def _on_inserting(self, idx, elements):
         self.beginInsertRows(Qt.QModelIndex(), idx, idx+len(elements)-1)
