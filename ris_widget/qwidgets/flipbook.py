@@ -19,6 +19,27 @@ except ModuleNotFoundError:
     freeimage = None
 
 class ImageList(uniform_signaling_list.UniformSignalingList):
+    changed = Qt.pyqtSignal(object)
+
+    def __init__(self, iterable=None, parent=None):
+        super().__init__(iterable, parent)
+        self.inserted.connect(self._on_change)
+        self.replaced.connect(self._on_change)
+        self.removed.connect(self._on_change)
+        self._color = None
+
+    def _on_change(self):
+        self.changed.emit(self)
+
+    @property
+    def color(self):
+        return self._color
+
+    @color.setter
+    def color(self, v):
+        self._color = Qt.QColor(v)
+        self._on_change()
+
     def take_input_element(self, obj):
         return obj if isinstance(obj, image.Image) else image.Image(obj)
 
@@ -68,17 +89,17 @@ class Flipbook(Qt.QWidget):
 
     __doc__ += _FLIPBOOK_PAGES_DOCSTRING
 
+    DISPLAY_PROPERTIES = ['name']
+
     current_page_changed = Qt.pyqtSignal(object)
 
     def __init__(self, layer_stack, parent=None):
         super().__init__(parent)
         self.layer_stack = layer_stack
-        layout = Qt.QVBoxLayout()
-        layout.setSpacing(0)
-        self.setLayout(layout)
         self.pages_view = PagesView()
         pages = PageList()
-        self.pages_model = PagesModel(pages, self.pages_view)
+        self.pages_model = PagesModel(property_names=self.DISPLAY_PROPERTIES,
+            signaling_list=pages, parent=self.pages_view)
         pages.replaced.connect(self._on_pages_replaced)
         self.pages_model.handle_dropped_files = self._handle_dropped_files
         self.pages_model.rowsInserted.connect(self._on_model_change)
@@ -89,11 +110,15 @@ class Flipbook(Qt.QWidget):
         self.pages_view.setModel(self.pages_model)
         self.pages_view.selectionModel().currentRowChanged.connect(self.apply)
         self.pages_view.selectionModel().selectionChanged.connect(self._on_page_selection_changed)
-        layout.addWidget(self.pages_view)
         self._attached_page = None
 
         Qt.QShortcut(Qt.Qt.Key_Up, self, self.focus_prev_page, context=Qt.Qt.ApplicationShortcut)
         Qt.QShortcut(Qt.Qt.Key_Down, self, self.focus_next_page, context=Qt.Qt.ApplicationShortcut)
+
+        layout = Qt.QVBoxLayout()
+        layout.setSpacing(0)
+        self.setLayout(layout)
+        layout.addWidget(self.pages_view)
 
         mergebox = Qt.QHBoxLayout()
         mergebox.setSpacing(11)
@@ -486,32 +511,7 @@ class PagesView(Qt.QTableView):
         self.setSelectionMode(Qt.QAbstractItemView.ExtendedSelection)
         self.setWordWrap(False)
 
-class ImageListListener(Qt.QObject):
-    def __init__(self, image_list, pages_model, parent=None):
-        super().__init__(parent)
-        self.image_list = image_list
-        self.pages_model = pages_model
-        self.image_list.inserted.connect(self._on_change)
-        self.image_list.replaced.connect(self._on_change)
-        self.image_list.removed.connect(self._on_change)
-
-    def remove(self):
-        self.image_list.inserted.disconnect(self._on_change)
-        self.image_list.replaced.disconnect(self._on_change)
-        self.image_list.removed.disconnect(self._on_change)
-
-    def _on_change(self, *args, **kws):
-        idx = self.pages_model.signaling_list.index(self.image_list)
-        index = self.pages_model.createIndex(idx, 0)
-        self.pages_model.dataChanged.emit(index, index)
-
 class PagesModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_model.PropertyTableModel):
-    def __init__(self, pages, parent=None):
-        self.listeners = {}
-        super().__init__(property_names=['name'], signaling_list=pages, parent=parent)
-        self.modelAboutToBeReset.connect(self._on_model_about_to_be_reset)
-        self.modelReset.connect(self._on_model_reset)
-
     def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
         return isinstance(src_model, PagesModel)
 
@@ -527,9 +527,10 @@ class PagesModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_
             image_list = self.signaling_list[midx.row()]
             if image_list is None:
                 return Qt.QVariant()
-            if len(image_list) == 0:
-                if role == Qt.Qt.ForegroundRole:
-                    return Qt.QVariant(Qt.QApplication.palette().brush(Qt.QPalette.Disabled, Qt.QPalette.WindowText))
+            if role == Qt.Qt.ForegroundRole and len(image_list) == 0:
+                return Qt.QApplication.palette().brush(Qt.QPalette.Disabled, Qt.QPalette.WindowText)
+            elif role == Qt.Qt.BackgroundRole and image_list.color is not None:
+                return Qt.QBrush(image_list.color)
         return super().data(midx, role)
 
     def removeRows(self, row, count, parent=Qt.QModelIndex()):
@@ -544,30 +545,17 @@ class PagesModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_
                 on_removal()
         return super().removeRows(row, count, parent)
 
-    def _add_listeners(self, image_lists):
-        for image_list in image_lists:
-            self.listeners[image_list] = ImageListListener(image_list, self)
+    def _attach_elements(self, elements):
+        super()._attach_elements(elements)
+        for element in elements:
+            element.changed.connect(self._on_changed)
 
-    def _remove_listeners(self, image_lists):
-        for image_list in image_lists:
-            listener = self.listeners.pop(image_list)
-            listener.remove()
+    def _detach_elements(self, elements):
+        super()._detach_elements(elements)
+        for element in elements:
+            element.changed.disconnect(self._on_changed)
 
-    def _on_inserted(self, idx, elements):
-        super()._on_inserted(idx, elements)
-        self._add_listeners(elements)
+    def _on_changed(self, image_list):
+        row = self.signaling_list.index(image_list)
+        self.dataChanged.emit(self.createIndex(row, 0), self.createIndex(row, len(self.property_names)))
 
-    def _on_replaced(self, idxs, replaced_elements, elements):
-        super()._on_replaced(idxs, replaced_elements, elements)
-        self._remove_listeners(replaced_elements)
-        self._add_listeners(elements)
-
-    def _on_removed(self, idxs, elements):
-        super()._on_removed(idxs, elements)
-        self._remove_listeners(elements)
-
-    def _on_model_about_to_be_reset(self):
-        self._remove_listeners(self.signaling_list)
-
-    def _on_model_reset(self):
-        self._add_listeners(self.signaling_list)
