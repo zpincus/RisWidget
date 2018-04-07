@@ -43,7 +43,7 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
             centerline_y = height / 2
             self.path.moveTo(0, centerline_y)
             if self._tck is not None:
-                image_x = self._tck_x * (width - 1)
+                image_x = self._tck_x * width
                 points = self.evaluate_tck()
                 for x, y in zip(image_x, centerline_y - points):
                     self.path.lineTo(x, y)
