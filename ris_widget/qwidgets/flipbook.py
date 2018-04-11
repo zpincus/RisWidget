@@ -415,7 +415,7 @@ class Flipbook(Qt.QWidget):
         else:
             l = len(self.pages)
             if idx < 0:
-                idx += 1
+                idx += l
             if not 0 <= idx < len(self.pages):
                 raise IndexError('Invalid page index: must either be None or a valid index into the flipbook pages')
             midx = self.pages_model.index(idx, 0)
