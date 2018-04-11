@@ -43,7 +43,12 @@ class LayerTableView(Qt.QTableView):
         self.setDragDropMode(Qt.QAbstractItemView.DragDrop)
         self.setDropIndicatorShown(True)
         self.setDefaultDropAction(Qt.Qt.LinkAction)
-        self.horizontalHeader().resizeSections(Qt.QHeaderView.ResizeToContents)
+        self.resizeColumnsToContents()
+        self.rows_changed()
+        self.setMinimumHeight(self.horizontalHeader().height())
+        layer_table_model.rowsInserted.connect(self.rows_changed)
+        layer_table_model.rowsRemoved.connect(self.rows_changed)
+        # self.setSizePolicy(Qt.QSizePolicy.Preferred, Qt.QSizePolicy.Maximum)
         # The text 'blend_function' is shorter than 'difference (advanced)', particularly with proportional fonts,
         # so we make it 50% wider to be safe
         col = layer_table_model.property_columns['blend_function']
@@ -72,14 +77,33 @@ class LayerTableView(Qt.QTableView):
         self.delete_selected_action.setShortcutContext(Qt.Qt.WidgetShortcut)
         self.addAction(self.delete_selected_action)
 
+    def sizeHint(self):
+        size = super().sizeHint()
+        header = self.horizontalHeader().height()
+        contents = 0
+        vh = self.verticalHeader()
+        for i in range(vh.count()):
+            if not vh.isSectionHidden(i):
+                contents += vh.sectionSize(i)
+
+        scrollbar = self.horizontalScrollBar()
+        if scrollbar.isVisible():
+            contents += scrollbar.height() + 3
+        size.setHeight(header + contents)
+        return size
+
+    def rows_changed(self):
+        self.resizeRowsToContents()
+        self.updateGeometry() # size hint has changed
+
     def _on_delete_selected_action(self):
         sm = self.selectionModel()
         m = self.model()
         if m is None or sm is None:
             return
-        for midx in sm.selectedRows():
-            if midx.isValid():
-                m.removeRow(midx.row())
+        rows = sorted(midx.row() for midx in sm.selectedRows() if midx.isValid())
+        for row in rows[::-1]:
+            m.removeRow(row)
 
     def contextMenuEvent(self, event):
         focused_midx = self.selectionModel().currentIndex()

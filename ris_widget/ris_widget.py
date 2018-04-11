@@ -109,7 +109,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
     def _init_scenes_and_views(self):
         self.setCentralWidget(self.image_view)
 
-        self.layer_table_dock_widget = Qt.QDockWidget('Layer Stack', self)
         self.layer_table_model = layer_table.LayerTableModel(self.layer_stack)
         # NB: Qt.QAbstractItemView, an ancestor of InvertingProxyModel, attempts to start a QTimer as it is destroyed.  Therefore,
         # it must be destroyed before the event dispatcher thread local object is destroyed - IE, not by Python's last-pass garbage
@@ -126,10 +125,11 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self.layer_table_model.setParent(self.layer_table_view)
         self.layer_table_model.rowsInserted.connect(self._update_layer_stack_visibility)
         self.layer_table_model.rowsRemoved.connect(self._update_layer_stack_visibility)
+
+        self.layer_table_dock_widget = Qt.QDockWidget('Layer Stack', self)
         self.layer_table_dock_widget.setWidget(self.layer_table_view)
         self.layer_table_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
-        self.layer_table_dock_widget.setFeatures(
-            Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
+        self.layer_table_dock_widget.setFeatures(Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetVerticalTitleBar)
         self.addDockWidget(Qt.Qt.TopDockWidgetArea, self.layer_table_dock_widget)
         self.layer_table_dock_widget.hide()
 

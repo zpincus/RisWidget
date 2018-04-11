@@ -15,7 +15,7 @@ class HistogramView(base_view.BaseView):
         histogram_frame.layout().setContentsMargins(Qt.QMargins(0,0,0,0))
         histogram_view = cls(base_scene, histogram_frame)
         histogram_frame.layout().addWidget(histogram_view)
-        return (histogram_view, histogram_frame)
+        return histogram_view, histogram_frame
 
     def _on_resize(self, size):
         self.resetTransform()
