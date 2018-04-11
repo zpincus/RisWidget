@@ -413,8 +413,11 @@ class Flipbook(Qt.QWidget):
         if idx is None:
             sm.clear()
         else:
+            l = len(self.pages)
+            if idx < 0:
+                idx += 1
             if not 0 <= idx < len(self.pages):
-                raise IndexError('The value assigned to current_pages_idx must either be None or a value >= 0 and < page count.')
+                raise IndexError('Invalid page index: must either be None or a valid index into the flipbook pages')
             midx = self.pages_model.index(idx, 0)
             sm.setCurrentIndex(midx, Qt.QItemSelectionModel.ClearAndSelect)
 
