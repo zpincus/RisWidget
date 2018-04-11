@@ -62,6 +62,7 @@ class PageList(uniform_signaling_list.UniformSignalingList):
     def append_named(self, image, name):
         image_list = self.take_input_element(image)
         image_list.name = name
+        self.append(image_list)
 
 class _ReadPageTaskDoneEvent(Qt.QEvent):
     TYPE = Qt.QEvent.registerEventType()
