@@ -285,8 +285,8 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
                 self.setX(1)
                 x = 1
             layer = self.parentItem().layer
-            r = layer.histogram_min, layer.histogram_max
-            setattr(layer, self.name, r[0] + x * float(r[1] - r[0]))
+            mn, mx = layer.histogram_min, layer.histogram_max
+            setattr(layer, self.name, mn + x * float(mx - mn))
         self._min_max_item.setX(x)
 
     def _on_y_changed(self):
@@ -296,8 +296,12 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
     def _on_value_changed(self):
         with self._ignore_x_change:
             layer = self.parentItem().layer
-            r = layer.histogram_min, layer.histogram_max
-            self.setX( (getattr(layer, self.name) - r[0]) / (r[1] - r[0]) )
+            mn, mx = layer.histogram_min, layer.histogram_max
+            if mx == mn:
+                x = mn
+            else:
+                x = (getattr(layer, self.name) - mn) / (mx - mn)
+            self.setX(x)
 
 class GammaItem(Qt.QGraphicsObject):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
