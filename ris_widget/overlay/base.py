@@ -143,6 +143,10 @@ class Handle(Qt.QGraphicsRectItem):
         self.setBrush(Qt.QBrush(color))
         self.setFlag(Qt.QGraphicsItem.ItemIsMovable)
 
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+    def type(self):
+        return self.QGRAPHICSITEM_TYPE
+
     def remove(self):
         scene = self.scene()
         scene.views()[0].zoom_changed.disconnect(self._zoom_changed)
@@ -168,6 +172,8 @@ class Handle(Qt.QGraphicsRectItem):
 
 
 class SelectableHandle(Handle):
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+
     def __init__(self, parent, layer_stack, color):
         super().__init__(parent, layer_stack, color)
         self.display_brush = self.brush() # set in superclass init

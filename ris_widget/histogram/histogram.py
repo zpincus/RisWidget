@@ -23,7 +23,7 @@ _int_hists = {
     (numpy.uint8, True, False): (_histogram.lib.ranged_hist_uint8, _mn, _mx),
 }
 
-def _scanline_bounds(r, cx, cy):
+def _scanline_bounds(cx, cy, r):
     # based on 8-connected super-circle algorithm from comments in http://www.willperone.net/Code/codecircle.php
     # and:
     # A Chronological and Mathematical Overview of Digital Circle Generation Algorithms - Introducing Efficient 4 and 8-Connected Circles
@@ -46,10 +46,9 @@ def _scanline_bounds(r, cx, cy):
     return bounds
 
 @functools.lru_cache(maxsize=16)
-def _circle_mask(r, shape):
-    cx, cy = numpy.round(numpy.array(shape)/2).astype(int)
-    sx, sy = shape
-    bounds = _scanline_bounds(r, cx, cy)
+def _circle_mask(cx, cy, r, image_shape):
+    sx, sy = image_shape
+    bounds = _scanline_bounds(cx, cy, r)
     ymin = cy - r
     ymax = cy + r + 1
     to_trim_bottom = max(0, -ymin)
@@ -60,22 +59,26 @@ def _circle_mask(r, shape):
     bounds = bounds.clip(0, sx).astype(numpy.uint16)
     starts = bounds[:,0].copy()
     ends = bounds[:,1].copy()
+    if ymin == 0 and ymax == sy and numpy.all(starts == 0) and numpy.all(ends == sx):
+        # mask is just whole image...
+        return None, None, None, None
     return ymin, ymax, starts, ends
 
 def _fast_index_first(image):
     image = numpy.asarray(image)
     if image.strides[0] > image.strides[1]:
-        return image.T
+        return image.T, True
     else:
-        return image
+        return image, False
 
-def histogram(image, range=(None, None), image_bits=None, mask_radius=None):
+def histogram(image, range=(None, None), image_bits=None, mask_geometry=None):
     """
     image: 2-dimensional greyscale image, or GA, RGB, or RGBA image in (x, y, c) index order.
         If RGB(A), the RGB channels will be converted to greyscale first. Alpha channels are ignored.
     range: [low, high] range over which histogram is calculated
     image_bits: only applies to uint16 images. If None, images are assumed to occupy full 16-bit range.
-    mask_radius: radius of a vignette mask (in terms of fraction of the size of the image).
+    mask_geometry: (cx, cy, radius) of a vignette mask, as fractions of image.shape.
+        (cx and radius will be in terms of image.shape[0], cy in terms of image.shape[1])
     returns: min, max, hist
         min, max: image min and max values (possibly outside the range, if specified)
         hist: histogram
@@ -97,16 +100,23 @@ def histogram(image, range=(None, None), image_bits=None, mask_radius=None):
         image = image.view(numpy.uint8)
     else:
         was_bool = False
-    masked = mask_radius is not None
+    masked = mask_geometry is not None
     range = tuple(range)
     ranged = range != (None, None)
     r_min, r_max = range
 
-    i = _fast_index_first(image)
+    i, transpose = _fast_index_first(image)
     if masked:
-        mask_radius = int(mask_radius * image.shape[0]) # use the shape of the un-transposed image (i might be transposed)
-        ymin, ymax, starts, ends = _circle_mask(mask_radius, i.shape)
-        i = i[:,ymin:ymax]
+        # multiply cx, cy, and r by the shape of the original image
+        cx, cy, r = (numpy.array(mask_geometry) * [image.shape[0], image.shape[1], image.shape[0]]).astype(int)
+        if transpose:
+            cx, cy = cy, cx
+        ymin, ymax, starts, ends = _circle_mask(cx, cy, r, i.shape)
+        if ymin is None:
+            # mask is whole region
+            masked = False
+        else:
+            i = i[:,ymin:ymax]
     args = [_histogram.ffi.cast('char *', i.ctypes.data), i.shape[1], i.shape[0], i.strides[1], i.strides[0]]
     if masked:
         sp = _histogram.ffi.cast('uint16_t *', starts.ctypes.data)

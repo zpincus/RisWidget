@@ -59,7 +59,7 @@ class LayerStack(Qt.QObject):
         self._layers.replaced.connect(self._on_replaced_in_layers)
         self.layer_focus_changed.connect(self._on_layer_focus_changed)
 
-        self._mask_radius = None
+        self._histogram_mask = None
         self._selection_model = None
         self.auto_min_max_all_action = Qt.QAction(self)
         self.auto_min_max_all_action.setText('Auto Min/Max')
@@ -159,13 +159,13 @@ class LayerStack(Qt.QObject):
         self.auto_min_max_all_action.setChecked(v)
 
     @property
-    def mask_radius(self):
-        return self._mask_radius
+    def histogram_mask(self):
+        return self._histogram_mask
 
-    @mask_radius.setter
-    def mask_radius(self, r):
+    @histogram_mask.setter
+    def histogram_mask(self, r):
         for layer in self.layers:
-            layer.mask_radius = r
+            layer.histogram_mask = r
 
     def ensure_layer_focused(self):
         """If we have both a layer list & selection model and no Layer is selected & .layers is not empty:
@@ -183,7 +183,7 @@ class LayerStack(Qt.QObject):
     def _attach_layers(self, layers):
         auto_min_max_all = self.auto_min_max_all
         for layer in layers:
-            layer.mask_radius = self.mask_radius
+            layer.histogram_mask = self.histogram_mask
             if auto_min_max_all:
                 layer.auto_min_max = True
             # can connect without worrying that it's already connected because LayerList guarantees

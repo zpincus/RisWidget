@@ -6,6 +6,8 @@ from .. import shared_resources
 from . import point_set
 
 class _PolylinePointHandle(point_set._PointHandle):
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+
     def __init__(self, parent, layer_stack, color):
         super().__init__(parent, layer_stack, color)
         self._set_active(False)

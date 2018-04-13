@@ -59,23 +59,12 @@ def coerce_to_tint(v):
         v += (1.0,)
     return v
 
-def coerce_to_radius(v):
-    if v == '' or v is None:
-        return None
-    else:
-        v = float(v)
-        if v <= 0:
-            raise ValueError('Radius must be positive')
-        if v > 0.707:
-            v = None # larger radius and image is un-masked...
-        return v
-
 class Layer(qt_property.QtPropertyOwner):
     """ The class Layer contains properties that control Image presentation.
 
     Properties:
         visible
-        mask_radius
+        histogram_mask
         auto_min_max
         min
         max
@@ -245,7 +234,7 @@ class Layer(qt_property.QtPropertyOwner):
         r_min = None if self._is_default('histogram_min') else self.histogram_min
         r_max = None if self._is_default('histogram_max') else self.histogram_max
         self.image_min, self.image_max, self.histogram = histogram.histogram(
-            self.image.data, (r_min, r_max), self.image.image_bits, self.mask_radius)
+            self.image.data, (r_min, r_max), self.image.image_bits, self.histogram_mask)
 
     def generate_contextual_info_for_pos(self, x, y, idx=None):
         if self.image is None:
@@ -271,13 +260,12 @@ class Layer(qt_property.QtPropertyOwner):
         default_value=True,
         coerce_arg_fn=bool)
 
-    def _mask_radius_post_set(self, v):
+    def _histogram_mask_post_set(self, v):
         self._on_image_changed()
 
-    mask_radius = qt_property.Property(
+    histogram_mask = qt_property.Property(
         default_value=None,
-        coerce_arg_fn=coerce_to_radius,
-        post_set_callback=_mask_radius_post_set)
+        post_set_callback=_histogram_mask_post_set)
 
     def _auto_min_max_post_set(self, v):
         if v and self.image is not None:

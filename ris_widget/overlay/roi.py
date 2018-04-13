@@ -194,6 +194,8 @@ class EllipseROI(_ROIMixin, Qt.QGraphicsEllipseItem):
 
 
 class _ResizeHandle(base.Handle):
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+
     def __init__(self, parent, layer_stack, color):
         super().__init__(parent, layer_stack, color)
         self.hide()

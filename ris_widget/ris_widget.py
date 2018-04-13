@@ -6,13 +6,14 @@ from . import shared_resources
 from . import internal_util
 from . import layer
 from . import layer_stack
+from . import histogram_mask
+from . import dock_widgets
+from . import qgraphicsscenes
 from .qwidgets import flipbook
 from .qwidgets import fps_display
 from .qwidgets import layer_table
-from . import qgraphicsscenes
 from .qgraphicsviews import image_view
 from .qgraphicsviews import histogram_view
-from . import dock_widgets
 
 try:
     import freeimage
@@ -215,11 +216,12 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
 
     def _init_menus(self):
         mb = self.menuBar()
-        m = mb.addMenu('File')
-        m.addAction(self.layer_property_stack_save_action)
-        m.addAction(self.layer_property_stack_load_action)
-        m = mb.addMenu('View')
-        m.addAction(self.fps_display_dock_widget.toggleViewAction())
+        f = mb.addMenu('File')
+        f.addAction(self.layer_property_stack_save_action)
+        f.addAction(self.layer_property_stack_load_action)
+        v = mb.addMenu('View')
+        v.addAction(self.fps_display_dock_widget.toggleViewAction())
+        self._hist_mask = histogram_mask.HistogramMask(self, v)
 
     def showEvent(self, event):
         if self.app_prefs_name and not self._shown:
