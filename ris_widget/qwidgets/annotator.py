@@ -39,8 +39,8 @@ class AnnotationField:
         old_value = self.page.annotations.get(self.name, None)
         self.page.annotations[self.name] = value
         if self.auto_advance(old_value, value) and self.flipbook is not None:
-            if self.flipbook.current_page_idx < len(self.flipbook.pages) - 1:
-                self.flipbook.current_page_idx += 1
+            # advance to next page in 750 ms
+            Qt.QTimer.singleShot(750, self.flipbook.focus_next_page)
 
     def get_annotation(self, page=None, setdefault=False):
         """Get the current annotation for the page, or return the default (and
