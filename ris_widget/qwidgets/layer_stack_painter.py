@@ -3,6 +3,7 @@
 import numpy
 from PyQt5 import Qt
 from ..qgraphicsitems import layer_stack_painter_item
+from .. import internal_util
 
 class LabelEdit(Qt.QObject):
     value_changed = Qt.pyqtSignal(Qt.QObject)
@@ -10,7 +11,7 @@ class LabelEdit(Qt.QObject):
 
     def __init__(self, layout, label_text):
         super().__init__()
-        self.ignore_change = False
+        self.ignore_change = internal_util.Condition()
         self.label = Qt.QLabel(label_text)
         layout.addWidget(self.label)
         self.editbox = Qt.QLineEdit()
@@ -37,11 +38,8 @@ class LabelEdit(Qt.QObject):
         return str(value)
 
     def _update_editbox(self):
-        self.ignore_change = True
-        try:
+        with self.ignore_change:
             self.editbox.setText(self._val_to_str(self._value))
-        finally:
-            self.ignore_change = False
 
     def parse_value(self, v):
         raise NotImplementedError()

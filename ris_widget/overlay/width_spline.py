@@ -74,6 +74,7 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         else:
             tck = None
         self._set_tck(tck)
+        self._geometry_changed()
 
     def calculate_tck(self, widths, x=None):
         if x is None:

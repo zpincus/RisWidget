@@ -140,12 +140,12 @@ class NonWidgetAnnotation(AnnotationField):
 
 
 class OverlayAnnotation(NonWidgetAnnotation):
-    def __init__(self, name, overlay, default=None, auto_advance=None):
+    def __init__(self, name, overlay, default=None):
         """
         Parameters:
             overlay: item from ris_widget.overlay
         """
-        super().__init__(name, default, auto_advance)
+        super().__init__(name, default)
         self.overlay = overlay
         self.overlay.geometry_change_callbacks.append(self.on_geometry_change)
 

@@ -3,7 +3,6 @@
 from PyQt5 import Qt
 
 from .overlay import centered_circle
-from . import internal_util
 
 class _MaskRegion(Qt.QObject):
     def __init__(self, rw):
@@ -39,7 +38,6 @@ class HistogramMask:
         self.layer_stack = rw.layer_stack
         self.mask_circle = centered_circle.CenteredCircle(rw)
         self.mask_circle.hide()
-        self.ignore_geometry_changes = internal_util.Condition()
         self.mask_circle.geometry_change_callbacks.append(self.geometry_changed)
 
         self.display_mask = _MaskRegion(rw)
@@ -77,18 +75,17 @@ class HistogramMask:
             return # ignore the turning-off actions
         mask = self.masks[mask_name]
         self.layer_stack.histogram_mask = mask
-        with self.ignore_geometry_changes:
-            image = self.layer_stack.layers[0].image
-            if mask is None or image is None:
-                geometry = None
-            else:
-                shape = image.data.shape
-                cx, cy, r = mask
-                cx *= shape[0]
-                cy *= shape[1]
-                r *= shape[0]
-                geometry = cx, cy, r
-            self.mask_circle.geometry = geometry
+        image = self.layer_stack.layers[0].image
+        if mask is None or image is None:
+            geometry = None
+        else:
+            shape = image.data.shape
+            cx, cy, r = mask
+            cx *= shape[0]
+            cy *= shape[1]
+            r *= shape[0]
+            geometry = cx, cy, r
+        self.mask_circle.geometry = geometry
         if mask_name == 'custom':
             self.show_action.setChecked(True)
         elif mask_name is None:
@@ -98,14 +95,13 @@ class HistogramMask:
             self.display_mask.fade()
 
     def geometry_changed(self, geometry):
-        if not self.ignore_geometry_changes:
-            image = self.layer_stack.layers[0].image
-            if image is None:
-                return
-            shape = image.data.shape
-            cx, cy, r = geometry
-            cx /= shape[0]
-            cy /= shape[1]
-            r /= shape[0]
-            self.layer_stack.histogram_mask = self.masks['custom'] = (cx, cy, r)
-            self.custom_mask.setChecked(True)
+        image = self.layer_stack.layers[0].image
+        if image is None:
+            return
+        shape = image.data.shape
+        cx, cy, r = geometry
+        cx /= shape[0]
+        cy /= shape[1]
+        r /= shape[0]
+        self.layer_stack.histogram_mask = self.masks['custom'] = (cx, cy, r)
+        self.custom_mask.setChecked(True)

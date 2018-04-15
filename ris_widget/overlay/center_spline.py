@@ -23,6 +23,7 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._tck = None
         self.warping = False
         self.drawing = False
+        self._locked = False
         self.fine_warp = False # if True, warp bandwidth is halved
         super().__init__(ris_widget, pen, geometry)
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
@@ -41,7 +42,6 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self.drawing = False
         self._tck = tck
         self._update_path()
-        self._geometry_changed()
 
     def _update_path(self):
         self.path = Qt.QPainterPath()
@@ -73,6 +73,7 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         else:
             tck = None
         self._set_tck(tck)
+        self._geometry_changed()
 
     def calculate_tck(self, points):
         return interpolate.fit_spline(points, smoothing=self._smoothing * len(points))
@@ -141,14 +142,27 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._update_points()
 
     def reverse_spline(self):
-        self._set_tck(interpolate.reverse_spline(self._tck))
-        self._points = self._points[::-1]
+        if self._tck is not None:
+            self._set_tck(interpolate.reverse_spline(self._tck))
+            self._points = self._points[::-1]
+            self._geometry_changed()
 
     def smooth(self):
         self._update_points()
         self._generate_tck_from_points()
 
+    @property
+    def locked(self):
+        return self._locked
+
+    @locked.setter
+    def locked(self, locked):
+        self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, not locked)
+        self._locked = locked
+
     def sceneEventFilter(self, watched, event):
+        if self._locked:
+            return False
         tck, drawing = self._tck, self.drawing
         if drawing and event.type() in {Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove}:
             self._add_point(event.pos())
@@ -184,6 +198,9 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         return super().sceneEventFilter(watched, event)
 
     def mousePressEvent(self, event):
+        if self._locked:
+            event.ignore()
+            return
         self._start_warp(event.pos())
 
     def mouseMoveEvent(self, event):

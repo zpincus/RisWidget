@@ -8,8 +8,8 @@ from . import point_set
 class _PolylinePointHandle(point_set._PointHandle):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, parent, layer_stack, color):
-        super().__init__(parent, layer_stack, color)
+    def __init__(self, layer_stack, brush, pen=None):
+        super().__init__(layer_stack, layer_stack, brush, pen)
         self._set_active(False)
 
     def _set_active(self, active):
@@ -29,6 +29,7 @@ class Polyline(point_set.PointSet):
     @point_set.PointSet.geometry.setter
     def geometry(self, geometry):
         point_set.PointSet.geometry.fset(self, geometry)
+        self._generate_path()
         # start out in non-drawing state if geometry is defined, otherwise start active
         if geometry is None:
             self._set_drawing(True)
@@ -64,10 +65,6 @@ class Polyline(point_set.PointSet):
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, not drawing)
         self._generate_path()
 
-    def _insert_point(self, pos):
-        # TODO: insert point between nearest control points
-        pass
-
     def _view_mouse_release(self, pos, modifiers):
         # Called when ROI item is visible, and a mouse-up on the underlying
         # view occurs. (I.e. not on this item itself)
@@ -79,14 +76,7 @@ class Polyline(point_set.PointSet):
                     self._set_drawing(False)
                     return
             self._add_point(pos)
-        elif modifiers & Qt.Qt.AltModifier:
-            self._insert_point(pos)
-
-    def mousePressEvent(self, event):
-        if event.modifiers() & Qt.Qt.AltModifier:
-            self._insert_point(event.pos())
-        else:
-            super().mousePressEvent(event)
+            self._geometry_changed()
 
     def mouseReleaseEvent(self, event):
         # QGraphicsItem's default mouseReleaseEvent deselects all other items in the scene,

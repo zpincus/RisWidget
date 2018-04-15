@@ -8,8 +8,8 @@ from . import base
 class _CenterHandle(base.SelectableHandle):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, parent, layer_stack, color):
-        super().__init__(parent, layer_stack, color)
+    def __init__(self, parent, layer_stack, brush, pen=None):
+        super().__init__(parent, layer_stack, brush, pen)
         self.setFlag(Qt.QGraphicsItem.ItemIsMovable, False)
 
     def _selected(self):
@@ -54,6 +54,7 @@ class CenteredCircle(base.RWGeometryItemMixin, Qt.QGraphicsEllipseItem):
         self._cx = cx
         self._cy = cy
         self._update()
+        self._geometry_changed()
 
     def _update(self):
         r = self._radius
@@ -65,13 +66,13 @@ class CenteredCircle(base.RWGeometryItemMixin, Qt.QGraphicsEllipseItem):
             self._handle.show()
             self._handle.setPos(self._cx, self._cy)
             self.setRect(Qt.QRectF(self._cx-r, self._cy-r, 2*r, 2*r))
-        self._geometry_changed()
 
     def mouseMoveEvent(self, event):
         pos = event.pos()
         x, y = pos.x(), pos.y()
         self._radius = ((x-self._cx)**2 + (y-self._cy)**2)**0.5
         self._update()
+        self._geometry_changed()
 
     def _selected(self):
         super()._selected()

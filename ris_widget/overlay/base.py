@@ -21,14 +21,17 @@ class RWGeometryItemMixin:
         Class variables:
             geometry_change_callbacks: list of callbacks that will be called
                 when geometry is changed, with the new geometry as the parameter
-                or None if the geometry is deleted.
+                or None if the geometry is deleted. NB: a callback is *not* called
+                when the geometry is set directly via the .geometry attribute.
+                The callback is only called when the geometry changes from the
+                GUI.
         """
         layer_stack = ris_widget.image_scene.layer_stack_item
         super().__init__(layer_stack)
         if pen is None:
             pen = Qt.QPen(Qt.Qt.green)
             pen.setWidth(2)
-        self.display_pen = pen
+        self.display_pen = Qt.QPen(pen)
         self.display_pen.setCosmetic(True)
         self.selected_pen = Qt.QPen(self.display_pen)
         self.selected_pen.setColor(Qt.Qt.red)
@@ -45,6 +48,8 @@ class RWGeometryItemMixin:
         return self.QGRAPHICSITEM_TYPE
 
     def _geometry_changed(self):
+        # subclass MUST call after changing geometry from  GUI. Subclass
+        # MUST NOT call in response to changing geometry from setter.
         for callback in self.geometry_change_callbacks:
             callback(self.geometry)
 
@@ -106,6 +111,7 @@ class RWGeometryItemMixin:
         if (event.type() == Qt.QEvent.KeyPress and self.isSelected()
               and event.key() in {Qt.Qt.Key_Delete, Qt.Qt.Key_Backspace}):
             self.geometry = None
+            self._geometry_changed()
             return True
         return False
 
@@ -129,7 +135,7 @@ class SceneListener(Qt.QGraphicsItem):
 
 class Handle(Qt.QGraphicsRectItem):
     RECT = (-3, -3, 6, 6)
-    def __init__(self, parent, layer_stack, color):
+    def __init__(self, parent, layer_stack, brush, pen=None):
         super().__init__(*self.RECT)
         # TODO: WTF with PyQt5 v. 5.9 on Linux, core is dumped if the parent
         # is set in the constructor above. (Only if the parent is a subclass
@@ -139,8 +145,10 @@ class Handle(Qt.QGraphicsRectItem):
         view = self.scene().views()[0]
         self._zoom_changed(view.zoom)
         view.zoom_changed.connect(self._zoom_changed)
-        self.setPen(Qt.QPen(Qt.Qt.NoPen))
-        self.setBrush(Qt.QBrush(color))
+        if pen is None:
+            pen = Qt.Qt.NoPen
+        self.setPen(Qt.QPen(pen))
+        self.setBrush(Qt.QBrush(brush))
         self.setFlag(Qt.QGraphicsItem.ItemIsMovable)
 
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
@@ -174,8 +182,8 @@ class Handle(Qt.QGraphicsRectItem):
 class SelectableHandle(Handle):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, parent, layer_stack, color):
-        super().__init__(parent, layer_stack, color)
+    def __init__(self, parent, layer_stack, brush, pen=None):
+        super().__init__(parent, layer_stack, brush, pen)
         self.display_brush = self.brush() # set in superclass init
         self.selected_brush = Qt.QBrush(Qt.Qt.red)
         self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)

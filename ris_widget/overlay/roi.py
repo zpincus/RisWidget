@@ -72,20 +72,19 @@ class _ROIMixin(base.RWGeometryItemMixin):
     @geometry.setter
     def geometry(self, geometry):
         self.setSelected(False)
-        self._set_geometry(geometry)
+        self._set_rect(geometry)
 
-    def _set_geometry(self, geometry):
+    def _set_rect(self, rect):
         self.dragging = False
-        if geometry is None:
+        if rect is None:
             self.setRect(0, 0, 0, 0)
             self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, False)
         else:
-            (x1, y1), (x2, y2) = geometry
-            rect = Qt.QRectF()
-            rect.setCoords(x1, y1, x2, y2)
-            self.setRect(self._aspect_adjusted_rect(rect).normalized())
+            (x1, y1), (x2, y2) = rect
+            qrect = Qt.QRectF()
+            qrect.setCoords(x1, y1, x2, y2)
+            self.setRect(self._aspect_adjusted_rect(qrect).normalized())
             self.setFlag(Qt.QGraphicsItem.ItemIsSelectable)
-        self._geometry_changed()
 
     def _aspect_adjusted_rect(self, rect):
         if self.aspect is not None:
@@ -121,8 +120,10 @@ class _ROIMixin(base.RWGeometryItemMixin):
     def _done_resizing(self):
         # Now reset self.geometry to clean up position and call callbacks
         x1, y1, x2, y2 = self.rect().getCoords()
-        # NB: call _set_geometry rather than setting .geometry property to keep selected state
-        self._set_geometry(((x1, y1), (x2, y2)))
+        # NB: call _set_rect rather than setting .geometry property to keep selected state
+        self._set_rect(((x1, y1), (x2, y2)))
+        self._geometry_changed()
+
 
     def _reposition_handles(self):
         rect = self.rect()
@@ -196,8 +197,8 @@ class EllipseROI(_ROIMixin, Qt.QGraphicsEllipseItem):
 class _ResizeHandle(base.Handle):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, parent, layer_stack, color):
-        super().__init__(parent, layer_stack, color)
+    def __init__(self, parent, layer_stack, brush, pen=None):
+        super().__init__(parent, layer_stack, brush, pen)
         self.hide()
 
     def mouseReleaseEvent(self, event):

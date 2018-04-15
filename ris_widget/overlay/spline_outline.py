@@ -17,25 +17,57 @@ class SplineOutline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
     def __init__(self, ris_widget, color=Qt.Qt.green):
-        center_pen = Qt.QPen(color)
-        center_pen.setWidth(2)
-        self.center_spline = center_spline.CenterSpline(ris_widget, pen=center_pen)
         if not hasattr(ris_widget, 'alt_view'):
             split_view.split_view_rw(ris_widget)
-        width_pen = Qt.QPen(color)
-        width_pen.setWidth(1)
+        pen = Qt.QPen(color)
+        pen.setWidth(3)
+        self.center_spline = center_spline.CenterSpline(ris_widget, pen=pen)
         # need to construct width_spline second to make sure its scene event filter is added last
-        self.width_spline = width_spline.WidthSpline(ris_widget.alt_view, pen=width_pen)
+        pen.setWidth(1.5)
+        self.width_spline = width_spline.WidthSpline(ris_widget.alt_view, pen=pen)
         self.warper = CenterSplineWarper(self.center_spline, self.width_spline, ris_widget.alt_view)
-        outline_pen = Qt.QPen(color)
-        outline_pen.setWidth(1)
-        super().__init__(ris_widget, pen=outline_pen)
-        self.center_spline.geometry_change_callbacks.append(self.update_outline)
-        self.width_spline.geometry_change_callbacks.append(self.update_outline)
+        self.center_spline.geometry_change_callbacks.append(self.on_geometry_change)
+        self.width_spline.geometry_change_callbacks.append(self.on_geometry_change)
+        self._ignore_geometry_change = internal_util.Condition()
+        super().__init__(ris_widget, pen=pen)
 
-    def update_outline(self, _=None):
+    @property
+    def geometry(self):
+        return self.center_spline.geometry, self.width_spline.geometry
+
+    @geometry.setter
+    def geometry(self, tcks):
+        if tcks is None:
+            tcks = None, None
+        self.center_spline.geometry = tcks[0]
+        self.width_spline.geometry = tcks[1]
+        self.warper._update_warped_view()
+        self.update_outline()
+
+    def set_locked(self, locked):
+        self.warper.locked = locked
+        self.center_spline.locked = locked
+        self.width_spline.locked = locked
+
+    def set_fine_warp(self, fine):
+        self.center_spline.fine_warp = fine
+        self.width_spline.fine_warp = fine
+
+    def reverse_spline(self):
+        center, width = self.center_spline, self.width_spline
+        with self._ignore_geometry_change:
+            # only trigger the callback once for the whole reversal operation
+            width.reverse_spline()
+        center.reverse_spline()
+
+    def on_geometry_change(self, _):
         # parameter _ gets called with width or centerline tck depending on which
         # callback triggers it...
+        if not self._ignore_geometry_change:
+            self._geometry_changed()
+            self.update_outline()
+
+    def update_outline(self):
         center_tck = self.center_spline.geometry
         width_tck = self.width_spline.geometry
         path = Qt.QPainterPath()
@@ -56,6 +88,7 @@ class CenterSplineWarper(base.SceneListener):
         self.warped_view.image_view.zoom_to_fit = False
         self._interpolate_order = 1
         self._ignore_mouse_moves = internal_util.Condition()
+        self.locked = False
         self.center_spline = center_spline
         self.width_spline = width_spline
         center_spline.geometry_change_callbacks.append(self._update_warped_view)
@@ -105,15 +138,14 @@ class CenterSplineWarper(base.SceneListener):
             self.center_spline._generate_tck_from_points()
 
     def sceneEventFilter(self, watched, event):
-        tck = self.center_spline._tck
-        if tck is None:
+        if self.locked or self.center_spline._tck is None:
             return False
         elif (not self.width_spline.drawing and event.type() == Qt.QEvent.GraphicsSceneMousePress and
                 event.modifiers() ^ Qt.Qt.AltModifier):
-            if self.width_spline.isSelected():
-                # deselect the width spline, because we swallow this mouse click which would otherwise
-                # directly deselect it
-                self.width_spline.setSelected(False)
+            # deselect any graphics items, because we swallow this mouse click which would otherwise
+            # directly deselect them
+            for child in self.parentItem().childItems():
+                child.setSelected(False)
             self._start_warp(event.pos())
             self._interpolate_order = 0
             return True
