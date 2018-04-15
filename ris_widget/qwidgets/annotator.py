@@ -169,16 +169,16 @@ class Annotator(Qt.QWidget):
 
     Example:
     fields = [BoolField('alive', default=True), ChoicesField('stage', ['L1', 'L2'])]
-    annotator = Annotator(rw, fields)
+    annotator = Annotator(ris_widget, fields)
     # make annotations in the GUI
     data = annotator.all_annotations
 
     # how to make GUI reflect python-level changes to the annotations
-    rw.flipbook.current_page.annotations['alive'] = False
+    ris_widget.flipbook.current_page.annotations['alive'] = False
     # then to make an update occur:
     annotator.update_fields()
     """
-    def __init__(self, rw, fields, parent=None):
+    def __init__(self, ris_widget, fields, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.Qt.WA_DeleteOnClose)
         layout = Qt.QFormLayout()
@@ -190,8 +190,8 @@ class Annotator(Qt.QWidget):
                 layout.addRow(field.widget)
             else:
                 layout.addRow(field.name, field.widget)
-            field.flipbook = rw.flipbook
-        self.flipbook = rw.flipbook
+            field.flipbook = ris_widget.flipbook
+        self.flipbook = ris_widget.flipbook
         self.flipbook.current_page_changed.connect(self.update_fields)
         self.update_fields()
 
