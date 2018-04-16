@@ -48,6 +48,8 @@ NB: In case of error, calling del on the layer attribute causes it to revert to 
 
     gl_FragColor = vec4(dca / da, da * layer_stack_item_opacity);"""
 
+_DEBUG_NO_HIST = False
+
 def coerce_to_str(v):
     return '' if v is None else str(v)
 
@@ -233,8 +235,12 @@ class Layer(qt_property.QtPropertyOwner):
     def calculate_histogram(self):
         r_min = None if self._is_default('histogram_min') else self.histogram_min
         r_max = None if self._is_default('histogram_max') else self.histogram_max
-        self.image_min, self.image_max, self.histogram = histogram.histogram(
-            self.image.data, (r_min, r_max), self.image.image_bits, self.histogram_mask)
+        if not _DEBUG_NO_HIST:
+            self.image_min, self.image_max, self.histogram = histogram.histogram(
+                self.image.data, (r_min, r_max), self.image.image_bits, self.histogram_mask)
+        else:
+            self.image_min, self.image_max = r_min, r_max
+            self.histogram = numpy.zeros(256, dtype=numpy.uint32)
 
     def generate_contextual_info_for_pos(self, x, y, idx=None):
         if self.image is None:

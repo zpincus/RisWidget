@@ -8,7 +8,7 @@ class FPSDisplay(Qt.QWidget):
     """A widget displaying interval since last .notify call and 1 / the interval since last .notify call.
     FPSDisplay collects data and refreshes only when visible, reducing the cost of having it constructed
     and hidden with a signal attached to .notify."""
-    def __init__(self, parent=None):
+    def __init__(self, changed_signal, parent=None):
         super().__init__(parent)
         l = Qt.QGridLayout()
         self.setLayout(l)
@@ -45,6 +45,7 @@ class FPSDisplay(Qt.QWidget):
         l.setColumnStretch(1, 1)
         l.setColumnStretch(2, 0)
         self.sample_count = 20
+        changed_signal.connect(self.notify)
 
     @property
     def sample_count(self):

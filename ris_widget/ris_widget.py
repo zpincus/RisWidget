@@ -145,8 +145,7 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self.addDockWidget(Qt.Qt.BottomDockWidgetArea, self.histogram_dock_widget)
 
         self.fps_display_dock_widget = Qt.QDockWidget('FPS', self)
-        self.fps_display = fps_display.FPSDisplay()
-        self.image_scene.layer_stack_item.painted.connect(self.fps_display.notify)
+        self.fps_display = fps_display.FPSDisplay(self.image_scene.layer_stack_item.image_changed)
         self.fps_display_dock_widget.setWidget(self.fps_display)
         self.fps_display_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
         self.fps_display_dock_widget.setFeatures(

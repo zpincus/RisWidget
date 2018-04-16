@@ -26,6 +26,7 @@ NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
     numpy.float32: GL.GL_FLOAT}
 
 USE_BG_UPLOAD_THREAD = True # debug flag for testing with flaky drivers
+_DEBUG_NO_TEX = False
 
 class AsyncTexture:
     # _LIVE_TEXTURES = None
@@ -116,13 +117,15 @@ class AsyncTexture:
                     data = self.data[x:x+w, y:y+h]
                 try:
                     GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, self.data.shape[0])
-                    GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, x, y, w, h,
-                        self.source_format, self.source_type,
-                        data.ctypes.data_as(ctypes.c_void_p))
+                    if not _DEBUG_NO_TEX:
+                        GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, x, y, w, h,
+                            self.source_format, self.source_type,
+                            data.ctypes.data_as(ctypes.c_void_p))
                 finally:
                     GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
             # whether or not allocating texture, need to regenerate mipmaps
-            GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+            if not _DEBUG_NO_TEX:
+                GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
             # need glFinish to make sure that the GL calls (which run asynchronously)
             # have completed before we set self.ready
             GL.glFinish()
