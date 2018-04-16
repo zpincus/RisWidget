@@ -39,8 +39,8 @@ class FPSDisplay(Qt.QWidget):
         l.addWidget(self.interval_field, r, 1, Qt.Qt.AlignRight)
         l.addWidget(self.interval_suffix_label, r, 2, Qt.Qt.AlignLeft)
         r += 1
-        sp = Qt.QSizePolicy.MinimumExpanding, Qt.QSizePolicy.MinimumExpanding)
-        l.addItem(Qt.QSpacerItem(0, 0, sp, r, 0, 1, -1)
+        sp = Qt.QSpacerItem(0, 0, Qt.QSizePolicy.MinimumExpanding, Qt.QSizePolicy.MinimumExpanding)
+        l.addItem(sp, r, 0, 1, -1)
         l.setColumnStretch(0, 0)
         l.setColumnStretch(1, 1)
         l.setColumnStretch(2, 0)
