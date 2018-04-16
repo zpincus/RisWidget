@@ -39,13 +39,8 @@ class FPSDisplay(Qt.QWidget):
         l.addWidget(self.interval_field, r, 1, Qt.Qt.AlignRight)
         l.addWidget(self.interval_suffix_label, r, 2, Qt.Qt.AlignLeft)
         r += 1
-        l.addItem(
-            Qt.QSpacerItem(
-                0, 0, Qt.QSizePolicy.MinimumExpanding, Qt.QSizePolicy.MinimumExpanding
-            ),
-            r, 0,
-            1, -1
-        )
+        sp = Qt.QSizePolicy.MinimumExpanding, Qt.QSizePolicy.MinimumExpanding)
+        l.addItem(Qt.QSpacerItem(0, 0, sp, r, 0, 1, -1)
         l.setColumnStretch(0, 0)
         l.setColumnStretch(1, 1)
         l.setColumnStretch(2, 0)
@@ -65,23 +60,19 @@ class FPSDisplay(Qt.QWidget):
             self.sample_count_spinbox.setValue(self.sample_count)
             self.clear()
 
-    def notify(self, end_interval=False):
+    def notify(self):
         if not self.isVisible():
             return
         t = time.time()
         if self.prev_t is None:
-            if not end_interval:
-                self.prev_t = t
-                self.acquired_sample_count += 1
+            self.prev_t = t
+            self.acquired_sample_count += 1
         else:
-            wrap_idx = (self.acquired_sample_count-1) % self.intervals.shape[0]
-            self.intervals[wrap_idx] = v = t - self.prev_t
-            self.fpss[wrap_idx] = 0 if v == 0 else 1 / v
-            if end_interval:
-                self.prev_t = None
-            else:
-                self.acquired_sample_count += 1
-                self.prev_t = t
+            i = (self.acquired_sample_count-1) % self.intervals.shape[0]
+            self.intervals[i] = v = t - self.prev_t
+            self.fpss[i] = 0 if v == 0 else 1 / v
+            self.acquired_sample_count += 1
+            self.prev_t = t
             self._refresh()
 
     def clear(self):

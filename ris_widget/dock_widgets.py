@@ -11,8 +11,8 @@ class _RWDockWidget(Qt.QDockWidget):
         rw = rw.qt_object
         super().__init__(name, rw)
         self.setAllowedAreas(Qt.Qt.RightDockWidgetArea | Qt.Qt.LeftDockWidgetArea)
-        self.setFeatures(
-            Qt.QDockWidget.DockWidgetClosable | Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
+        self.setFeatures(Qt.QDockWidget.DockWidgetClosable |
+            Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
         rw.addDockWidget(Qt.Qt.RightDockWidgetArea, self)
         self._init_widget(rw)
         self.setWidget(self.widget)
@@ -29,14 +29,9 @@ class Painter(_RWDockWidget):
 
 
 class Annotator(_RWDockWidget):
-    __doc__ = annotator.Annotator.__doc__
-
     def __init__(self, rw, fields):
         self.fields = fields
         super().__init__(rw, 'Annotator')
-        self.update_fields = self.widget.update_fields
 
     def _init_widget(self, rw):
         self.widget = annotator.Annotator(rw, self.fields, parent=self)
-
-    all_annotations = internal_util.ProxyProperty('widget', annotator.Annotator.all_annotations)

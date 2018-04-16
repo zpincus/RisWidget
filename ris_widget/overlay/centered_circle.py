@@ -68,6 +68,7 @@ class CenteredCircle(base.RWGeometryItemMixin, Qt.QGraphicsEllipseItem):
             self.setRect(Qt.QRectF(self._cx-r, self._cy-r, 2*r, 2*r))
 
     def mouseMoveEvent(self, event):
+        self.setSelected(True)
         pos = event.pos()
         x, y = pos.x(), pos.y()
         self._radius = ((x-self._cx)**2 + (y-self._cy)**2)**0.5

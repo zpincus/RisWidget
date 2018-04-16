@@ -369,10 +369,12 @@ class RisWidget:
         return action
 
     def add_painter(self):
-        self.painter = dock_widgets.Painter(self)
+        self._painter_widget = dock_widgets.Painter(self)
+        self.painter = self._painter_widget.widget
 
     def add_annotator(self, fields):
-        self.annotator = dock_widgets.Annotator(self, fields)
+        self._annotator_widget = dock_widgets.Annotator(self, fields)
+        self.annotator = self._annotator_widget.widget
 
     def update(self):
         """Calling this method on the main thread updates all Qt widgets immediately, without requiring
