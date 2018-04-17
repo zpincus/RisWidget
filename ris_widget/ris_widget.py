@@ -43,11 +43,11 @@ class RisWidgetBase:
 
     @property
     def layers(self):
-        """Convenience property equivalent to rw.layer_stack.layers. Assigning to layers
+        """Convenience property equivalent to layer_stack.layers. Assigning to layers
         is smart: if images are provided, any existing layer properties will be retained.
         To clear the layers and start afresh do:
-        rw.layers.clear()
-        rw.layers.extend([img1, img2])
+        layers.clear()
+        layers.extend([img1, img2])
         """
         return self.layer_stack.layers
 
@@ -57,7 +57,7 @@ class RisWidgetBase:
 
     @property
     def layer(self):
-        """rw.layer: A convenience property equivalent to rw.layers[0] and rw.layer_stack.layers[0]"""
+        """layer: A convenience property equivalent to layers[0] and layer_stack.layers[0]"""
         return self.layers[0]
 
     @layer.setter
@@ -66,8 +66,8 @@ class RisWidgetBase:
 
     @property
     def image(self):
-        """rw.image: A Convenience property exactly equivalent to rw.layer.image, and equivalent to
-        rw.layer_stack[0].image."""
+        """image: A Convenience property exactly equivalent to layer.image, and equivalent to
+        layer_stack[0].image."""
         return self.layer.image
 
     @image.setter
@@ -145,7 +145,7 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self.addDockWidget(Qt.Qt.BottomDockWidgetArea, self.histogram_dock_widget)
 
         self.fps_display_dock_widget = Qt.QDockWidget('FPS', self)
-        self.fps_display = fps_display.FPSDisplay(self.image_scene.layer_stack_item.image_changed)
+        self.fps_display = fps_display.FPSDisplay(self.image_scene.layer_stack_item.new_image_painted)
         self.fps_display_dock_widget.setWidget(self.fps_display)
         self.fps_display_dock_widget.setAllowedAreas(Qt.Qt.AllDockWidgetAreas)
         self.fps_display_dock_widget.setFeatures(
@@ -239,7 +239,7 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
 
     @property
     def focused_layer(self):
-        """rw.focused_layer: A convenience property equivalent to rw.layer_stack.focused_layer."""
+        """focused_layer: A convenience property equivalent to rw.layer_stack.focused_layer."""
         return self.layer_stack.focused_layer
 
     @focused_layer.setter
@@ -368,12 +368,14 @@ class RisWidget:
         return action
 
     def add_painter(self):
-        self._painter_widget = dock_widgets.Painter(self)
-        self.painter = self._painter_widget.widget
+        if hasattr(self, 'painter'):
+            raise RuntimeError('painter already added')
+        self._painter_widget, self.painter = dock_widgets.Painter.add_dock_widget(self.qt_object)
 
     def add_annotator(self, fields):
-        self._annotator_widget = dock_widgets.Annotator(self, fields)
-        self.annotator = self._annotator_widget.widget
+        if hasattr(self, 'annotator'):
+            raise RuntimeError('annotator already added')
+        self._annotator_widget, self.annotator = dock_widgets.Annotator.add_dock_widget(self.qt_object, fields=fields)
 
     def update(self):
         """Calling this method on the main thread updates all Qt widgets immediately, without requiring
@@ -413,7 +415,9 @@ class RisWidget:
     # although flipbook_pages saves no characters compared to flipbook.pages, flipbook_pages is nice to have.
     flipbook_pages = internal_util.ProxyProperty('flipbook', flipbook.Flipbook.pages)
 
-if __name__ == '__main__':
-    import sys
-    rw = RisWidget()
+def main():
+    ris_widget = RisWidget()
     shared_resources._QAPPLICATION.exec()
+
+if __name__ == '__main__':
+    main()

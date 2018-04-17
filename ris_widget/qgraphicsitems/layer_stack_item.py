@@ -71,9 +71,10 @@ class LayerStackItem(shader_item.ShaderItem):
     TEXTURE_BORDER_COLOR = Qt.QColor(0, 0, 0, 0)
 
     bounding_rect_changed = Qt.pyqtSignal()
-    image_changed = Qt.pyqtSignal()
+    new_image_painted = Qt.pyqtSignal()
 
     def __init__(self, layer_stack, parent_item=None):
+        self._new_image = False
         super().__init__(parent_item)
         self.setAcceptHoverEvents(True)
         self.setFlag(Qt.QGraphicsItem.ItemIsFocusable)
@@ -167,7 +168,7 @@ class LayerStackItem(shader_item.ShaderItem):
             if image is None or Qt.QSizeF(image.size) != current_size:
                 self._change_bounding_rect(image)
         self._update_contextual_info()
-        self.image_changed.emit()
+        self._new_image = True
 
     def _on_layer_focus_changed(self, old_layer, layer):
         # The appearence of a layer_stack_item may depend on which layer table row is current while
@@ -330,6 +331,9 @@ class LayerStackItem(shader_item.ShaderItem):
             self.set_blend(estack)
             QGL.glEnableClientState(QGL.GL_VERTEX_ARRAY)
             QGL.glDrawArrays(QGL.GL_TRIANGLE_FAN, 0, 4)
+        if self._new_image:
+            self.new_image_painted.emit()
+            self._new_image = False
 
     @staticmethod
     def _normalize_for_gl(v, image):

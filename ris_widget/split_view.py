@@ -5,13 +5,13 @@ from PyQt5 import Qt
 from . import ris_widget
 
 class LinkedRisWidget(ris_widget.RisWidgetBase):
-    def __init__(self, src_rw, link_zoom=False, parent=None):
+    def __init__(self, src_ris_widget, link_zoom=False, parent=None):
         super().__init__(parent=parent)
-        src_rw.layer_stack.layer_focus_changed.connect(self._on_src_layer_focus_changed)
-        self._on_src_layer_focus_changed(src_rw.layer_stack, None, src_rw.focused_layer)
+        src_ris_widget.layer_stack.layer_focus_changed.connect(self._on_src_layer_focus_changed)
+        self._on_src_layer_focus_changed(src_ris_widget.layer_stack, None, src_ris_widget.focused_layer)
         if link_zoom:
             self.image_view.allow_wheel_zoom = False
-            src_rw.image_view.zoom_changed.connect(self._src_zoom_changed)
+            src_ris_widget.image_view.zoom_changed.connect(self._src_zoom_changed)
 
     def _on_src_layer_changed(self, layer):
         dst_layer = self.layers[0]
@@ -30,12 +30,12 @@ class LinkedRisWidget(ris_widget.RisWidgetBase):
         self.image_view.zoom = zoom
 
 
-def split_view_rw(rw):
-    rw.alt_view = LinkedRisWidget(rw, parent=rw)
-    rw.splitter = Qt.QSplitter(Qt.Qt.Vertical)
-    rw.splitter.addWidget(rw.qt_object.takeCentralWidget())
-    rw.splitter.setStretchFactor(0, 45)
-    rw.splitter.setCollapsible(0, False)
-    rw.splitter.addWidget(rw.alt_view.image_view)
-    rw.splitter.setStretchFactor(1, 10)
-    rw.qt_object.setCentralWidget(rw.splitter)
+def split_view(ris_widget):
+    ris_widget.alt_view = LinkedRisWidget(ris_widget, parent=ris_widget)
+    ris_widget.splitter = Qt.QSplitter(Qt.Qt.Vertical)
+    ris_widget.splitter.addWidget(ris_widget.qt_object.takeCentralWidget())
+    ris_widget.splitter.setStretchFactor(0, 45)
+    ris_widget.splitter.setCollapsible(0, False)
+    ris_widget.splitter.addWidget(ris_widget.alt_view.image_view)
+    ris_widget.splitter.setStretchFactor(1, 10)
+    ris_widget.qt_object.setCentralWidget(ris_widget.splitter)

@@ -35,7 +35,7 @@ class RWGeometryItemMixin:
         self.display_pen.setCosmetic(True)
         self.selected_pen = Qt.QPen(self.display_pen)
         self.selected_pen.setColor(Qt.Qt.red)
-        self.rw = ris_widget
+        self.ris_widget = ris_widget
         self.setPen(self.display_pen)
         self.geometry_change_callbacks = []
         self._mouse_connected = False
@@ -56,9 +56,9 @@ class RWGeometryItemMixin:
     def remove(self):
         self.parentItem().removeSceneEventFilter(self)
         if self._mouse_connected:
-            self.rw.image_view.mouse_release.disconnect(self._view_mouse_release)
-        self.rw.image_scene.removeItem(self)
-        del self.rw
+            self.ris_widget.image_view.mouse_release.disconnect(self._view_mouse_release)
+        self.ris_widget.image_scene.removeItem(self)
+        del self.ris_widget
 
     def shape(self):
         # make the shape larger than the visible lines to make it easier to click on
@@ -90,14 +90,14 @@ class RWGeometryItemMixin:
             if value:
                 # Usually when the item is constructed we get a "made visible" event first thing,
                 # so this is where we'll connect the mouse function.
-                self.rw.image_view.mouse_release.connect(self._view_mouse_release)
+                self.ris_widget.image_view.mouse_release.connect(self._view_mouse_release)
                 self._mouse_connected = True
             elif self._mouse_connected:
                 # if the item is constructed and immediately hidden, a visibility change
                 # to invisible will be the first change! So there will be no
                 # connection made and the disconnect below will be an error unless
                 # we make sure only to disconnect after a connect has occured
-                self.rw.image_view.mouse_release.disconnect(self._view_mouse_release)
+                self.ris_widget.image_view.mouse_release.disconnect(self._view_mouse_release)
                 self._mouse_connected = False
         return value
 

@@ -27,7 +27,7 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
     def _update_image_shape(self):
         # bounding rect change means that the image at layers[0] has changed in some way
         self.image_shape = None
-        layers = self.rw.layer_stack.layers
+        layers = self.ris_widget.layer_stack.layers
         if len(layers) > 0 and layers[0].image is not None:
             self.image_shape = layers[0].image.data.shape
         self._update_path()

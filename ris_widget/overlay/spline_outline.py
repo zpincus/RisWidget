@@ -18,9 +18,9 @@ class SplineOutline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def __init__(self, ris_widget, color=Qt.Qt.green):
         if not hasattr(ris_widget, 'alt_view'):
-            split_view.split_view_rw(ris_widget)
+            split_view.split_view(ris_widget)
         pen = Qt.QPen(color)
-        pen.setWidth(3)
+        pen.setWidth(2)
         self.center_spline = center_spline.CenterSpline(ris_widget, pen=pen)
         # need to construct width_spline second to make sure its scene event filter is added last
         pen.setWidth(1.5)
@@ -92,12 +92,12 @@ class CenterSplineWarper(base.SceneListener):
         self.center_spline = center_spline
         self.width_spline = width_spline
         center_spline.geometry_change_callbacks.append(self._update_warped_view)
-        center_spline.rw.layer_stack.focused_image_changed.connect(self._update_warped_view)
+        center_spline.ris_widget.layer_stack.focused_image_changed.connect(self._update_warped_view)
         self._update_warped_view()
 
     def remove(self):
         super().remove()
-        self.center_spline.rw.layer_stack.focused_image_changed.disconnect(self._update_warped_view)
+        self.center_spline.ris_widget.layer_stack.focused_image_changed.disconnect(self._update_warped_view)
         self.center_spline.geometry_change_callbacks.remove(self._update_warped_view)
 
     def _update_warped_view(self, _=None):
@@ -105,7 +105,7 @@ class CenterSplineWarper(base.SceneListener):
         # tck if called from geometry_change_callbacks... we ignore and fetch both as
         # needed.
         tck = self.center_spline._tck
-        image = self.center_spline.rw.layer_stack.focused_image
+        image = self.center_spline.ris_widget.layer_stack.focused_image
         if tck is None or image is None:
             self.warped_view.image = None
         else:

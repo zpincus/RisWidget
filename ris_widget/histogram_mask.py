@@ -5,9 +5,9 @@ from PyQt5 import Qt
 from .overlay import centered_circle
 
 class _MaskRegion(Qt.QObject):
-    def __init__(self, rw):
+    def __init__(self, ris_widget):
         super().__init__()
-        self.ellipse = Qt.QGraphicsEllipseItem(rw.image_scene.layer_stack_item)
+        self.ellipse = Qt.QGraphicsEllipseItem(ris_widget.image_scene.layer_stack_item)
         pen = Qt.QPen(Qt.Qt.green)
         pen.setWidth(3)
         pen.setStyle(Qt.Qt.DashLine)
@@ -33,14 +33,14 @@ class _MaskRegion(Qt.QObject):
 class HistogramMask:
     DEFAULT_MASKS = {None: None, 0.7: (0.5, 0.5, 0.4), 1: (0.5, 0.5, 0.55), 'custom': (0.5, 0.5, 0.25)}
 
-    def __init__(self, rw, menu):
+    def __init__(self, ris_widget, menu):
         self.masks = dict(self.DEFAULT_MASKS)
-        self.layer_stack = rw.layer_stack
-        self.mask_circle = centered_circle.CenteredCircle(rw)
+        self.layer_stack = ris_widget.layer_stack
+        self.mask_circle = centered_circle.CenteredCircle(ris_widget)
         self.mask_circle.hide()
         self.mask_circle.geometry_change_callbacks.append(self.geometry_changed)
 
-        self.display_mask = _MaskRegion(rw)
+        self.display_mask = _MaskRegion(ris_widget)
 
         hist_mask = menu.addMenu('Histogram Mask')
         mask_actions = Qt.QActionGroup(menu)

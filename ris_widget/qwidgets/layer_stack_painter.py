@@ -127,8 +127,8 @@ class ImageValEdit(LabelEdit):
             return str(value[0])
 
 class LayerStackPainter(Qt.QWidget):
-    def __init__(self, rw, parent=None):
-        self.painter_item = layer_stack_painter_item.LayerStackPainterItem(rw.image_scene.layer_stack_item)
+    def __init__(self, ris_widget, parent=None):
+        self.painter_item = layer_stack_painter_item.LayerStackPainterItem(ris_widget.image_scene.layer_stack_item)
         super().__init__(parent)
         self.setWindowTitle('Layer Painter')
         widget_layout = Qt.QVBoxLayout()

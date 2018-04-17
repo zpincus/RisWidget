@@ -2,13 +2,13 @@
 
 """
 Example 1: Simple ROI drawing
-    roi = RectROI(rw)
+    roi = RectROI(ris_widget)
     # click to draw ROI in GUI
     (x1, y1), (x2, y2) = roi.geometry
     roi.remove()
 
 Example 2: Pre-set bounds with a specified aspect ratio (width/height):
-    roi = EllipseROI(rw, aspect=2, geometry=((200, 400), (600, 500)))
+    roi = EllipseROI(ris_widget, aspect=2, geometry=((200, 400), (600, 500)))
 """
 
 from PyQt5 import Qt

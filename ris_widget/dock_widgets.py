@@ -7,31 +7,28 @@ from .qwidgets import layer_stack_painter
 from .qwidgets import annotator
 
 class _RWDockWidget(Qt.QDockWidget):
-    def __init__(self, rw, name):
-        rw = rw.qt_object
-        super().__init__(name, rw)
+    @classmethod
+    def add_dock_widget(cls, ris_widget, **widget_kws):
+        dock_widget = cls(ris_widget, **widget_kws)
+        return dock_widget, dock_widget.widget
+
+    def __init__(self, ris_widget, **widget_kws):
+        super().__init__(self.name, ris_widget)
         self.setAllowedAreas(Qt.Qt.RightDockWidgetArea | Qt.Qt.LeftDockWidgetArea)
         self.setFeatures(Qt.QDockWidget.DockWidgetClosable |
             Qt.QDockWidget.DockWidgetFloatable | Qt.QDockWidget.DockWidgetMovable)
-        rw.addDockWidget(Qt.Qt.RightDockWidgetArea, self)
-        self._init_widget(rw)
+        ris_widget.addDockWidget(Qt.Qt.RightDockWidgetArea, self)
+        self.widget = self.widget_class(ris_widget, parent=ris_widget, **widget_kws)
         self.setWidget(self.widget)
-        rw.dock_widget_visibility_toolbar.addAction(self.toggleViewAction())
+        ris_widget.dock_widget_visibility_toolbar.addAction(self.toggleViewAction())
         self.show()
 
 
 class Painter(_RWDockWidget):
-    def __init__(self, rw):
-        super().__init__(rw, 'Painter')
-
-    def _init_widget(self, rw):
-        self.widget = layer_stack_painter.LayerStackPainter(rw, parent=self)
+    name = 'Painter'
+    widget_class = layer_stack_painter.LayerStackPainter
 
 
 class Annotator(_RWDockWidget):
-    def __init__(self, rw, fields):
-        self.fields = fields
-        super().__init__(rw, 'Annotator')
-
-    def _init_widget(self, rw):
-        self.widget = annotator.Annotator(rw, self.fields, parent=self)
+    name = 'Annotator'
+    widget_class = annotator.Annotator
