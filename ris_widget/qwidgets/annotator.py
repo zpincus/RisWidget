@@ -16,7 +16,7 @@ class AnnotationField:
         self.widget.setEnabled(False)
 
     def init_widget(self):
-        """Overrride in subclass to initialize widget."""
+        """Override in subclass to initialize widget."""
         raise NotImplementedError
 
     def set_annotation_page(self, page):
@@ -29,7 +29,7 @@ class AnnotationField:
         else:
             if self.ENABLABLE:
                 self.widget.setEnabled(True)
-            annotation = self.get_annotation(page, setdefault=True)
+            annotation = self.get_annotation(page)
         self.update_widget(annotation)
 
     def update_annotation(self, value):
@@ -42,7 +42,7 @@ class AnnotationField:
             # advance to next page in 750 ms
             Qt.QTimer.singleShot(750, self.flipbook.focus_next_page)
 
-    def get_annotation(self, page=None, setdefault=False):
+    def get_annotation(self, page=None):
         """Get the current annotation for the page, or return the default (and
         also set that default as the current annotation)"""
         if page is None:
@@ -51,8 +51,7 @@ class AnnotationField:
             page.annotations = {}
         if self.name not in page.annotations:
             default = self.default_annotation_for_page(page)
-            if setdefault:
-                page.annotations[self.name] = default
+            page.annotations[self.name] = default
             return default
         else:
             return page.annotations[self.name]
@@ -220,11 +219,10 @@ class Annotator(Qt.QWidget):
     def all_annotations(self):
         all_annotations = []
         for page in self.flipbook.pages:
-            page_annotations = {}
             for field in self.fields:
-                # the below will return either the current annotation or the default
-                page_annotations[field.name] = field.get_annotation(page)
-            all_annotations.append(page_annotations)
+                # the below will set the field's annotation to the default value if it's not present
+                field.get_annotation(page)
+            all_annotations.append(page.annotations)
         return all_annotations
 
     @all_annotations.setter
@@ -237,5 +235,5 @@ class Annotator(Qt.QWidget):
             page.annotations.update(new_annotations)
             for field in self.fields:
                 # the below will set the field's annotation to the default value if it's not present
-                field.get_annotation(page, setdefault=True)
+                field.get_annotation(page)
         self.update_fields()
