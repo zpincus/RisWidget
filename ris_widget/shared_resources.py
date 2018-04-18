@@ -11,6 +11,8 @@ from PyQt5 import Qt
 import sip
 
 _QAPPLICATION = None
+ICON = None
+
 def init_qapplication(icon_resource_path=(__name__, 'icon.svg')):
     global _QAPPLICATION
     if _QAPPLICATION is None:
@@ -20,8 +22,8 @@ def init_qapplication(icon_resource_path=(__name__, 'icon.svg')):
         post_qapp_initialization()
 
         if icon_resource_path is not None:
-            iconfile = pkg_resources.resource_filename(*icon_resource_path)
-            _QAPPLICATION.setWindowIcon(Qt.QIcon(iconfile))
+            ICON = Qt.QIcon(pkg_resources.resource_filename(*icon_resource_path))
+            _QAPPLICATION.setWindowIcon(ICON)
 
         try:
             # are we running in IPython?

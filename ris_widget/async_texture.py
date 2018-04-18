@@ -98,7 +98,7 @@ class AsyncTexture:
             else:
                 alloc_texture = False
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-            w, h = self.data.shape
+            w, h = self.data.shape[:2]
 
             if alloc_texture:
                 GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_LEVEL, 6)

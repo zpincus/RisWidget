@@ -2,6 +2,8 @@
 
 from PyQt5 import Qt
 
+import pkg_resources
+
 from . import shared_resources
 from . import internal_util
 from . import layer
@@ -36,7 +38,7 @@ Qt.pyqtRemoveInputHook()
 
 class RisWidgetBase:
     def __init__(self, parent=None):
-        shared_resources.init_qapplication()
+        self.qapp = shared_resources.init_qapplication()
         self.layer_stack = layer_stack.LayerStack()
         self.image_scene = qgraphicsscenes.ImageScene(self.layer_stack, parent)
         self.image_view = image_view.ImageView(self.image_scene, parent)
@@ -78,7 +80,8 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
     def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
         RisWidgetBase.__init__(self, parent=self)
         Qt.QMainWindow.__init__(self, parent)
-        self.setWindowIcon(Qt.QIcon())
+        if shared_resources.ICON is not None:
+            self.setWindowIcon()
         self.app_prefs_name = app_prefs_name
         self._shown = False
         # TODO: is below workaround still necessary?
@@ -416,7 +419,10 @@ class RisWidget:
     flipbook_pages = internal_util.ProxyProperty('flipbook', flipbook.Flipbook.pages)
 
 def main():
+    import sys
     ris_widget = RisWidget()
+    if len(sys.argv) > 1:
+        ris_widget.add_image_files_to_flipbook(sys.argv[1:])
     shared_resources._QAPPLICATION.exec()
 
 if __name__ == '__main__':
