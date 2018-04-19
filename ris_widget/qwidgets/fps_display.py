@@ -10,42 +10,32 @@ class FPSDisplay(Qt.QWidget):
     and hidden with a signal attached to .notify."""
     def __init__(self, changed_signal, parent=None):
         super().__init__(parent)
-        l = Qt.QGridLayout()
+        l = Qt.QFormLayout()
         self.setLayout(l)
         self.intervals = None
         self.fpss = None
         self._sample_count = None
         self.acquired_sample_count = 0
         self.prev_t = None
-        r = 0
-        self.sample_count_label = Qt.QLabel('Sample count: ')
         self.sample_count_spinbox = Qt.QSpinBox()
         self.sample_count_spinbox.setRange(2, 1024)
         self.sample_count_spinbox.valueChanged[int].connect(self._on_sample_count_spinbox_value_changed)
-        l.addWidget(self.sample_count_label, r, 0, Qt.Qt.AlignRight)
-        l.addWidget(self.sample_count_spinbox, r, 1)
-        r += 1
-        self.rate_label = Qt.QLabel('Framerate: ')
+        l.addRow('Sample count:', self.sample_count_spinbox)
+        fps_box = Qt.QHBoxLayout()
+        fps_box.setSpacing(3)
+        l.addRow(fps_box)
         self.rate_field = Qt.QLabel()
         self.rate_field.setFont(Qt.QFont('Courier'))
-        self.rate_suffix_label = Qt.QLabel('fps')
-        l.addWidget(self.rate_label, r, 0, Qt.Qt.AlignRight)
-        l.addWidget(self.rate_field, r, 1, Qt.Qt.AlignRight)
-        l.addWidget(self.rate_suffix_label, r, 2, Qt.Qt.AlignLeft)
-        r += 1
-        self.interval_label = Qt.QLabel('Interval: ')
+        rate_suffix = Qt.QLabel('fps')
+        fps_box.addWidget(self.rate_field, alignment=Qt.Qt.AlignRight)
+        fps_box.addWidget(rate_suffix, alignment=Qt.Qt.AlignLeft)
+        fps_box.addSpacing(12)
         self.interval_field = Qt.QLabel()
         self.interval_field.setFont(Qt.QFont('Courier'))
-        self.interval_suffix_label = Qt.QLabel()
-        l.addWidget(self.interval_label, r, 0, Qt.Qt.AlignRight)
-        l.addWidget(self.interval_field, r, 1, Qt.Qt.AlignRight)
-        l.addWidget(self.interval_suffix_label, r, 2, Qt.Qt.AlignLeft)
-        r += 1
-        sp = Qt.QSpacerItem(0, 0, Qt.QSizePolicy.MinimumExpanding, Qt.QSizePolicy.MinimumExpanding)
-        l.addItem(sp, r, 0, 1, -1)
-        l.setColumnStretch(0, 0)
-        l.setColumnStretch(1, 1)
-        l.setColumnStretch(2, 0)
+        self.interval_suffix = Qt.QLabel()
+        fps_box.addWidget(self.interval_field, alignment=Qt.Qt.AlignRight)
+        fps_box.addWidget(self.interval_suffix, alignment=Qt.Qt.AlignLeft)
+
         self.sample_count = 60
         changed_signal.connect(self.notify)
 
@@ -94,13 +84,13 @@ class FPSDisplay(Qt.QWidget):
             interval = intervals.mean()
             fpss = self.fpss[:end]
             fps = fpss.mean()
-            self.rate_field.setText('{:.1f}'.format(fps))
+            self.rate_field.setText('{:.1f}'.format(round(fps, 1)))
             if interval > 1:
-                self.interval_field.setText('{:.1f}'.format(interval))
-                self.interval_suffix_label.setText('s')
+                self.interval_suffix.setText('s/frame')
             else:
-                self.interval_field.setText('{:.1f}'.format(interval * 1000))
-                self.interval_suffix_label.setText('ms')
+                interval *= 1000
+                self.interval_suffix.setText('ms/frame')
+            self.interval_field.setText('{:.1f}'.format(round(interval, 1)))
 
     def _on_sample_count_spinbox_value_changed(self, sample_count):
         self.sample_count = sample_count
