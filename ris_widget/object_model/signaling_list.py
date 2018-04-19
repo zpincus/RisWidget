@@ -1,10 +1,10 @@
 # This code is licensed under the MIT License (see LICENSE file for details)
 
-from collections.abc import MutableSequence
+from collections import abc
 from PyQt5 import Qt
 import textwrap
 
-class _QtAbcMeta(type(Qt.QObject), type(MutableSequence)):
+class _QtAbcMeta(type(Qt.QObject), type(abc.MutableSequence)):
     # for SignalingList below to inherit from QObject and MutableSequence,
     # it has to have a metaclass that is the superset of the metaclasses for
     # QObject and MutableSequence. Using type above is the simplest way to grab
@@ -12,7 +12,7 @@ class _QtAbcMeta(type(Qt.QObject), type(MutableSequence)):
     # time in pyQt.)
     pass
 
-class SignalingList(Qt.QObject, MutableSequence, metaclass=_QtAbcMeta):
+class SignalingList(Qt.QObject, abc.MutableSequence, metaclass=_QtAbcMeta):
     """
     SignalingList: a list-like container representing a collection of objects that
     emits change signals when one or more elements is inserted, removed, or replaced.

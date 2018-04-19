@@ -368,9 +368,8 @@ class LayerStackItem(shader_item.ShaderItem):
             visible_idxs = []
         bound = set()
         for tex_unit, idx in enumerate(visible_idxs):
-            layer = layer_stack.layers[idx]
-            image = layer.image
-            if image not in bound:
-                image.texture.bind(tex_unit)
-                bound.add(image)
+            texture = layer_stack.layers[idx].texture
+            if texture not in bound:
+                texture.bind(tex_unit)
+                bound.add(texture)
         return visible_idxs

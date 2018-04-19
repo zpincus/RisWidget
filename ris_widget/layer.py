@@ -138,15 +138,13 @@ class Layer(qt_property.QtPropertyOwner):
         self._image = None
         super().__init__(parent)
         self.image_changed.connect(self.changed)
-        if image is not None:
-            self.image = image
-        else:
-            # self._image is already None, so setting self.image = None will just
-            # return immediately from the setter, without setting the below.
-            self.dtype = None
-            self.type = None
-            self.size = None
-            self.name = None
+        self.texture = async_texture.AsyncTexture()
+        # need to be set already for self.image setter to work propery
+        self.dtype = None
+        self.type = None
+        self.size = None
+        self.name = None
+        self.image = image
 
 
     def __repr__(self):
@@ -179,17 +177,10 @@ class Layer(qt_property.QtPropertyOwner):
         if new_image is not None:
             if not isinstance(new_image, image.Image):
                 new_image = image.Image(new_image)
-            try:
-                new_image.changed.connect(self._on_image_changed)
-            except Exception as e:
-                if self._new_image is not None:
-                    self._new_image.changed.disconnect(self._on_image_changed)
-                self._image = None
-                raise e
+            new_image.changed.connect(self._on_image_changed)
 
         if self._image is not None:
             # deallocate old texture when we're done with it.
-            self._image.texture.destroy()
             self._image.changed.disconnect(self._on_image_changed)
 
         self._image = new_image
@@ -218,7 +209,7 @@ class Layer(qt_property.QtPropertyOwner):
         if self.image is not None:
             # upload texture before calculating the histogram, so that the background texture upload (slow) runs in
             # parallel with the foreground histogram calculation (slow)
-            self.image.texture.upload(changed_region)
+            self.texture.upload(self.image, changed_region)
             self.calculate_histogram()
         self._update_property_defaults()
         if self.image is not None:

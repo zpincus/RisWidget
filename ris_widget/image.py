@@ -5,8 +5,6 @@ import ctypes
 import numpy
 from PyQt5 import Qt
 
-from . import async_texture
-
 class Image(Qt.QObject):
     """An instance of the Image class is a wrapper around a Numpy ndarray representing a single image.
 
@@ -63,8 +61,6 @@ class Image(Qt.QObject):
             self.valid_range = self.NUMPY_DTYPE_TO_RANGE[data.dtype.type]
 
         self.name = name
-        self.texture = async_texture.AsyncTexture(self)
-        self.refresh()
 
     def __repr__(self):
         return '{}; {}x{} ({})>'.format(super().__repr__()[:-1], self.size.width(), self.size.height(), self.type)

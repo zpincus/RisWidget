@@ -10,6 +10,8 @@ import numpy
 from PyQt5 import Qt
 import sip
 
+from . import async_texture
+
 _QAPPLICATION = None
 ICON = None
 
@@ -80,18 +82,22 @@ def pre_qapp_initialization():
     GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
     Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
 
-OFFSCREEN_SURFACE = None
-OFFSCREEN_CONTEXT = None
+# OFFSCREEN_SURFACE = None
+# OFFSCREEN_CONTEXT = None
 def post_qapp_initialization():
-    global OFFSCREEN_SURFACE, OFFSCREEN_CONTEXT
-    assert OFFSCREEN_SURFACE is None
-    OFFSCREEN_SURFACE = Qt.QOffscreenSurface()
-    OFFSCREEN_SURFACE.setFormat(GL_QSURFACE_FORMAT)
-    OFFSCREEN_SURFACE.create()
-    OFFSCREEN_CONTEXT = Qt.QOpenGLContext()
-    OFFSCREEN_CONTEXT.setShareContext(Qt.QOpenGLContext.globalShareContext())
-    OFFSCREEN_CONTEXT.setFormat(GL_QSURFACE_FORMAT)
-    OFFSCREEN_CONTEXT.create()
+    # spin up the offscreen context before anything else (for some reason on
+    # some machines, this improves FPS. TODO: Does it really? Why??)
+    async_texture.OffscreenContextThread.get()
+# TODO: delete all this stuff (plus offscreen_context below, etc) if truly worthless
+#     global OFFSCREEN_SURFACE, OFFSCREEN_CONTEXT
+#     assert OFFSCREEN_SURFACE is None
+#     OFFSCREEN_SURFACE = Qt.QOffscreenSurface()
+#     OFFSCREEN_SURFACE.setFormat(GL_QSURFACE_FORMAT)
+#     OFFSCREEN_SURFACE.create()
+#     OFFSCREEN_CONTEXT = Qt.QOpenGLContext()
+#     OFFSCREEN_CONTEXT.setShareContext(Qt.QOpenGLContext.globalShareContext())
+#     OFFSCREEN_CONTEXT.setFormat(GL_QSURFACE_FORMAT)
+#     OFFSCREEN_CONTEXT.create()
 
 def _emit_about_to_quit():
     # With IPython's Qt event loop integration installed, the Qt.QApplication.aboutToQuit signal is not emitted
@@ -104,12 +110,12 @@ def _emit_about_to_quit():
         return
     app.aboutToQuit.emit()
 
-def offscreen_context():
-    estack = contextlib.ExitStack()
-    if Qt.QOpenGLContext.currentContext() is None:
-        estack.callback(OFFSCREEN_CONTEXT.doneCurrent)
-    OFFSCREEN_CONTEXT.makeCurrent(OFFSCREEN_SURFACE)
-    return estack
+# def offscreen_context():
+#     estack = contextlib.ExitStack()
+#     if Qt.QOpenGLContext.currentContext() is None:
+#         estack.callback(OFFSCREEN_CONTEXT.doneCurrent)
+#     OFFSCREEN_CONTEXT.makeCurrent(OFFSCREEN_SURFACE)
+#     return estack
 
 
 _NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType
