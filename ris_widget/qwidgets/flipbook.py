@@ -280,6 +280,11 @@ class Flipbook(Qt.QWidget):
             else:
                 for im, im_name in zip(e.task_page.ims, e.task_page.im_names):
                     e.task_page.page.append(image.Image(im, name=im_name))
+            # break reference cycle (see below)
+            # Note: no race condition here beause event will happen in the same
+            # thread as queue_page_creation_tasks, which is what sets the on_removal
+            # attribute.
+            del e.task_page.page.on_removal
             return True
         return super().event(e)
 
@@ -296,6 +301,8 @@ class Flipbook(Qt.QWidget):
         new_pages = []
         page_futures = []
         for task_page in task_pages:
+            # NB: below sets up a cyclic reference: the future holds a reference to the task page via its on_error_args param
+            # and the task page holds a reference to the future via its cancel method
             future = self.thread_pool.submit(self._read_page_task, task_page, on_error=self._on_task_error, on_error_args=(task_page,))
             task_page.page.on_removal = future.cancel
             new_pages.append(task_page.page)

@@ -98,7 +98,7 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self._init_actions()
         self._init_toolbars()
         self._init_menus()
-        Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
+        self.qapp.aboutToQuit.connect(self._on_about_to_quit)
 
     def _on_about_to_quit(self):
         self.close()

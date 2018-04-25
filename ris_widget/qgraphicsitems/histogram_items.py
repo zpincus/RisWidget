@@ -190,10 +190,10 @@ class HistogramItem(shader_item.ShaderItem):
             self.hide()
         else:
             self.show()
-        self._hist_tex_needs_upload = True
-        self.min_item.arrow_item._on_value_changed()
-        self.max_item.arrow_item._on_value_changed()
-        self.gamma_item._on_value_changed()
+            self._hist_tex_needs_upload = True
+            self.min_item.arrow_item._on_value_changed()
+            self.max_item.arrow_item._on_value_changed()
+            self.gamma_item._on_value_changed()
         if self.scene() is not None:
             self._update_contextual_info()
         self.update()

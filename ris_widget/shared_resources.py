@@ -186,10 +186,10 @@ class _GlQuad:
         self.vao = Qt.QOpenGLVertexArrayObject()
         self.vao.create()
         vao_binder = Qt.QOpenGLVertexArrayObject.Binder(self.vao)
-        quad = numpy.array([1.1, -1.1,
-                            -1.1, -1.1,
-                            -1.1, 1.1,
-                            1.1, 1.1], dtype=numpy.float32)
+        quad = numpy.array([1, -1,
+                            -1, -1,
+                            -1, 1,
+                            1, 1], dtype=numpy.float32)
         self.buffer = Qt.QOpenGLBuffer(Qt.QOpenGLBuffer.VertexBuffer)
         self.buffer.create()
         self.buffer.bind()

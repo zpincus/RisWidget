@@ -46,6 +46,11 @@ class ProgressThreadPool(Qt.QWidget):
             if future.on_error is not None:
                 future.on_error(*future.on_error_args)
             traceback.print_exc()
+        finally:
+            # clean up the future in case error args hold dangling references
+            # (which they do in the flipbook image-loading use-case)
+            del future.on_error
+            del future.on_error_args
 
     def submit(self, task, *args, on_error=None, on_error_args=[], **kws):
         self.increment_queued()
