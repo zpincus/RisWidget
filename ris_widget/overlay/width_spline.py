@@ -21,6 +21,10 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
         super().__init__(ris_widget, pen, geometry)
         self.layer = None
         self.draw_midline = True
+        self.midline = Qt.QGraphicsPathItem(self.parentItem())
+        midline_pen = Qt.QPen(self.display_pen)
+        midline_pen.setStyle(Qt.Qt.DotLine)
+        self.midline.setPen(midline_pen)
         self.parentItem().bounding_rect_changed.connect(self._update_image_shape)
         self._update_image_shape()
 
@@ -35,6 +39,7 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
     def remove(self):
         super().remove()
         self.parentItem().bounding_rect_changed.disconnect(self._update_image_shape)
+        self.ris_widget.image_scene.removeItem(self.midline)
 
     def _update_path(self):
         self.path = Qt.QPainterPath()
@@ -50,8 +55,11 @@ class WidthSpline(center_spline.CenterSpline, Qt.QGraphicsPathItem):
                 for x, y in zip(image_x[::-1], centerline_y + points[::-1]):
                     self.path.lineTo(x, y)
                 self.path.closeSubpath()
-            elif self.draw_midline:
-                self.path.lineTo(width, centerline_y)
+            if self.draw_midline:
+                midline_path = Qt.QPainterPath()
+                midline_path.moveTo(0, centerline_y)
+                midline_path.lineTo(width, centerline_y)
+                self.midline.setPath(midline_path)
         self.setPath(self.path)
 
     def _update_points(self):

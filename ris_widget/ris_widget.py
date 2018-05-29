@@ -80,8 +80,9 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
     def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
         RisWidgetBase.__init__(self, parent=self)
         Qt.QMainWindow.__init__(self, parent)
-        if shared_resources.ICON is not None:
-            self.setWindowIcon()
+        # TODO: is below not necessary to have window icon in linux? Already set app icon elsewhere.
+        # if shared_resources.ICON is not None:
+        #     self.setWindowIcon()
         self.app_prefs_name = app_prefs_name
         self._shown = False
         # TODO: is below workaround still necessary?

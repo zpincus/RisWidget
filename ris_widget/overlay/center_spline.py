@@ -39,7 +39,10 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
         self._update_points()
 
     def _set_tck(self, tck):
-        self.drawing = False
+        if self.drawing:
+            self.display_pen.setStyle(Qt.Qt.SolidLine)
+            self.setPen(self.display_pen)
+            self.drawing = False
         self._tck = tck
         self._update_path()
 
@@ -91,11 +94,9 @@ class CenterSpline(base.RWGeometryItemMixin, Qt.QGraphicsPathItem):
 
     def _stop_drawing(self):
         self._points = numpy.array(self._points)
-        self.display_pen.setStyle(Qt.Qt.SolidLine)
-        self.setPen(self.display_pen)
+        # below calls _set_tck() which sets .drawing to false and resets the pen style...
         self._generate_tck_from_points()
         self._update_points()
-        self.drawing = False
 
     def _add_point(self, pos):
         x, y = pos.x(), pos.y()
