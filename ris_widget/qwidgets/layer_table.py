@@ -25,6 +25,7 @@ class LayerTableView(Qt.QTableView):
         self.horizontalHeader().setStretchLastSection(True)
         self.verticalHeader().setHighlightSections(False)
         self.verticalHeader().setSectionsClickable(False)
+        self.setWordWrap(False)
         self.setTextElideMode(Qt.Qt.ElideMiddle)
         self.checkbox_delegate = checkbox_delegate.CheckboxDelegate(parent=self)
         self.setItemDelegateForColumn(layer_table_model.property_columns['visible'], self.checkbox_delegate)
@@ -89,7 +90,7 @@ class LayerTableView(Qt.QTableView):
         scrollbar = self.horizontalScrollBar()
         if scrollbar.isVisible():
             contents += scrollbar.height() + 3
-        size.setHeight(header + contents)
+        size.setHeight(header + contents + 3)
         return size
 
     def rows_changed(self):

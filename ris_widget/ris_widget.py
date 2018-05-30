@@ -200,7 +200,9 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
     def _init_toolbars(self):
         self.main_view_toolbar = self.addToolBar('Image')
         self.zoom_editor = Qt.QLineEdit()
-        self.zoom_editor.setFixedWidth(68)
+        self.zoom_editor.setAlignment(Qt.Qt.AlignCenter)
+        w = self.zoom_editor.fontMetrics().boundingRect('0000.0%').width()
+        self.zoom_editor.setFixedWidth(w + 14)
         self.zoom_editor.editingFinished.connect(self._on_zoom_editing_finished)
         self.zoom_editor.setAlignment(Qt.Qt.AlignCenter)
         self.main_view_toolbar.addWidget(self.zoom_editor)
