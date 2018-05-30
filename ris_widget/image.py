@@ -72,7 +72,8 @@ class Image(Qt.QObject):
         The .refresh method is primarily useful to cause a user interface to update in response to data changes caused by manipulation of .data or
         another numpy view of the same memory.
 
-        If only a portion of the image changed,
+        If only a portion of the image changed, call with (l, t, w, h) as the
+        bounds of the changed_region.
         """
         self.changed.emit(changed_region)
 
