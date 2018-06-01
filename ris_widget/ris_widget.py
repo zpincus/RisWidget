@@ -413,6 +413,18 @@ class RisWidget:
         """
         Qt.QApplication.processEvents()
 
+    @staticmethod
+    def input(message=''):
+        """Replacement for python-builtin input() which will still allow a RisWidget
+        to update while waiting for input.
+        """
+        import IPython
+        import prompt_toolkit
+        ip = IPython.get_ipython()
+        el = prompt_toolkit.shortcuts.create_eventloop(ip.inputhook)
+        return prompt_toolkit.prompt(message, eventloop=el)
+
+
     image = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.image)
     layer = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.layer)
     focused_layer = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.focused_layer)
