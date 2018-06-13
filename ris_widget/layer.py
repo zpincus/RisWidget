@@ -289,7 +289,7 @@ class Layer(qt_property.QtPropertyOwner):
         if self.image is not None:
             l, h = self.image.valid_range
             if not l <= v <= h:
-                warnings.warn('min/max values for this image must be in the closed interval [{}, {}].'.format(*r))
+                warnings.warn('min/max values for this image must be in the closed interval [{}, {}].'.format(l, h))
                 return False
 
     def _min_post_set(self, v):
