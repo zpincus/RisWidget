@@ -433,12 +433,22 @@ class RisWidget:
     # although flipbook_pages saves no characters compared to flipbook.pages, flipbook_pages is nice to have.
     flipbook_pages = internal_util.ProxyProperty('flipbook', flipbook.Flipbook.pages)
 
-def main():
+def main(argv=None):
     import sys
-    ris_widget = RisWidget()
-    if len(sys.argv) > 1:
-        ris_widget.add_image_files_to_flipbook(sys.argv[1:])
-    shared_resources._QAPPLICATION.exec()
+    import argparse
+    parser = argparse.ArgumentParser(description="zplab image viewer")
+    parser.add_argument('images', nargs="*", metavar='image', help='image files to open')
+    default_desktop_dir = '/usr/local/share/applications'
+    parser.add_argument('--install-desktop-file', nargs='?', metavar='dir', const=default_desktop_dir,
+         help=f'install linux .desktop file to specified directory (or, if not specified, {default_desktop_dir})')
+    args = parser.parse_args(argv)
+    if args.install_desktop_file:
+        from . import install_desktop_file
+        install_desktop_file.install_desktop_file(args.install_desktop_file)
+    else:
+        ris_widget = RisWidget()
+        ris_widget.add_image_files_to_flipbook(args.images)
+        shared_resources._QAPPLICATION.exec()
 
 if __name__ == '__main__':
     main()

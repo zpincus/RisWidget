@@ -233,6 +233,9 @@ class Flipbook(Qt.QWidget):
         for page_paths in self._expand_to_path_list(image_paths):
             paths.append(list(map(pathlib.Path, self._expand_to_path_list(page_paths))))
 
+        if len(paths) == 0:
+            return []
+
         if page_names is None:
             abspaths = []
             flat_abspaths = []
