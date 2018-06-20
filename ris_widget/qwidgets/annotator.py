@@ -198,6 +198,7 @@ class Annotator(Qt.QWidget):
                 else:
                     layout.addRow(field.name, field.widget)
             else:
+                # assume a "group" of fields that has a fields and widget attribute
                 self.fields.extend(field.fields)
                 layout.addRow(field.widget)
         for field in self.fields:
