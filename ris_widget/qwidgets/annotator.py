@@ -157,7 +157,6 @@ class OverlayAnnotation(NonWidgetAnnotation):
         super().update_widget(value)
         self.overlay.geometry = value
 
-
 class Annotator(Qt.QWidget):
     """Widget to annotate flipbook pages with notes or geometry from the GUI.
 
@@ -165,6 +164,13 @@ class Annotator(Qt.QWidget):
     visiting that page with the annotator widget open. These annotations can be
     accessed directly, or via the 'all_annotations' property of this class,
     which has the advantage of filling in default values for unseen pages.
+
+    Parameters:
+        ris_widget: ris_widget.RisWidget instance
+        fields: list of AnnotationField instances and/or "groups" of several
+            AnnotationField instances. A "group" is defined as an instance of a
+            class that provides two attributes: a 'fields' list, and a 'widget'
+            to add to the annotator layout.
 
     Example:
     fields = [BoolField('alive', default=True), ChoicesField('stage', ['L1', 'L2'])]
@@ -183,12 +189,18 @@ class Annotator(Qt.QWidget):
         layout = Qt.QFormLayout()
         layout.setFieldGrowthPolicy(layout.ExpandingFieldsGrow)
         self.setLayout(layout)
-        self.fields = fields
-        for field in self.fields:
-            if isinstance(field.widget, Qt.QGroupBox):
-                layout.addRow(field.widget)
+        self.fields = []
+        for field in fields:
+            if isinstance(field, AnnotationField):
+                self.fields.append(field)
+                if isinstance(field.widget, Qt.QGroupBox):
+                    layout.addRow(field.widget)
+                else:
+                    layout.addRow(field.name, field.widget)
             else:
-                layout.addRow(field.name, field.widget)
+                self.fields.extend(field.fields)
+                layout.addRow(field.widget)
+        for field in self.fields:
             field.flipbook = ris_widget.flipbook
         self.flipbook = ris_widget.flipbook
         self.flipbook.current_page_changed.connect(self.update_fields)
