@@ -13,7 +13,7 @@ vec2 transform_frag_to_tex()
     return tex_coord_h.xy / tex_coord_h.z;
 }
 
-$color_transform_procedures
+$color_transforms
 
 void main()
 {

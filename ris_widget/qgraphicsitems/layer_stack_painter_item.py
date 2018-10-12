@@ -57,8 +57,8 @@ class LayerStackPainterItem(Qt.QGraphicsObject):
             return self.brush
 
     def sceneEventFilter(self, watched, event):
-        if not (self.isVisible() and self.target_image is not None
-                and event.type() in {Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove}):
+        if not (self.isVisible() and self.target_image is not None and
+                event.type() in {Qt.QEvent.GraphicsSceneMousePress, Qt.QEvent.GraphicsSceneMouseMove}):
             return False
 
         brush = self._brush_for_click(event)

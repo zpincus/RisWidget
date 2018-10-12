@@ -16,9 +16,9 @@ class Image(Qt.QObject):
     changed = Qt.pyqtSignal(object)
 
     NUMPY_DTYPE_TO_RANGE = {
-        numpy.bool8  : (False, True),
-        numpy.uint8  : (0, 255),
-        numpy.uint16 : (0, 65535),
+        numpy.bool8: (False, True),
+        numpy.uint8: (0, 255),
+        numpy.uint16: (0, 65535),
         numpy.float32: (-numpy.inf, numpy.inf)}
 
     def __init__(self, data, image_bits=None, name=None, parent=None):

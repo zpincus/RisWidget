@@ -67,7 +67,7 @@ class Property(property):
             v = self.coerce_arg_fn(v)
         if not hasattr(obj, self.var_name) or not _equals(v, getattr(obj, self.var_name)):
             if self.pre_set_callback is not None:
-                if self.pre_set_callback(obj, v) == False:
+                if self.pre_set_callback(obj, v) is False:
                     return
             setattr(obj, self.var_name, v)
             if self.post_set_callback is not None:

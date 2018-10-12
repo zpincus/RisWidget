@@ -92,7 +92,7 @@ class HistogramItem(shader_item.ShaderItem):
                 if tex is not None:
                     if tex.width() != desired_tex_width:
                         tex.destroy()
-                        tex  = None
+                        tex = None
                 if tex is None:
                     tex = Qt.QOpenGLTexture(Qt.QOpenGLTexture.Target1D)
                     tex.setFormat(Qt.QOpenGLTexture.R32F)
@@ -112,14 +112,6 @@ class HistogramItem(shader_item.ShaderItem):
                     estack.callback(tex.release)
                 max_bin_val = histogram.max()
                 if self._hist_tex_needs_upload:
-                    # TODO: histogram (uint32) should always be 4-byte aligned... Check that the below isn't needed on other platforms though.
-                    # orig_unpack_alignment = QGL.glGetIntegerv(QGL.GL_UNPACK_ALIGNMENT)
-                    # if orig_unpack_alignment != 1:
-                    #     QGL.glPixelStorei(QGL.GL_UNPACK_ALIGNMENT, 1)
-                    #     # QPainter font rendering for OpenGL surfaces will become broken if we do not restore GL_UNPACK_ALIGNMENT
-                    #     # to whatever QPainter had it set to (when it prepared the OpenGL context for our use as a result of
-                    #     # qpainter.beginNativePainting()).
-                    #     estack.callback(QGL.glPixelStorei, QGL.GL_UNPACK_ALIGNMENT, orig_unpack_alignment)
                     GL.glTexSubImage1D(
                         GL.GL_TEXTURE_1D, 0, 0, desired_tex_width, GL.GL_RED,
                         GL.GL_UNSIGNED_INT,
@@ -239,14 +231,6 @@ class MinMaxArrowItem(Qt.QGraphicsObject):
         self.setFlag(Qt.QGraphicsItem.ItemIgnoresParentOpacity)
         self.setFlag(Qt.QGraphicsItem.ItemIgnoresTransformations)
         self.setFlag(Qt.QGraphicsItem.ItemIsMovable)
-        # GUI behavior is much more predictable with min/max arrow item selectability disabled:
-        # with ItemIsSelectable enabled, min/max items can exhibit some very unexpected behaviors, as we
-        # do not do anything differently in our paint function if the item is selected vs not, making
-        # it unlikely one would realize one or more items are selected.  If multiple items are selected,
-        # they will move together when one is dragged.  Additionally, arrow key presses would move
-        # selected items if their viewport has focus (viewport focus is also not indicated).
-        # Items are non-selectable by default; the following line is present only to make intent clear.
-        #self.setFlag(Qt.QGraphicsItem.ItemIsSelectable, False)
         self._ignore_x_change = internal_util.Condition()
         self.setY(0.5)
         self.xChanged.connect(self._on_x_changed)

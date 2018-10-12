@@ -75,9 +75,9 @@ class BrushSizeEdit(LabelEdit):
 
 class ImageValEdit(LabelEdit):
     NUMPY_DTYPE_TO_TYPE = {
-        numpy.bool8  : bool,
-        numpy.uint8  : int,
-        numpy.uint16 : int,
+        numpy.bool8: bool,
+        numpy.uint8: int,
+        numpy.uint16: int,
         numpy.float32: float}
 
     def connect_image(self, image, max_default=True):

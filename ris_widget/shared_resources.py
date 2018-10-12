@@ -1,8 +1,6 @@
 # This code is licensed under the MIT License (see LICENSE file for details)
 
-import contextlib
 import atexit
-import sys
 import pkg_resources
 import signal
 
@@ -82,22 +80,10 @@ def pre_qapp_initialization():
     GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
     Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
 
-# OFFSCREEN_SURFACE = None
-# OFFSCREEN_CONTEXT = None
 def post_qapp_initialization():
     # spin up the offscreen context before anything else (for some reason on
     # some machines, this improves FPS. TODO: Does it really? Why??)
     async_texture.OffscreenContextThread.get()
-# TODO: delete all this stuff (plus offscreen_context below, etc) if truly worthless
-#     global OFFSCREEN_SURFACE, OFFSCREEN_CONTEXT
-#     assert OFFSCREEN_SURFACE is None
-#     OFFSCREEN_SURFACE = Qt.QOffscreenSurface()
-#     OFFSCREEN_SURFACE.setFormat(GL_QSURFACE_FORMAT)
-#     OFFSCREEN_SURFACE.create()
-#     OFFSCREEN_CONTEXT = Qt.QOpenGLContext()
-#     OFFSCREEN_CONTEXT.setShareContext(Qt.QOpenGLContext.globalShareContext())
-#     OFFSCREEN_CONTEXT.setFormat(GL_QSURFACE_FORMAT)
-#     OFFSCREEN_CONTEXT.create()
 
 def _emit_about_to_quit():
     # With IPython's Qt event loop integration installed, the Qt.QApplication.aboutToQuit signal is not emitted
@@ -109,14 +95,6 @@ def _emit_about_to_quit():
     if app is None:
         return
     app.aboutToQuit.emit()
-
-# def offscreen_context():
-#     estack = contextlib.ExitStack()
-#     if Qt.QOpenGLContext.currentContext() is None:
-#         estack.callback(OFFSCREEN_CONTEXT.doneCurrent)
-#     OFFSCREEN_CONTEXT.makeCurrent(OFFSCREEN_SURFACE)
-#     return estack
-
 
 _NEXT_QGRAPHICSITEM_USERTYPE = Qt.QGraphicsItem.UserType
 def generate_unique_qgraphicsitem_type():
@@ -151,31 +129,19 @@ def QGL():
         pass
     # There is no entry for the current OpenGL context in our cache.  Acquire, cache, and return a
     # Qt.QOpenGLVersionFunctions object.
-    try:
-        QGL = context.versionFunctions()
-        if QGL is None:
-            # Some platforms seem to need version profile specification
-            vp = Qt.QOpenGLVersionProfile()
-            vp.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
-            vp.setVersion(2, 1)
-            QGL = context.versionFunctions(vp)
-    except ImportError:
-        # PyQt5 v5.4.0 and v5.4.1 provide access to OpenGL functions up to OpenGL 2.0, but we have made
-        # an OpenGL 2.1 context.  QOpenGLContext.versionFunctions(..) will, by default, attempt to return
-        # a wrapper around QOpenGLFunctions2_1, which has failed in the try block above.  Therefore,
-        # we fall back to explicitly requesting 2.0 functions.  We don't need any of the C _GL 2.1
-        # constants or calls, anyway - these address non-square shader uniform transformation matrices and
-        # specification of sRGB texture formats, neither of which we use.
+    QGL = context.versionFunctions()
+    if QGL is None:
+        # Some platforms seem to need version profile specification
         vp = Qt.QOpenGLVersionProfile()
         vp.setProfile(Qt.QSurfaceFormat.CompatibilityProfile)
-        vp.setVersion(2, 0)
+        vp.setVersion(2, 1)
         QGL = context.versionFunctions(vp)
     if QGL is None:
         raise RuntimeError('Failed to retrieve QOpenGL.')
     if not QGL.initializeOpenGLFunctions():
         raise RuntimeError('Failed to initialize OpenGL wrapper namespace.')
     _QGL_CACHE[context] = QGL
-    # TODO: is below really not necessary?
+    # TODO: is below really necessary?
     context.aboutToBeDestroyed.connect(lambda c=context: _QGL_CACHE.pop(c))
     return QGL
 
@@ -185,7 +151,6 @@ class _GlQuad:
             raise RuntimeError("A QOpenGLContext must be current when a _GlQuad is instantiated.")
         self.vao = Qt.QOpenGLVertexArrayObject()
         self.vao.create()
-        vao_binder = Qt.QOpenGLVertexArrayObject.Binder(self.vao)
         quad = numpy.array([1, -1,
                             -1, -1,
                             -1, 1,
@@ -200,14 +165,6 @@ class _GlQuad:
             # Note: the following release call is essential.  Without it, if a QPainter is active, QPainter will never work for
             # again for the widget with the active painter!
             self.buffer.release()
-    #     Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
-
-    # def _on_about_to_quit(self):
-    #     with offscreen_context():
-    #         self.vao.destroy()
-    #         self.vao = None
-    #         self.buffer.destroy()
-    #         self.buffer = None
 
 _GL_QUAD = None
 def GL_QUAD():
@@ -215,4 +172,3 @@ def GL_QUAD():
     if _GL_QUAD is None:
         _GL_QUAD = _GlQuad()
     return _GL_QUAD
-

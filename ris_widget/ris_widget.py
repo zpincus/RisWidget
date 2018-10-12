@@ -2,11 +2,8 @@
 
 from PyQt5 import Qt
 
-import pkg_resources
-
 from . import shared_resources
 from . import internal_util
-from . import layer
 from . import layer_stack
 from . import histogram_mask
 from . import dock_widgets
@@ -27,14 +24,6 @@ except ModuleNotFoundError:
 # when RisWidget needs to be torn down. So we remove the input hook, and
 # rely on the (better) ipython method.
 Qt.pyqtRemoveInputHook()
-
-# if sys.platform == 'darwin':
-#     class NonTransientScrollbarsStyle(Qt.QProxyStyle):
-#         def styleHint(self, sh, option=None, widget=None, returnData=None):
-#             if sh == Qt.QStyle.SH_ScrollBar_Transient:
-#                 return 0
-#             return self.baseStyle().styleHint(sh, option, widget, returnData)
-
 
 class RisWidgetBase:
     def __init__(self, parent=None):
@@ -80,17 +69,8 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
     def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
         RisWidgetBase.__init__(self, parent=self)
         Qt.QMainWindow.__init__(self, parent)
-        # TODO: is below not necessary to have window icon in linux? Already set app icon elsewhere.
-        # if shared_resources.ICON is not None:
-        #     self.setWindowIcon()
         self.app_prefs_name = app_prefs_name
         self._shown = False
-        # TODO: is below workaround still necessary?
-        # self.resize(self.size()) # QMainWindow on Qt 5.8 doesn't remember user-set size between show/hide unless a resize is explicitly called.
-        # Older versions of Qt / OS X (?) had some issues with OS X auto-hiding scrollbars (flashing black). TODO: can we delete this code entirely?
-        # if sys.platform == 'darwin':
-        #     style = Qt.QApplication.style()
-        #     Qt.QApplication.setStyle(NonTransientScrollbarsStyle(style))
         if window_title is not None:
             self.setWindowTitle(window_title)
         self.setAcceptDrops(True)
@@ -103,13 +83,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
 
     def _on_about_to_quit(self):
         self.close()
-        # RisWidgetQtObject's C++ personality is the QObject-N-parent of lots of Qt stuff that does not appreciate
-        # being destroyed by Python's last-pass garbage collection or even simply when no QApplication is running.
-        # Therefore, we connect the running QApplication's about to quit signal to our own C++ personality's
-        # deleteLater method (the final thing QApplication does as it quits, after emitting the about to quit signal,
-        # is delete everything queued up for deletion by deleteLater calls).  Thus, all of our QObject offspring
-        # are culled gracefully after the QApplication exits, before Python starts to tear itself down.
-        # self.deleteLater()
 
     def _init_scenes_and_views(self):
         self.setCentralWidget(self.image_view)
@@ -265,9 +238,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         multilayer = len(self.layers) > 1
         if multilayer and not visible:
             self.layer_table_dock_widget.show()
-        # don't autohide...
-        # elif not multilayer and visible:
-        #     self.layer_table_dock_widget.hide()
 
     def _image_view_zoom_changed(self, zoom):
         zoom = format(100*zoom, '.1f').rstrip('0').rstrip('.') + '%'
@@ -302,51 +272,24 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
             layer.auto_min_max = not layer.auto_min_max
 
     def _on_snapshot_action(self):
-        # if sys.platform == 'darwin':
-        #     # Onn some versions of PyQt, IPython, and OS X, the Qt event loop intergration can cause the
-        #     # native  file save dialog to be dismissed just as it appears. Uncomment if this problem returns
-        #     options = Qt.QFileDialog.DontUseNativeDialog
-        # else:
-        #     options = Qt.QFileDialog.Option()
-        # fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Snapshot',
-        #             filter='Images (*.png *.jpg *.tiff *.tif)', options=options)
-
         fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Snapshot', filter='Images (*.png *.jpg *.tiff *.tif)')
 
         if fn:
             freeimage.write(self.image_view.snapshot(), fn)
 
     def _on_save_layer_property_stack(self):
-        # if sys.platform == 'darwin':
-        #     # On some versions of PyQt, IPython, and OS X, the Qt event loop intergration can cause the
-        #     # native  file save dialog to be dismissed just as it appears. Uncomment if this problem returns
-        #     options = Qt.QFileDialog.DontUseNativeDialog
-        # else:
-        #     options = Qt.QFileDialog.Option()
-        # fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Layer Property Stack',
-        #             filter='JSON (*.json *.jsn)', options=options)
-
         fn, _ = Qt.QFileDialog.getSaveFileName(self, 'Save Layer Property Stack', filter='JSON (*.json *.jsn)')
         if fn:
             with open(fn, 'w') as f:
                 f.write(self.layers.to_json())
 
     def _on_load_layer_property_stack(self):
-        # if sys.platform == 'darwin':
-        #     # On some versions of PyQt, IPython, and OS X, the Qt event loop intergration can cause the
-        #     # native  file save dialog to be dismissed just as it appears. Uncomment if this problem returns
-        #     options = Qt.QFileDialog.DontUseNativeDialog
-        # else:
-        #     options = Qt.QFileDialog.Option()
-        # fn, _ = Qt.QFileDialog.getOpenFileName(self, 'Load Layer Property Stack',
-        #             filter='JSON (*.json *.jsn)', options=options)
-
         fn, _ = Qt.QFileDialog.getOpenFileName(self, 'Load Layer Property Stack', filter='JSON (*.json *.jsn)')
         if fn:
             with open(fn) as f:
-                l = layer_stack.LayerList.from_json(f.read())
-                if l is not None:
-                    self.layers = l
+                layers = layer_stack.LayerList.from_json(f.read())
+                if layers is not None:
+                    self.layers = layers
 
 class RisWidget:
     def __init__(self, window_title='RisWidget'):
@@ -434,13 +377,13 @@ class RisWidget:
     flipbook_pages = internal_util.ProxyProperty('flipbook', flipbook.Flipbook.pages)
 
 def main(argv=None):
-    import sys
     import argparse
     parser = argparse.ArgumentParser(description="zplab image viewer")
     parser.add_argument('images', nargs="*", metavar='image', help='image files to open')
     default_desktop_dir = '/usr/local/share/applications'
     parser.add_argument('--install-desktop-file', nargs='?', metavar='dir', const=default_desktop_dir,
          help=f'install linux .desktop file to specified directory (or, if not specified, {default_desktop_dir})')
+
     args = parser.parse_args(argv)
     if args.install_desktop_file:
         from . import install_desktop_file

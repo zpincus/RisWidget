@@ -10,6 +10,7 @@ fs = free_spline.FreeSpline(rw)
 from ris_widget.qwidgets import annotator
 spline_field = annotator.OverlayAnnotation('centerline', fs)
 rw.add_annotator(fields=[spline_field])
+tck_list = []
 # load tcks into tck_list
 annotations = [{'centerline':tck} for tck in tck_list]
 rw.annotator.all_annotations = annotations

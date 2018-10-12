@@ -146,7 +146,7 @@ class SignalingList(Qt.QObject, abc.MutableSequence, metaclass=_QtAbcMeta):
             else:
                 # Only 1-1 replacement is supported with stride other than one
                 if len(dest_idxs) != len(srcs):
-                    raise ValueError('attempt to assign sequence of size {} to extended slice of size {}'.format(len(srcs), len(idxs)))
+                    raise ValueError('attempt to assign sequence of size {} to extended slice of size {}'.format(len(srcs), len(dest_idxs)))
                 replaceds = self._list[idx_or_slice]
                 self.replacing.emit(dest_idxs, replaceds, srcs)
                 self._list[idx_or_slice] = srcs
@@ -213,7 +213,6 @@ class SignalingList(Qt.QObject, abc.MutableSequence, metaclass=_QtAbcMeta):
             delete of a random range, and insert call with a random index and value.  Verbose output for any
             of the three occassional test operations is prepended with a * for visibility."""
             import numpy
-            import numpy.random
             from numpy.random import randint as R
             sl = cls()
             l = []

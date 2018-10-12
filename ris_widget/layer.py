@@ -1,7 +1,6 @@
 # This code is licensed under the MIT License (see LICENSE file for details)
 
 from PyQt5 import Qt
-import textwrap
 import warnings
 import numpy
 
@@ -86,20 +85,20 @@ class Layer(qt_property.QtPropertyOwner):
 
     GAMMA_RANGE = (0.0625, 16.0)
     IMAGE_TYPE_TO_GETCOLOR_EXPRESSION = {
-        'G'   : 'vec4(s.rrr, 1.0f)',
-        'Ga'  : 'vec4(s.rrr, s.g)',
-        'rgb' : 'vec4(s.rgb, 1.0f)',
+        'G': 'vec4(s.rrr, 1.0f)',
+        'Ga': 'vec4(s.rrr, s.g)',
+        'rgb': 'vec4(s.rgb, 1.0f)',
         'rgba': 's'}
     DEFAULT_TRANSFORM_SECTION = 'out_.rgb = pow(clamp((in_.rgb - rescale_min) / (rescale_range), 0.0f, 1.0f), gamma); out_.rgba *= tint;'
     # Blend functions adapted from http://dev.w3.org/SVG/modules/compositing/master/
     BLEND_FUNCTIONS = {
-        'normal'   : ('dca = sca + dca * (1.0f - s.a);', # AKA src-over
+        'normal':    ('dca = sca + dca * (1.0f - s.a);', # AKA src-over
                       'da = s.a + da - s.a * da;'),
-        'multiply' : ('dca = sca * dca + sca * (1.0f - da) + dca * (1.0f - s.a);',
+        'multiply':  ('dca = sca * dca + sca * (1.0f - da) + dca * (1.0f - s.a);',
                       'da = s.a + da - s.a * da;'),
-        'screen'   : ('dca = sca + dca - sca * dca;',
+        'screen':    ('dca = sca + dca - sca * dca;',
                       'da = s.a + da - s.a * da;'),
-        'overlay'  : ('isa = 1.0f - s.a; osa = 1.0f + s.a;',
+        'overlay':   ('isa = 1.0f - s.a; osa = 1.0f + s.a;',
                       'ida = 1.0f - da; oda = 1.0f + da;',
                       'sada = s.a * da;',
                       'for(i = 0; i < 3; ++i){',
@@ -435,5 +434,5 @@ class Layer(qt_property.QtPropertyOwner):
             raise ValueError('The value assigned to opacity must be a real number in the interval [0, 1].')
         t = list(self.tint)
         t[3] = v
-        self.tint = t #NB: tint takes care of emitting opacity_changed
+        self.tint = t # NB: tint takes care of emitting opacity_changed
 

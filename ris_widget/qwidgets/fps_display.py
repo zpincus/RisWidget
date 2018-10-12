@@ -14,6 +14,8 @@ class FPSDisplay(Qt.QWidget):
         self.setLayout(l)
         self.intervals = None
         self.fpss = None
+        self.last_interval = None
+        self.last_fps = None
         self._sample_count = None
         self.acquired_sample_count = 0
         self.prev_t = None
@@ -81,14 +83,15 @@ class FPSDisplay(Qt.QWidget):
         else:
             end = min(self._sample_count, self.acquired_sample_count - 1)
             intervals = self.intervals[:end]
-            interval = intervals.mean()
+            self.last_interval = intervals.mean()
             fpss = self.fpss[:end]
-            fps = fpss.mean()
-            self.rate_field.setText('{:.1f}'.format(round(fps, 1)))
-            if interval > 1:
+            self.last_fps = fpss.mean()
+            self.rate_field.setText('{:.1f}'.format(round(self.last_fps, 1)))
+            if self.last_interval > 1:
+                interval = self.last_interval
                 self.interval_suffix.setText('s/frame')
             else:
-                interval *= 1000
+                interval = self.last_interval * 1000
                 self.interval_suffix.setText('ms/frame')
             self.interval_field.setText('{:.1f}'.format(round(interval, 1)))
 

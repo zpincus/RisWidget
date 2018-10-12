@@ -98,7 +98,7 @@ class PropertyTableModel(Qt.QAbstractTableModel):
     def __init__(self, property_names, signaling_list, allow_duplicates=False, parent=None):
         super().__init__(parent)
         self.property_names = list(property_names)
-        self.property_columns = {pn : idx for idx, pn in enumerate(self.property_names)}
+        self.property_columns = {pn: idx for idx, pn in enumerate(self.property_names)}
         assert all(map(lambda p: isinstance(p, str) and len(p) > 0, self.property_names)), 'property_names must be a non-empty iterable of non-empty strings.'
         if len(self.property_names) != len(set(self.property_names)):
             raise ValueError('The property_names argument contains at least one duplicate.')

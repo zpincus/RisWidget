@@ -405,7 +405,7 @@ class Flipbook(Qt.QWidget):
     @pages.setter
     def pages(self, pages):
         if pages is not self.pages:
-            #pages is self.pages when doing "self.pages += [...]", which translates into an iadd and then a set.
+            # pages is self.pages when doing "self.pages += [...]", which translates into an iadd and then a set.
             # no need to replace with self...
             self.pages[:] = pages
 

@@ -14,6 +14,34 @@ SRC_BLEND = '''    // blending function name: src
     da = s.a;
 '''
 
+UNIFORM_SECTION = Template(textwrap.dedent("""\
+    uniform sampler2D tex_${tex_unit};
+    uniform float rescale_min_${tex_unit};
+    uniform float rescale_range_${tex_unit};
+    uniform float gamma_${tex_unit};
+    uniform vec4 tint_${tex_unit};"""))
+
+COLOR_TRANSFORM = Template(textwrap.dedent("""\
+    vec4 color_transform_${tex_unit}(vec4 in_, vec4 tint, float rescale_min, float rescale_range, float gamma_scalar)
+    {
+        vec4 out_;
+        out_.a = in_.a;
+        vec3 gamma = vec3(gamma_scalar, gamma_scalar, gamma_scalar);
+        ${transform_section}
+        return clamp(out_, 0, 1);
+    }"""))
+
+MAIN_SECTION = Template(textwrap.dedent("""\
+        // layer_stack[${layer_index}]
+        s = texture2D(tex_${tex_unit}, tex_coord);
+        s = color_transform_${tex_unit}(${getcolor_expression}, tint_${tex_unit}, rescale_min_${tex_unit}, rescale_range_${tex_unit}, gamma_${tex_unit});
+        sca = s.rgb * s.a;
+    ${blend_function}
+        da = clamp(da, 0, 1);
+        dca = clamp(dca, 0, 1);
+    """))
+
+
 class LayerStackItem(shader_item.ShaderItem):
     """The layer_stack attribute of LayerStackItem is an SignalingList, a container with a list interface, containing a sequence
     of Layer instances (or instances of subclasses of Layer or some duck-type compatible thing).  In terms of composition ordering,
@@ -43,30 +71,6 @@ class LayerStackItem(shader_item.ShaderItem):
     of layer_stack is in pixel units, making the mapping between scene units and pixel units 1:1 for the layer at the bottom
     of the stack (ie, layer_stack[0])."""
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
-    UNIFORM_SECTION_TEMPLATE = Template(textwrap.dedent("""\
-        uniform sampler2D tex_${tidx};
-        uniform float rescale_min_${tidx};
-        uniform float rescale_range_${tidx};
-        uniform float gamma_${tidx};
-        uniform vec4 tint_${tidx};"""))
-    COLOR_TRANSFORM_PROCEDURE_TEMPLATE = Template(textwrap.dedent("""\
-        vec4 color_transform_${tidx}(vec4 in_, vec4 tint, float rescale_min, float rescale_range, float gamma_scalar)
-        {
-            vec4 out_;
-            out_.a = in_.a;
-            vec3 gamma = vec3(gamma_scalar, gamma_scalar, gamma_scalar);
-            ${transform_section}
-            return clamp(out_, 0, 1);
-        }"""))
-    MAIN_SECTION_TEMPLATE = Template(textwrap.dedent("""\
-            // layer_stack[${idx}]
-            s = texture2D(tex_${tidx}, tex_coord);
-            s = color_transform_${tidx}(${getcolor_expression}, tint_${tidx}, rescale_min_${tidx}, rescale_range_${tidx}, gamma_${tidx});
-            sca = s.rgb * s.a;
-        ${blend_function}
-            da = clamp(da, 0, 1);
-            dca = clamp(dca, 0, 1);
-        """))
     DEFAULT_BOUNDING_RECT = Qt.QRectF(Qt.QPointF(0, 0), Qt.QSizeF(1000, 1000))
     TEXTURE_BORDER_COLOR = Qt.QColor(0, 0, 0, 0)
 
@@ -118,8 +122,8 @@ class LayerStackItem(shader_item.ShaderItem):
             self._bounding_rect = Qt.QRectF(Qt.QPointF(), Qt.QSizeF(base_image.size))
         self.bounding_rect_changed.emit()
 
-    def _on_layers_inserted(self, idx, inserted_layers):
-        if idx == 0:
+    def _on_layers_inserted(self, layer_index, inserted_layers):
+        if layer_index == 0:
             new_base = self.layer_stack.layers[0]
             if len(self.layer_stack.layers) > len(inserted_layers):
                 old_base = self.layer_stack.layers[len(inserted_layers)]
@@ -130,9 +134,9 @@ class LayerStackItem(shader_item.ShaderItem):
         self.update()
         self._update_contextual_info()
 
-    def _on_layers_removed(self, idxs, removed_layers):
+    def _on_layers_removed(self, layer_indices, removed_layers):
         try:
-            old_base_i = idxs.index(0)
+            old_base_i = layer_indices.index(0)
         except ValueError:
             old_base_i = None
         if old_base_i is not None:
@@ -146,9 +150,9 @@ class LayerStackItem(shader_item.ShaderItem):
         self.update()
         self._update_contextual_info()
 
-    def _on_layers_replaced(self, idxs, old_layers, new_layers):
+    def _on_layers_replaced(self, layer_indices, old_layers, new_layers):
         try:
-            base_i = idxs.index(0)
+            base_i = layer_indices.index(0)
         except ValueError:
             base_i = None
         if base_i is not None:
@@ -161,8 +165,8 @@ class LayerStackItem(shader_item.ShaderItem):
         self._update_contextual_info()
 
     def _on_layer_image_changed(self, layer):
-        idx = self.layer_stack.layers.index(layer)
-        if idx == 0:
+        layer_index = self.layer_stack.layers.index(layer)
+        if layer_index == 0:
             image = layer.image
             current_size = self.boundingRect().size()
             if image is None or Qt.QSizeF(image.size) != current_size:
@@ -187,27 +191,27 @@ class LayerStackItem(shader_item.ShaderItem):
 
     def _update_contextual_info(self):
         if self.layer_stack.examine_layer_mode:
-            idx = self.layer_stack.focused_layer_idx
-            visible_idxs = [] if idx is None else [idx]
+            layer_index = self.layer_stack.focused_layer_layer_index
+            visible_layer_indices = [] if layer_index is None else [layer_index]
         elif self.layer_stack.layers:
-            visible_idxs = [idx for idx, layer in enumerate(self.layer_stack.layers) if layer.visible]
+            visible_layer_indices = [layer_index for layer_index, layer in enumerate(self.layer_stack.layers) if layer.visible]
         else:
-            visible_idxs = []
-        if not visible_idxs or self.contextual_info_pos is None or self.scene() is None or not self.scene().views():
+            visible_layer_indices = []
+        if not visible_layer_indices or self.contextual_info_pos is None or self.scene() is None or not self.scene().views():
             self.scene().contextual_info_item.set_info_text(None)
             return
         fpos = self.contextual_info_pos
         ipos = Qt.QPoint(fpos.x(), fpos.y()) # don't use fpos.toPoint(): it rounds, but we need to truncate to get the right pixel if zoomed in
         cis = []
-        it = iter((idx, self.layer_stack.layers[idx]) for idx in visible_idxs)
-        idx, layer = next(it)
+        layer_indices = [(layer_index, self.layer_stack.layers[layer_index]) for layer_index in visible_layer_indices]
+        layer_index, layer = layer_indices[0]
         ci = layer.generate_contextual_info_for_pos(ipos.x(), ipos.y(),
-            idx if len(self.layer_stack.layers) > 1 else None)
+            layer_index if len(self.layer_stack.layers) > 1 else None)
         if ci is not None:
             cis.append(ci)
         image = layer.image
         image0size = self.DEFAULT_BOUNDING_RECT.size() if image is None else image.size
-        for idx, layer in it:
+        for layer_index, layer in layer_indices[1:]:
             # Because the aspect ratio of subsequent layers may differ from the first, fractional
             # offsets must be discarded only after projecting from lowest-layer pixel coordinates
             # to current layer pixel coordinates.  It is easy to see why in the case of an overlay
@@ -216,13 +220,13 @@ class LayerStackItem(shader_item.ShaderItem):
             # even number in any case where an overlay coordinate component should be odd.
             image = layer.image
             if image is None:
-                ci = layer.generate_contextual_info_for_pos(None, None, idx)
+                ci = layer.generate_contextual_info_for_pos(None, None, layer_index)
             else:
                 imagesize = image.size
                 ci = layer.generate_contextual_info_for_pos(
                     int(fpos.x() * imagesize.width() / image0size.width()),
                     int(fpos.y() * imagesize.height() / image0size.height()),
-                    idx)
+                    layer_index)
             if ci is not None:
                 cis.append(ci)
         self.scene().contextual_info_item.set_info_text('\n'.join(reversed(cis)))
@@ -231,40 +235,32 @@ class LayerStackItem(shader_item.ShaderItem):
         qpainter.beginNativePainting()
         with ExitStack() as estack:
             estack.callback(qpainter.endNativePainting)
-            visible_idxs = self._get_visible_idxs_and_update_texs()
-            if not visible_idxs:
+            visible_layer_indices = self._get_visible_layer_indices_and_update_texs()
+            if not visible_layer_indices:
                 return
+            layer_indices = [(tex_unit, layer_index, self.layer_stack.layers[layer_index]) for tex_unit, layer_index in enumerate(visible_layer_indices)]
             prog_desc = tuple((layer.getcolor_expression,
-                               layer.blend_function if tidx > 0 else 'src',
+                               layer.blend_function if tex_unit > 0 else 'src',
                                layer.transform_section)
-                              for tidx, layer in ((tidx, self.layer_stack.layers[idx]) for tidx, idx in enumerate(visible_idxs)))
+                              for tex_unit, layer_index, layer in layer_indices)
             if prog_desc in self.progs:
                 prog = self.progs[prog_desc]
             else:
-                uniforms, color_transform_procedures, main = \
-                    zip(*(
-                            (
-                                self.UNIFORM_SECTION_TEMPLATE.substitute(tidx=tidx),
-                                self.COLOR_TRANSFORM_PROCEDURE_TEMPLATE.substitute(
-                                    tidx=tidx,
-                                    transform_section=layer.transform_section),
-                                self.MAIN_SECTION_TEMPLATE.substitute(
-                                    idx=idx,
-                                    tidx=tidx,
-                                    getcolor_expression=layer.getcolor_expression,
-                                    blend_function=layer.BLEND_FUNCTIONS[layer.blend_function] if tidx > 0 else SRC_BLEND)
-                            ) for idx, tidx, layer in
-                                (
-                                    (idx, tidx, self.layer_stack.layers[idx]) for tidx, idx in enumerate(visible_idxs)
-                                )
-                       ) )
+                uniforms = [UNIFORM_SECTION.substitute(tex_unit=tex_unit) for tex_unit, layer_index, layer in layer_indices]
+                color_transforms = [COLOR_TRANSFORM.substitute(tex_unit=tex_unit, transform_section=layer.transform_section)
+                                    for tex_unit, layer_index, layer in layer_indices]
+                mains = [MAIN_SECTION.substitute(layer_index=layer_index, tex_unit=tex_unit,
+                                                 getcolor_expression=layer.getcolor_expression,
+                                                 blend_function=layer.BLEND_FUNCTIONS[layer.blend_function] if tex_unit > 0 else SRC_BLEND)
+                         for tex_unit, layer_index, layer in layer_indices]
+
                 prog = self.build_shader_prog(
                     prog_desc,
                     'planar_quad_vertex_shader',
                     'layer_stack_item_fragment_shader_template',
                     uniforms='\n'.join(uniforms),
-                    color_transform_procedures='\n'.join(color_transform_procedures),
-                    main='\n'.join(main))
+                    color_transforms='\n'.join(color_transforms),
+                    main='\n'.join(mains))
             prog.bind()
             estack.callback(prog.release)
             if widget is None:
@@ -310,13 +306,11 @@ class LayerStackItem(shader_item.ShaderItem):
                 raise RuntimeError('Failed to compute gl_FragCoord to texture coordinate transformation matrix.')
             prog.setUniformValue('frag_to_tex', frag_to_tex)
             min_max = numpy.empty((2,), dtype=float)
-            for tidx, idx in enumerate(visible_idxs):
-                layer = self.layer_stack.layers[idx]
+            for tex_unit, layer_index, layer in layer_indices:
                 image = layer.image
                 min_max[0], min_max[1] = layer.min, layer.max
                 min_max = self._normalize_for_gl(min_max, image)
-                tidxstr = str(tidx)
-                prog.setUniformValue('tex_'+tidxstr, tidx)
+                prog.setUniformValue(f'tex_{tex_unit}', tex_unit)
                 rescale_min = min_max[0]
                 rescale_range = min_max[1] - min_max[0]
                 if rescale_range == 0:
@@ -324,10 +318,10 @@ class LayerStackItem(shader_item.ShaderItem):
                     # are > 0, and black otherwise.
                     rescale_min = 0
                     rescale_range = max(0, min_max[0])
-                prog.setUniformValue('rescale_min_'+tidxstr, rescale_min)
-                prog.setUniformValue('rescale_range_'+tidxstr, rescale_range)
-                prog.setUniformValue('gamma_'+tidxstr, layer.gamma)
-                prog.setUniformValue('tint_'+tidxstr, Qt.QVector4D(*layer.tint))
+                prog.setUniformValue(f'rescale_min_{tex_unit}', rescale_min)
+                prog.setUniformValue(f'rescale_range_{tex_unit}', rescale_range)
+                prog.setUniformValue(f'gamma_{tex_unit}', layer.gamma)
+                prog.setUniformValue(f'tint_{tex_unit}', Qt.QVector4D(*layer.tint))
             self.set_blend(estack)
             QGL.glEnableClientState(QGL.GL_VERTEX_ARRAY)
             QGL.glDrawArrays(QGL.GL_TRIANGLE_FAN, 0, 4)
@@ -352,24 +346,24 @@ class LayerStackItem(shader_item.ShaderItem):
             raise NotImplementedError('OpenGL-compatible normalization for {} missing.'.format(image.data.dtype))
         return v
 
-    def _get_visible_idxs_and_update_texs(self):
+    def _get_visible_layer_indices_and_update_texs(self):
         """Meant to be executed between a pair of QPainter.beginNativePainting() QPainter.endNativePainting() calls or,
-        at the very least, when an OpenGL context is current, _get_visible_idxs_and_update_texs does whatever is required,
+        at the very least, when an OpenGL context is current, _get_visible_layer_indices_and_update_texs does whatever is required,
         for every visible layer with non-None .layer in self.layer_stack, in order that self._texs[layer] represents layer, including texture
         object creation and texture data uploading, and it leaves self._texs[layer] bound to texture unit n, where n is
-        the associated visible_idx."""
+        the associated visible_layer_index."""
         layer_stack = self.layer_stack
         if layer_stack.examine_layer_mode:
-            idx = layer_stack.focused_layer_idx
-            visible_idxs = [] if idx is None or layer_stack.layers[idx].image is None else [idx]
+            layer_index = layer_stack.focused_layer_layer_index
+            visible_layer_indices = [] if layer_index is None or layer_stack.layers[layer_index].image is None else [layer_index]
         elif layer_stack.layers:
-            visible_idxs = [idx for idx, layer in enumerate(layer_stack.layers) if layer.visible and layer.image is not None]
+            visible_layer_indices = [layer_index for layer_index, layer in enumerate(layer_stack.layers) if layer.visible and layer.image is not None]
         else:
-            visible_idxs = []
+            visible_layer_indices = []
         bound = set()
-        for tex_unit, idx in enumerate(visible_idxs):
-            texture = layer_stack.layers[idx].texture
+        for tex_unit, layer_index in enumerate(visible_layer_indices):
+            texture = layer_stack.layers[layer_index].texture
             if texture not in bound:
                 texture.bind(tex_unit)
                 bound.add(texture)
-        return visible_idxs
+        return visible_layer_indices

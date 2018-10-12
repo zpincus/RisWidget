@@ -1,7 +1,6 @@
 # This code is licensed under the MIT License (see LICENSE file for details)
 
 from contextlib import ExitStack
-import numpy
 from PyQt5 import Qt
 from .. import shared_resources
 from .. import image
@@ -73,7 +72,7 @@ class BaseView(Qt.QGraphicsView):
     def snapshot(self, scene_rect=None, size=None, msaa_sample_count=16):
         if scene_rect is None:
             scene_rect = self.sceneRect()
-        dpi_ratio = gl_widget.devicePixelRatio()
+        dpi_ratio = self.gl_widget.devicePixelRatio()
         if size is None:
             size = self.gl_widget.size()
         if scene_rect.isEmpty() or not scene_rect.isValid() or size.width() <= 0 or size.height() <= 0:

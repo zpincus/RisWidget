@@ -1,8 +1,8 @@
 # This code is licensed under the MIT License (see LICENSE file for details)
 
-import ctypes
 from PyQt5 import Qt
 from ..object_model import signaling_list, drag_drop_model_behavior
+from . import list_model
 
 class BasicSignalingListView(Qt.QListView):
     '''BasicSignalingListView is a Qt.QListView with a constructor that provides a few conveniences for the common use case
@@ -152,7 +152,7 @@ class BasicSignalingListView(Qt.QListView):
         if sm is not None:
             sm.currentRowChanged.connect(self._on_selection_model_current_row_changed)
 
-class BasicSignalingListModel(drag_drop_model_behavior.DragDropModelBehavior, ListModel):
+class BasicSignalingListModel(drag_drop_model_behavior.DragDropModelBehavior, list_model.ListModel):
     '''BasicSignalingListModel is a composition of DragDropModelBehavior and ListModel that does not
     override any of the behaviors of its components.  This is often adequate; there is built-in
     support for displaying and editing basic data types, and rows containing a supported data type

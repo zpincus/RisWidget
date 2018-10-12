@@ -17,15 +17,9 @@ class LayerList(uniform_signaling_list.UniformSignalingList):
         return layers
 
     def to_json(self):
-        return json.dumps(
-            {
-                'layer property stack' :
-                [
-                    layer.get_savable_properties_dict() for layer in self
-                ]
-            },
-            ensure_ascii=False, indent=1
-        )
+        return json.dumps({'layer property stack':
+                            [layer.get_savable_properties_dict() for layer in self]},
+            ensure_ascii=False, indent=1)
 
     def take_input_element(self, obj):
         if isinstance(obj, (numpy.ndarray, image.Image)):

@@ -24,35 +24,35 @@ def get_logger():
     return gl_logger
 
 _GL_LOGGER_MESSAGE_SEVERITIES = {
-    Qt.QOpenGLDebugMessage.InvalidSeverity : 'Invalid',
-    Qt.QOpenGLDebugMessage.HighSeverity : 'High',
-    Qt.QOpenGLDebugMessage.MediumSeverity : 'Medium',
-    Qt.QOpenGLDebugMessage.LowSeverity : 'Low',
-    Qt.QOpenGLDebugMessage.NotificationSeverity : 'Notification',
-    Qt.QOpenGLDebugMessage.AnySeverity : 'Any'}
+    Qt.QOpenGLDebugMessage.InvalidSeverity: 'Invalid',
+    Qt.QOpenGLDebugMessage.HighSeverity: 'High',
+    Qt.QOpenGLDebugMessage.MediumSeverity: 'Medium',
+    Qt.QOpenGLDebugMessage.LowSeverity: 'Low',
+    Qt.QOpenGLDebugMessage.NotificationSeverity: 'Notification',
+    Qt.QOpenGLDebugMessage.AnySeverity: 'Any'}
 
 _GL_LOGGER_MESSAGE_SOURCES = {
-    Qt.QOpenGLDebugMessage.InvalidSource : 'Invalid',
-    Qt.QOpenGLDebugMessage.APISource : 'API',
-    Qt.QOpenGLDebugMessage.WindowSystemSource : 'WindowSystem',
-    Qt.QOpenGLDebugMessage.ShaderCompilerSource : 'ShaderCompiler',
-    Qt.QOpenGLDebugMessage.ThirdPartySource : 'ThirdParty',
-    Qt.QOpenGLDebugMessage.ApplicationSource : 'Application',
-    Qt.QOpenGLDebugMessage.OtherSource : 'Other',
-    Qt.QOpenGLDebugMessage.AnySource : 'Any'}
+    Qt.QOpenGLDebugMessage.InvalidSource: 'Invalid',
+    Qt.QOpenGLDebugMessage.APISource: 'API',
+    Qt.QOpenGLDebugMessage.WindowSystemSource: 'WindowSystem',
+    Qt.QOpenGLDebugMessage.ShaderCompilerSource: 'ShaderCompiler',
+    Qt.QOpenGLDebugMessage.ThirdPartySource: 'ThirdParty',
+    Qt.QOpenGLDebugMessage.ApplicationSource: 'Application',
+    Qt.QOpenGLDebugMessage.OtherSource: 'Other',
+    Qt.QOpenGLDebugMessage.AnySource: 'Any'}
 
 _GL_LOGGER_MESSAGE_TYPES = {
-    Qt.QOpenGLDebugMessage.InvalidType : 'Invalid',
-    Qt.QOpenGLDebugMessage.ErrorType : 'Error',
-    Qt.QOpenGLDebugMessage.DeprecatedBehaviorType : 'DeprecatedBehavior',
-    Qt.QOpenGLDebugMessage.UndefinedBehaviorType : 'UndefinedBehavior',
-    Qt.QOpenGLDebugMessage.PortabilityType : 'Portability',
-    Qt.QOpenGLDebugMessage.PerformanceType : 'Performance',
-    Qt.QOpenGLDebugMessage.OtherType : 'Other',
-    Qt.QOpenGLDebugMessage.MarkerType : 'Marker',
-    Qt.QOpenGLDebugMessage.GroupPushType : 'GroupPush',
-    Qt.QOpenGLDebugMessage.GroupPopType : 'GroupPop',
-    Qt.QOpenGLDebugMessage.AnyType : 'Any'}
+    Qt.QOpenGLDebugMessage.InvalidType: 'Invalid',
+    Qt.QOpenGLDebugMessage.ErrorType: 'Error',
+    Qt.QOpenGLDebugMessage.DeprecatedBehaviorType: 'DeprecatedBehavior',
+    Qt.QOpenGLDebugMessage.UndefinedBehaviorType: 'UndefinedBehavior',
+    Qt.QOpenGLDebugMessage.PortabilityType: 'Portability',
+    Qt.QOpenGLDebugMessage.PerformanceType: 'Performance',
+    Qt.QOpenGLDebugMessage.OtherType: 'Other',
+    Qt.QOpenGLDebugMessage.MarkerType: 'Marker',
+    Qt.QOpenGLDebugMessage.GroupPushType: 'GroupPush',
+    Qt.QOpenGLDebugMessage.GroupPopType: 'GroupPop',
+    Qt.QOpenGLDebugMessage.AnyType: 'Any'}
 
 def _on_gl_logger_message(message):
     Qt.qDebug('GL LOG MESSAGE (severity: {}, source: {}, type: {}, GL ID: {}): "{}"'.format(

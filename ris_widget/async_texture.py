@@ -1,9 +1,7 @@
 # This code is licensed under the MIT License (see LICENSE file for details)
 
-import contextlib
 import threading
 import queue
-# import weakref
 import ctypes
 
 import numpy
@@ -27,28 +25,16 @@ IMAGE_TYPE_TO_SOURCE_FORMATS = {
 }
 
 NUMPY_DTYPE_TO_GL_PIXEL_TYPE = {
-    numpy.bool8  : GL.GL_UNSIGNED_BYTE,
-    numpy.uint8  : GL.GL_UNSIGNED_BYTE,
-    numpy.uint16 : GL.GL_UNSIGNED_SHORT,
+    numpy.bool8: GL.GL_UNSIGNED_BYTE,
+    numpy.uint8: GL.GL_UNSIGNED_BYTE,
+    numpy.uint16: GL.GL_UNSIGNED_SHORT,
     numpy.float32: GL.GL_FLOAT
 }
 
 USE_BG_UPLOAD_THREAD = True # debug flag for testing with flaky drivers
 
 class AsyncTexture:
-    # TODO: delete this about to quit / _LIVE_TEXTURES stuff if truly worthless
-    # _LIVE_TEXTURES = None
-    # @classmethod
-    # def _on_about_to_quit(cls):
-    #     with shared_resources.offscreen_context():
-    #         for t in cls._LIVE_TEXTURES:
-    #             t.destroy()
-
     def __init__(self):
-        # if self._LIVE_TEXTURES is None:
-        #     # if we used 'self' instead of __class__, would just set _LIVE_TEXTURES for this instance
-        #     __class__._LIVE_TEXTURES = weakref.WeakSet()
-        #     Qt.QApplication.instance().aboutToQuit.connect(self._on_about_to_quit)
         self.ready = threading.Event()
         self.status = 'waiting'
         self.texture = None
@@ -79,7 +65,7 @@ class AsyncTexture:
             self._upload_fg(*upload_args)
 
     def bind(self, tex_unit):
-        if not self.status in ('uploading', 'uploaded'):
+        if self.status not in ('uploading', 'uploaded'):
             raise RuntimeError('Cannot bind texture that has not been first uploaded')
         self.ready.wait()
         if hasattr(self, 'exception'):
@@ -148,6 +134,7 @@ class AsyncTexture:
         finally:
             self.ready.set()
 
+
 class OffscreenContextThread(Qt.QThread):
     _ACTIVE_THREAD = None
 
@@ -155,8 +142,6 @@ class OffscreenContextThread(Qt.QThread):
     def get(cls):
         if cls._ACTIVE_THREAD is None:
             cls._ACTIVE_THREAD = cls()
-            # TODO: is below necessary ever?
-            # Qt.QApplication.instance().aboutToQuit.connect(cls._ACTIVE_THREAD.shut_down)
         return cls._ACTIVE_THREAD
 
     def __init__(self):
@@ -171,12 +156,6 @@ class OffscreenContextThread(Qt.QThread):
     def enqueue(self, func, *args):
         self.queue.put((func, args))
 
-    # def shut_down(self):
-    #     self.running = False
-    #     # now wake up the thread if it's blocked waiting for a texture
-    #     self.queue.put(None)
-    #     self.wait()
-
     def run(self):
         gl_context = Qt.QOpenGLContext()
         gl_context.setShareContext(Qt.QOpenGLContext.globalShareContext())
@@ -189,7 +168,7 @@ class OffscreenContextThread(Qt.QThread):
             while self.running:
                 func, args = self.queue.get()
                 if not self.running:
-                    #self.running may go to false while blocked waiting on the queue
+                    # self.running may go to false while blocked waiting on the queue
                     break
                 func(*args)
         finally:

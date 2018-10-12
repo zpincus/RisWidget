@@ -2,7 +2,6 @@
 
 from PyQt5 import Qt
 
-from . import internal_util
 from .qwidgets import layer_stack_painter
 from .qwidgets import annotator
 
