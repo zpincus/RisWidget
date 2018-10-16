@@ -19,7 +19,6 @@ def init_qapplication(icon_resource_path=(__name__, 'icon.svg')):
         assert Qt.QApplication.instance() is None
         pre_qapp_initialization()
         _QAPPLICATION = Qt.QApplication([])
-        post_qapp_initialization()
 
         if icon_resource_path is not None:
             ICON = Qt.QIcon(pkg_resources.resource_filename(*icon_resource_path))
@@ -80,11 +79,6 @@ def pre_qapp_initialization():
     GL_QSURFACE_FORMAT.setAlphaBufferSize(8)
     Qt.QSurfaceFormat.setDefaultFormat(GL_QSURFACE_FORMAT)
 
-def post_qapp_initialization():
-    # spin up the offscreen context before anything else (for some reason on
-    # some machines, this improves FPS. TODO: Does it really? Why??)
-    async_texture.OffscreenContextThread.get()
-
 def _emit_about_to_quit():
     # With IPython's Qt event loop integration installed, the Qt.QApplication.aboutToQuit signal is not emitted
     # when the Python interpreter exits. However, we must do certain things before last-pass garbage collection
@@ -141,7 +135,7 @@ def QGL():
     if not QGL.initializeOpenGLFunctions():
         raise RuntimeError('Failed to initialize OpenGL wrapper namespace.')
     _QGL_CACHE[context] = QGL
-    # TODO: is below really necessary?
+    # TODO: below seems important, but I haven't found a case where it is really necessary...
     context.aboutToBeDestroyed.connect(lambda c=context: _QGL_CACHE.pop(c))
     return QGL
 

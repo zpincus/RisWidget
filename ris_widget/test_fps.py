@@ -6,104 +6,98 @@ import time
 import numpy
 from PyQt5 import Qt
 
-from . import ris_widget
-
-def test_fps(rw, size, dtype=numpy.uint16):
-    rw.qt_object.fps_display_dock_widget.show()
-    image = numpy.arange(size[0]*size[1], dtype=dtype).reshape(size, order='F')
-    images = [numpy.add(image, 3*i, dtype=dtype) for i in range(10)]
-    tester = FPSTester(images, rw)
-    try:
-        rw.input('press enter end test')
-    finally:
-        tester.running = False
-        tester.join()
-
-class FPSTester(threading.Thread):
+class _FPSTester:
     def __init__(self, images, rw):
-        super().__init__(daemon=True)
-        self.running = True
-        self.images = itertools.cycle(images)
+        self.images = images
         self.rw = rw
-        self.start()
+
+    def start(self):
+        raise NotImplementedError()
+
+    def stop(self):
+        raise NotImplementedError()
+
+    def sleep_interval(self):
+        interval = self.rw.qt_object.fps_display.last_interval
+        if interval is None or interval > 0.1:
+            interval = 1/20
+        return max(0, interval - 0.01)
+
+class _BGFPSTester(threading.Thread, _FPSTester):
+    def __init__(self, images, rw):
+        self.running = True
+        threading.Thread.__init__(self, daemon=True)
+        _FPSTester.__init__(self, images, rw)
 
     def run(self):
         while self.running:
-            self.rw.image = next(self.images)
-            interval = self.rw.qt_object.fps_display.last_interval
-            if interval is None or interval > 0.1:
-                interval = 1/20
-            time.sleep(max(0, interval - 0.005))
+            self.switch_image(next(self.images))
+            time.sleep(self.sleep_interval())
 
-def test_fps2(rw, size, dtype=numpy.uint16):
-    rw.qt_object.fps_display_dock_widget.show()
-    image = numpy.arange(size[0]*size[1], dtype=dtype).reshape(size, order='F')
-    images = [numpy.add(image, 3*i, dtype=dtype) for i in range(10)]
-    tester = FPSTester2(images, rw)
-    try:
-        rw.input('press enter end test')
-    finally:
-        tester.running = False
-        tester.join()
+    def stop(self):
+        self.running = False
+        self.join()
 
-class FPSReceiver(Qt.QObject):
+    def switch_image(self, image):
+        raise NotImplementedError()
+
+class ImageSetterFPSTester(_BGFPSTester):
+    def switch_image(self, image):
+        self.rw.image = image
+
+class _SignalReceiver(Qt.QObject):
     NEW_IMAGE_EVENT = Qt.QEvent.registerEventType()
-    def __init__(self, images, rw):
-        self.rw = rw
-        self.images = itertools.cycle(images)
-        super().__init__()
 
-    def post(self):
-        Qt.QCoreApplication.postEvent(self, Qt.QEvent(self.NEW_IMAGE_EVENT))
+    def post(self, rw, image):
+        e = Qt.QEvent(self.NEW_IMAGE_EVENT)
+        e.rw = rw
+        e.image = image
+        Qt.QCoreApplication.postEvent(self, e)
 
     def event(self, e):
         if e.type() == self.NEW_IMAGE_EVENT:
-            self.rw.image = next(self.images)
+            e.rw.image = e.image
             return True
         return super().event(e)
 
-class FPSTester2(threading.Thread):
+class QEventFPSTester(_BGFPSTester):
     def __init__(self, images, rw):
-        super().__init__(daemon=True)
-        self.running = True
-        self.receiver = FPSReceiver(images, rw)
-        self.rw = rw
-        self.start()
+        self.receiver = _SignalReceiver()
+        super().__init__(images, rw)
 
-    def run(self):
-        while self.running:
-            self.receiver.post()
-            interval = self.rw.qt_object.fps_display.last_interval
-            if interval is None or interval > 0.1:
-                interval = 1/20
-            time.sleep(max(0, interval - 0.005))
+    def switch_image(self, image):
+        self.receiver.post(self.rw, image)
 
+class QTimerFPSTester(_FPSTester):
+    def start(self):
+        self.t = Qt.QTimer()
+        self.t.timeout.connect(self.next_image)
+        self.t.start(1000/40)
 
-def test_fps3(rw, size, dtype=numpy.uint16):
+    def next_image(self):
+        self.rw.image = next(self.images)
+
+    def stop(self):
+        self.t.stop()
+
+class DirectFPSTester(_FPSTester):
+    def start(self):
+        print('press control-c to end test')
+        while True:
+            self.rw.image = next(self.images)
+            self.rw.update()
+            time.sleep(self.sleep_interval())
+
+    def stop(self):
+        pass
+
+def test_fps(rw, size=(2560,2160), dtype=numpy.uint16, tester_class=QTimerFPSTester):
     rw.qt_object.fps_display_dock_widget.show()
     image = numpy.arange(size[0]*size[1], dtype=dtype).reshape(size, order='F')
-    images = [numpy.add(image, 3*i, dtype=dtype) for i in range(10)]
-    images = itertools.cycle(images)
-    def next_image():
-        rw.image = next(images)
-    t = Qt.QTimer()
-    t.timeout.connect(next_image)
-    t.start(1000/40)
+    images = itertools.cycle([numpy.add(image, 255*i, dtype=dtype) for i in range(10)])
+    tester = tester_class(images, rw)
     try:
+        tester.start()
         rw.input('press enter end test')
     finally:
-        t.stop()
-
-
-def test_fps4(rw, size, dtype=numpy.uint16):
-    rw.qt_object.fps_display_dock_widget.show()
-    image = numpy.arange(size[0]*size[1], dtype=dtype).reshape(size, order='F')
-    images = [numpy.add(image, 3*i, dtype=dtype) for i in range(10)]
-    images = itertools.cycle(images)
-    while True:
-        rw.image = next(images)
-        rw.update()
-        interval = rw.qt_object.fps_display.last_interval
-        if interval is None or interval > 0.1:
-            interval = 1/20
-        time.sleep(max(0, interval - 0.005))
+        tester.stop()
