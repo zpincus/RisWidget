@@ -120,7 +120,7 @@ class LayerStack(Qt.QObject):
 
     @property
     def focused_layer(self):
-        """Note: L.focused_layer = Layer() is equivalent to L.layers[L.focused_layer_idx] = Layer()."""
+        """Note: L.focused_layer is equivalent to L.layers[L.focused_layer_idx]."""
         idx = self.focused_layer_idx
         return None if idx is None else self._layers[idx]
 

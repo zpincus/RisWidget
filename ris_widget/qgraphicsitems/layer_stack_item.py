@@ -191,7 +191,7 @@ class LayerStackItem(shader_item.ShaderItem):
 
     def _update_contextual_info(self):
         if self.layer_stack.examine_layer_mode:
-            layer_index = self.layer_stack.focused_layer_layer_index
+            layer_index = self.layer_stack.focused_layer_idx
             visible_layer_indices = [] if layer_index is None else [layer_index]
         elif self.layer_stack.layers:
             visible_layer_indices = [layer_index for layer_index, layer in enumerate(self.layer_stack.layers) if layer.visible]
@@ -354,7 +354,7 @@ class LayerStackItem(shader_item.ShaderItem):
         the associated visible_layer_index."""
         layer_stack = self.layer_stack
         if layer_stack.examine_layer_mode:
-            layer_index = layer_stack.focused_layer_layer_index
+            layer_index = layer_stack.focused_layer_idx
             visible_layer_indices = [] if layer_index is None or layer_stack.layers[layer_index].image is None else [layer_index]
         elif layer_stack.layers:
             visible_layer_indices = [layer_index for layer_index, layer in enumerate(layer_stack.layers) if layer.visible and layer.image is not None]
