@@ -196,7 +196,7 @@ class Flipbook(Qt.QWidget):
     def _expand_to_path_list(path):
         if isinstance(path, str):
             if '?' in path or '*' in path:
-                return list(map(pathlib.Path, glob.glob(path)))
+                return sorted(map(pathlib.Path, glob.glob(path)))
             else:
                 return [pathlib.Path(path)]
         elif isinstance(path, pathlib.Path):
