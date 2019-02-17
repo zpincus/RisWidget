@@ -11,6 +11,8 @@ Example 2: Pre-set bounds with a specified aspect ratio (width/height):
     roi = EllipseROI(ris_widget, aspect=2, geometry=((200, 400), (600, 500)))
 """
 
+import math
+
 from PyQt5 import Qt
 
 from .. import shared_resources
@@ -188,6 +190,18 @@ class _ROIMixin(base.RWGeometryItemMixin):
 
 class RectROI(_ROIMixin, Qt.QGraphicsRectItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+    @property
+    def slice(self):
+        geom = self.geometry
+        if geom is None:
+            return slice(None), slice(None)
+        else:
+            (x1, y1), (x2, y2) = geom
+            x1 = max(0, math.floor(x1))
+            y1 = max(0, math.floor(y1))
+            x2 = math.ceil(x2)
+            y2 = math.ceil(y2)
+            return slice(x1, x2+1), slice(y1, y2+1)
 
 
 class EllipseROI(_ROIMixin, Qt.QGraphicsEllipseItem):
