@@ -190,6 +190,7 @@ class _ROIMixin(base.RWGeometryItemMixin):
 
 class RectROI(_ROIMixin, Qt.QGraphicsRectItem):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+
     @property
     def slice(self):
         geom = self.geometry
@@ -202,6 +203,30 @@ class RectROI(_ROIMixin, Qt.QGraphicsRectItem):
             x2 = math.ceil(x2)
             y2 = math.ceil(y2)
             return slice(x1, x2+1), slice(y1, y2+1)
+
+
+class RoundRectROI(RectROI):
+    QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
+
+    def __init__(self, ris_widget, pen=None, geometry=None, aspect=None, radius=0.25):
+        """Rounded Rect ROI
+
+        Parameters:
+            ris_widget: a ris_widget instance to draw an ROI on
+            pen: a QPen for the ROI
+            geometry: ((x1, y1), (x2, y2)) coordinates of upper-left and lower-
+                right corners. If None, the ROI can be drawn by clicking.
+            aspect: width/height ratio to maintain, or None
+            radius: the radius of the rounded rect corners as a fraction of the
+                width of the rect.
+        """
+        self.radius = radius
+        super().__init__(ris_widget, pen, geometry, aspect)
+
+    def paint(self, painter, option, widget):
+        painter.setPen(self.pen())
+        radius = self.rect().width() * self.radius
+        painter.drawRoundedRect(self.rect(), radius, radius)
 
 
 class EllipseROI(_ROIMixin, Qt.QGraphicsEllipseItem):
