@@ -16,7 +16,10 @@ ICON = None
 def init_qapplication(icon_resource_path=(__name__, 'icon.svg')):
     global _QAPPLICATION
     if _QAPPLICATION is None:
-        assert Qt.QApplication.instance() is None
+        # It seems to work even if there is an already-extant QApplication
+        # instance (e.g. started by matplotlib or whatnot). So maybe the below
+        # test isn't needed? TODO: verify that this is the case on all platforms...
+        # assert Qt.QApplication.instance() is None
         pre_qapp_initialization()
         _QAPPLICATION = Qt.QApplication([])
 
