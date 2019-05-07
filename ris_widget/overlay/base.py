@@ -136,11 +136,7 @@ class SceneListener(Qt.QGraphicsItem):
 class Handle(Qt.QGraphicsRectItem):
     RECT = (-3, -3, 6, 6)
     def __init__(self, parent, layer_stack, brush, pen=None):
-        super().__init__(*self.RECT)
-        # TODO: WTF with PyQt5 v. 5.9 on Linux, core is dumped if the parent
-        # is set in the constructor above. (Only if the parent is a subclass
-        # of _ROIMixin?!) But parenting later works fine.
-        self.setParentItem(parent)
+        super().__init__(*self.RECT, parent=parent)
         self.layer_stack = layer_stack
         view = self.scene().views()[0]
         self._zoom_changed(view.zoom)
