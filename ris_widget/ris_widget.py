@@ -219,7 +219,7 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
     def showEvent(self, event):
         if self.app_prefs_name and not self._shown:
             self._shown = True
-            settings = Qt.QSettings("zplab", self.app_prefs_name)
+            settings = Qt.QSettings('zplab', self.app_prefs_name)
             geometry = settings.value('main_window_geometry')
             if geometry is not None:
                 self.restoreGeometry(geometry)

@@ -22,9 +22,9 @@ class ImageView(base_view.BaseView):
         self.allow_wheel_zoom = allow_wheel_zoom
         self.zoom_to_fit_action = Qt.QAction('Zoom to Fit', self)
         self.zoom_to_fit_action.setCheckable(True)
-        self.zoom_to_fit_action.setChecked(True)
         self._ignore_zoom_to_fit_action_toggle = internal_util.Condition()
         self.zoom_to_fit_action.toggled.connect(self.on_zoom_to_fit_action_toggled)
+        self.zoom_to_fit_action.setChecked(True)
         self.zoom_changed.connect(self._on_zoom_changed)
         # Calling self.setDragMode(Qt.QGraphicsView.ScrollHandDrag) would enable QGraphicsView's built-in
         # click-drag panning, saving us from having to implement it.  However, QGraphicsView is very
@@ -160,6 +160,13 @@ class ImageView(base_view.BaseView):
         self.zoom_changed.emit(self._zoom)
 
     def on_zoom_to_fit_action_toggled(self):
+        if self.zoom_to_fit:
+            self.setHorizontalScrollBarPolicy(Qt.Qt.ScrollBarAlwaysOff)
+            self.setVerticalScrollBarPolicy(Qt.Qt.ScrollBarAlwaysOff)
+        else:
+            self.setHorizontalScrollBarPolicy(Qt.Qt.ScrollBarAsNeeded)
+            self.setVerticalScrollBarPolicy(Qt.Qt.ScrollBarAsNeeded)
+
         if not self._ignore_zoom_to_fit_action_toggle:
             if not self.zoom_to_fit:
                 # unchecking zoom to fit: return to 100%
