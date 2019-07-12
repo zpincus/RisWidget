@@ -25,12 +25,16 @@ except ModuleNotFoundError:
 # rely on the (better) ipython method.
 Qt.pyqtRemoveInputHook()
 
+ICON_RESOURCE_PATH = __name__, 'icon.svg'
+
 class RisWidgetBase:
-    def __init__(self, parent=None):
-        self.qapp = shared_resources.init_qapplication()
+    def __init__(self, subwidget_parent=None):
+        shared_resources.init_qapplication(ICON_RESOURCE_PATH)
+        # TODO: below may be necessary to quit cleanly in some cases? But maybe that's addressed elsewhere now...
+        #shared_resources.QAPPLICATION.aboutToQuit.connect(self.close)
         self.layer_stack = layer_stack.LayerStack()
-        self.image_scene = qgraphicsscenes.ImageScene(self.layer_stack, parent)
-        self.image_view = image_view.ImageView(self.image_scene, parent)
+        self.image_scene = qgraphicsscenes.ImageScene(self.layer_stack, subwidget_parent)
+        self.image_view = image_view.ImageView(self.image_scene, subwidget_parent)
 
     @property
     def layers(self):
@@ -65,8 +69,7 @@ class RisWidgetBase:
     def image(self, v):
         self.layer.image = v
 
-    @staticmethod
-    def input(message=''):
+    def input(self, message=''):
         """Replacement for python-builtin input() which will still allow a RisWidget
         to update while waiting for input.
         """
@@ -80,9 +83,46 @@ class RisWidgetBase:
             args = dict(inputhook=inputhook)
         return prompt_toolkit.prompt(message, **args)
 
+    def update(self):
+        """Calling this method on the main thread updates all Qt widgets immediately, without requiring
+        you to return from the current function or exit from the current loop.
+
+        For example, the following code will create and show a RisWidget that appears to be non-responsive
+        for ten seconds, after which a white square is displayed:
+
+        import numpy
+        from ris_widget.ris_widget import RisWidget; rw = RisWidget()
+        import time
+        rw.image = numpy.zeros((100,100), dtype=numpy.uint8)
+        for intensity in numpy.linspace(0,255,100).astype(numpy.uint8):
+            time.sleep(0.1)
+            rw.image.data[:] = intensity
+            rw.image.refresh()
+
+        Adding an rw.update() call to the loop fixes this:
+
+        import numpy
+        from ris_widget.ris_widget import RisWidget; rw = RisWidget()
+        import time
+        rw.image = numpy.zeros((100,100), dtype=numpy.uint8)
+        for intensity in numpy.linspace(0,255,100).astype(numpy.uint8):
+            rw.update()
+            time.sleep(0.1)
+            rw.image.data[:] = intensity
+            rw.image.refresh()
+        """
+        Qt.QApplication.processEvents()
+
+    def run(self):
+        """Run the Qt application event loop in a way that it can still be interrupted
+        with control-c. Can be used to hand over control to the event loop permanently
+        (as when running as a standalone application), or temporarily from IPython
+        while still allowing control-c to return to the regular interpreter."""
+        shared_resources.run_qapplication()
+
 class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
-    def __init__(self, app_prefs_name=None, window_title='RisWidget', parent=None):
-        RisWidgetBase.__init__(self, parent=self)
+    def __init__(self, app_prefs_name='RisWidget', window_title='RisWidget', parent=None):
+        RisWidgetBase.__init__(self, subwidget_parent=self)
         Qt.QMainWindow.__init__(self, parent)
         self.app_prefs_name = app_prefs_name
         self._shown = False
@@ -94,10 +134,6 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
         self._init_actions()
         self._init_toolbars()
         self._init_menus()
-        self.qapp.aboutToQuit.connect(self._on_about_to_quit)
-
-    def _on_about_to_quit(self):
-        self.close()
 
     def _init_scenes_and_views(self):
         self.setCentralWidget(self.image_view)
@@ -308,7 +344,7 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
 
 class RisWidget:
     def __init__(self, window_title='RisWidget'):
-        self.qt_object = RisWidgetQtObject(app_prefs_name='RisWidget', window_title=window_title)
+        self.qt_object = RisWidgetQtObject(window_title=window_title)
         qo = self.qt_object
         self.flipbook = qo.flipbook
         self.image_scene = qo.image_scene
@@ -318,6 +354,9 @@ class RisWidget:
         self.show = qo.show
         self.hide = qo.hide
         self.close = qo.close
+        self.run = qo.run
+        self.update = qo.update
+        self.input = qo.input
         self.add_image_files_to_flipbook = self.flipbook.add_image_files
         self.snapshot = self.qt_object.image_view.snapshot
         self.actions = {}
@@ -341,38 +380,6 @@ class RisWidget:
             raise RuntimeError('annotator already added')
         self._annotator_widget, self.annotator = dock_widgets.Annotator.add_dock_widget(self.qt_object, fields=fields)
 
-    def update(self):
-        """Calling this method on the main thread updates all Qt widgets immediately, without requiring
-        you to return from the current function or exit from the current loop.
-
-        For example, the following code will create and show a RisWidget that appears to be non-responsive
-        for ten seconds, after which a white square is displayed:
-
-        import numpy
-        from ris_widget.ris_widget import RisWidget; rw = RisWidget()
-        import time
-        rw.image = numpy.zeros((100,100), dtype=numpy.uint8)
-        for intensity in numpy.linspace(0,255,100).astype(numpy.uint8):
-            time.sleep(0.1)
-            rw.image.data[:] = intensity
-            rw.image.refresh()
-
-        Adding an rw.update() call to the loop fixes this:
-
-        import numpy
-        from ris_widget.ris_widget import RisWidget; rw = RisWidget()
-        import time
-        rw.image = numpy.zeros((100,100), dtype=numpy.uint8)
-        for intensity in numpy.linspace(0,255,100).astype(numpy.uint8):
-            rw.update()
-            time.sleep(0.1)
-            rw.image.data[:] = intensity
-            rw.image.refresh()
-        """
-        Qt.QApplication.processEvents()
-
-
-    input = staticmethod(RisWidgetQtObject.input)
     image = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.image)
     layer = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.layer)
     focused_layer = internal_util.ProxyProperty('qt_object', RisWidgetQtObject.focused_layer)
@@ -396,7 +403,7 @@ def main(argv=None):
     else:
         ris_widget = RisWidget()
         ris_widget.add_image_files_to_flipbook(args.images)
-        shared_resources._QAPPLICATION.exec()
+        ris_widget.run()
 
 if __name__ == '__main__':
     main()

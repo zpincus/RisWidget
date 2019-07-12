@@ -5,8 +5,8 @@ from PyQt5 import Qt
 from . import ris_widget
 
 class LinkedRisWidget(ris_widget.RisWidgetBase):
-    def __init__(self, src_ris_widget, link_zoom=False, parent=None):
-        super().__init__(parent=parent)
+    def __init__(self, src_ris_widget, link_zoom=False):
+        super().__init__(subwidget_parent=src_ris_widget)
         src_ris_widget.layer_stack.layer_focus_changed.connect(self._on_src_layer_focus_changed)
         self._on_src_layer_focus_changed(src_ris_widget.layer_stack, None, src_ris_widget.focused_layer)
         if link_zoom:
@@ -29,13 +29,12 @@ class LinkedRisWidget(ris_widget.RisWidgetBase):
     def _src_zoom_changed(self, zoom):
         self.image_view.zoom = zoom
 
-
-def split_view(ris_widget):
-    ris_widget.alt_view = LinkedRisWidget(ris_widget, parent=ris_widget)
+def split_view(ris_widget, stretch_factors=(1, 1), link_zoom=False):
+    ris_widget.alt_view = LinkedRisWidget(ris_widget, link_zoom=link_zoom)
     ris_widget.splitter = Qt.QSplitter(Qt.Qt.Vertical)
     ris_widget.splitter.addWidget(ris_widget.qt_object.takeCentralWidget())
-    ris_widget.splitter.setStretchFactor(0, 45)
+    ris_widget.splitter.setStretchFactor(0, stretch_factors[0])
     ris_widget.splitter.setCollapsible(0, False)
     ris_widget.splitter.addWidget(ris_widget.alt_view.image_view)
-    ris_widget.splitter.setStretchFactor(1, 10)
+    ris_widget.splitter.setStretchFactor(1, stretch_factors[1])
     ris_widget.qt_object.setCentralWidget(ris_widget.splitter)

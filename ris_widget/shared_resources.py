@@ -10,27 +10,27 @@ import sip
 
 from . import async_texture
 
-_QAPPLICATION = None
+QAPPLICATION = None
 ICON = None
 
-def init_qapplication(icon_resource_path=(__name__, 'icon.svg')):
-    global _QAPPLICATION
-    if _QAPPLICATION is None:
+def init_qapplication(icon_resource_path=None):
+    global QAPPLICATION
+    if QAPPLICATION is None:
         # It seems to work even if there is an already-extant QApplication
         # instance (e.g. started by matplotlib or whatnot). So maybe the below
         # test isn't needed? TODO: verify that this is the case on all platforms...
         # assert Qt.QApplication.instance() is None
         pre_qapp_initialization()
-        _QAPPLICATION = Qt.QApplication([])
+        QAPPLICATION = Qt.QApplication([])
 
         if icon_resource_path is not None:
             ICON = Qt.QIcon(pkg_resources.resource_filename(*icon_resource_path))
-            _QAPPLICATION.setWindowIcon(ICON)
+            QAPPLICATION.setWindowIcon(ICON)
 
         try:
             # are we running in IPython?
             import IPython
-            ipython = IPython.get_ipython() # only not None if IPython is currently running
+            ipython = IPython.get_ipython() # None if IPython is not currently running
         except ModuleNotFoundError:
             ipython = None
 
@@ -41,22 +41,26 @@ def init_qapplication(icon_resource_path=(__name__, 'icon.svg')):
             # so register a handler to do so
             atexit.register(_emit_about_to_quit)
 
-        else:
-            # install signal handlers so that Qt can be interrupted by control-c to quit
-            def sigint_handler(*args):
-                """Handler for the SIGINT signal."""
-                Qt.QApplication.quit()
-            signal.signal(signal.SIGINT, sigint_handler)
-            # now arrange for the QT event loop to allow the python interpreter to
-            # run occasionally. Otherwise it never runs, and hence the signal handler
-            # would never get called.
-            timer = Qt.QTimer()
-            timer.start(100)
-            # add a no-op callback for timeout. What's important is that the python interpreter
-            # gets a chance to run so it can see the signal and call the handler.
-            timer.timeout.connect(lambda: None)
-            _QAPPLICATION._timer = timer
-    return _QAPPLICATION
+def run_qapplication():
+    assert QAPPLICATION is not None
+    # install signal handlers so that Qt can be interrupted by control-c to quit
+    def sigint_handler(*args):
+        """Handler for the SIGINT signal."""
+        Qt.QApplication.quit()
+    old_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
+    # now arrange for the QT event loop to allow the python interpreter to
+    # run occasionally. Otherwise it never runs, and hence the signal handler
+    # would never get called.
+    timer = Qt.QTimer()
+    # add a no-op callback for timeout. What's important is that the python interpreter
+    # gets a chance to run so it can see the signal and call the handler.
+    timer.timeout.connect(lambda: None)
+    timer.start(100)
+    try:
+        QAPPLICATION.exec()
+    finally:
+        timer.stop()
+        signal.signal(signal.SIGINT, old_sigint_handler)
 
 
 MSAA_SAMPLE_COUNT = 2
