@@ -2,7 +2,8 @@
 
 import functools
 import numpy
-import _histogram
+
+from . import _histogram
 
 _mn = _histogram.ffi.new('uint8_t *')
 _mx = _histogram.ffi.new('uint8_t *')

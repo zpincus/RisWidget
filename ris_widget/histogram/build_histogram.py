@@ -13,7 +13,7 @@ hist_headers = '\n'.join(h + ';' for h in hist_def.findall(hist_source))
 
 ffibuilder = cffi.FFI()
 
-ffibuilder.set_source("_histogram", hist_source)
+ffibuilder.set_source("ris_widget.histogram._histogram", hist_source)
 ffibuilder.cdef(hist_headers)
 
 if __name__ == "__main__":
