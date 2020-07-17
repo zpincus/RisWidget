@@ -68,6 +68,7 @@ SWAP_INTERVAL = 0
 GL_QSURFACE_FORMAT = None
 def pre_qapp_initialization():
     Qt.QApplication.setAttribute(Qt.Qt.AA_ShareOpenGLContexts)
+    # TODO: is setdestroyonexit call below actually necesary?
     sip.setdestroyonexit(False)
 
     global GL_QSURFACE_FORMAT

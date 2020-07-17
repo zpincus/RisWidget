@@ -8,8 +8,8 @@ from . import point_set
 class _PolylinePointHandle(point_set._PointHandle):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
 
-    def __init__(self, layer_stack, brush, pen=None):
-        super().__init__(layer_stack, layer_stack, brush, pen)
+    def __init__(self, point_set, pos, brush, pen=None):
+        super().__init__(point_set, pos, brush, pen)
         self._set_active(False)
 
     def _set_active(self, active):
@@ -21,10 +21,10 @@ class Polyline(point_set.PointSet):
     QGRAPHICSITEM_TYPE = shared_resources.generate_unique_qgraphicsitem_type()
     POINT_TYPE = _PolylinePointHandle
 
-    def __init__(self, ris_widget, pen=None, geometry=None):
+    def __init__(self, ris_widget, brush=None, pen=None, geometry=None):
         self._active_drawing = False
         self._last_pos = None
-        super().__init__(ris_widget, pen, geometry, max_points=None)
+        super().__init__(ris_widget, brush=brush, pen=pen, geometry=geometry, max_points=None)
 
     @point_set.PointSet.geometry.setter
     def geometry(self, geometry):
