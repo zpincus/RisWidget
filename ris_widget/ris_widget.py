@@ -30,8 +30,6 @@ ICON_RESOURCE_PATH = __name__, 'icon.svg'
 class RisWidgetBase:
     def __init__(self, subwidget_parent=None):
         shared_resources.init_qapplication(ICON_RESOURCE_PATH)
-        # TODO: below may be necessary to quit cleanly in some cases? But maybe that's addressed elsewhere now...
-        #shared_resources.QAPPLICATION.aboutToQuit.connect(self.close)
         self.layer_stack = layer_stack.LayerStack()
         self.image_scene = qgraphicsscenes.ImageScene(self.layer_stack, subwidget_parent)
         self.image_view = image_view.ImageView(self.image_scene, subwidget_parent)
@@ -124,6 +122,11 @@ class RisWidgetQtObject(RisWidgetBase, Qt.QMainWindow):
     def __init__(self, app_prefs_name='RisWidget', window_title='RisWidget', parent=None):
         RisWidgetBase.__init__(self, subwidget_parent=self)
         Qt.QMainWindow.__init__(self, parent)
+        # below is necessary to quit cleanly, especially with QGraphicsItems onscreen and similar:
+        # if Qt is shutting down while the window is still open, then python code can get called
+        # after the backing Qt C++ objects have been deleted.
+        shared_resources.QAPPLICATION.aboutToQuit.connect(self.close)
+
         self.app_prefs_name = app_prefs_name
         self._shown = False
         if window_title is not None:
