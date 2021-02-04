@@ -533,13 +533,15 @@ class PagesView(Qt.QTableView):
         self.setWordWrap(False)
 
 class PagesModel(drag_drop_model_behavior.DragDropModelBehavior, property_table_model.PropertyTableModel):
+    EDITABLE = True
+
     def can_drop_rows(self, src_model, src_rows, dst_row, dst_column, dst_parent):
         return isinstance(src_model, PagesModel)
 
     def flags(self, midx):
         if midx.isValid() and midx.column() == 0:
             image_list = self.signaling_list[midx.row()]
-            if len(image_list) == 0:
+            if len(image_list) == 0 or not self.EDITABLE:
                 return super().flags(midx) & ~Qt.Qt.ItemIsEditable
         return super().flags(midx)
 
