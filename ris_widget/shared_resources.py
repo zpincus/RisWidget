@@ -6,7 +6,7 @@ import signal
 
 import numpy
 from PyQt5 import Qt
-import sip
+from PyQt5 import sip
 
 from . import async_texture
 

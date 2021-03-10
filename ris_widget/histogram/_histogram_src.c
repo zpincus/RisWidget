@@ -100,8 +100,9 @@ void ranged_hist_uint16(const char *image, uint16_t rows, uint16_t cols, uint32_
     for (row_start = image; row_start != image + rows*r_stride; row_start += r_stride) {
         for (pixel = row_start; pixel != row_start + cols*c_stride; pixel += c_stride) {
             uint16_t val = *(uint16_t *) pixel;
-            if (val >= hist_min && val < hist_max) histogram[(uint16_t) (bin_factor * (val - hist_min))]++;
-            else if (val == hist_max) (*last_bin)++;
+            int32_t bin = bin_factor * (val - hist_min);
+            if (bin >= 0 && bin < n_bins) histogram[bin]++;
+            else if (val <= hist_max) (*last_bin)++;
 
             if (val < working_min) working_min = val;
             else if (val > working_max) working_max = val;
@@ -141,8 +142,9 @@ void masked_ranged_hist_uint16(const char *image, uint16_t rows, uint16_t cols, 
     for (row_start = image; row_start != image + rows*r_stride; row_start += r_stride, starts++, ends++) {
         for (pixel = row_start + (*starts)*c_stride; pixel != row_start + (*ends)*c_stride; pixel += c_stride) {
             uint16_t val = *(uint16_t *) pixel;
-            if (val >= hist_min && val < hist_max) histogram[(uint16_t) (bin_factor * (val - hist_min))]++;
-            else if (val == hist_max) (*last_bin)++;
+            int32_t bin = bin_factor * (val - hist_min);
+            if (bin >= 0 && bin < n_bins) histogram[bin]++;
+            else if (val <= hist_max) (*last_bin)++;
 
             if (val < working_min) working_min = val;
             else if (val > working_max) working_max = val;
@@ -193,9 +195,10 @@ void ranged_hist_float(const char *image, uint16_t rows, uint16_t cols, uint32_t
     for (row_start = image; row_start != image + rows*r_stride; row_start += r_stride) {
         for (pixel = row_start; pixel != row_start + cols*c_stride; pixel += c_stride) {
             float val = *(float *) pixel;
-            if (val >= hist_min && val < hist_max)
-                histogram[(uint16_t) (bin_factor * (val - hist_min))]++;
-            else if (val == hist_max) (*last_bin)++;
+            // NB: due to float imprecision, bin can still == n_bins, even if val < hist_max
+            int32_t bin = bin_factor * (val - hist_min);
+            if (bin >= 0 && bin < n_bins) histogram[bin]++;
+            else if (val <= hist_max) (*last_bin)++;
         }
     }
 }
@@ -209,9 +212,10 @@ void masked_ranged_hist_float(const char *image, uint16_t rows, uint16_t cols, u
     for (row_start = image; row_start != image + rows*r_stride; row_start += r_stride, starts++, ends++) {
         for (pixel = row_start + (*starts)*c_stride; pixel != row_start + (*ends)*c_stride; pixel += c_stride) {
             float val = *(float *) pixel;
-            if (val >= hist_min && val < hist_max)
-                histogram[(uint16_t) (bin_factor * (val - hist_min))]++;
-            else if (val == hist_max) (*last_bin)++;
+            // NB: due to float imprecision, bin can still == n_bins, even if val < hist_max
+            int32_t bin = bin_factor * (val - hist_min);
+            if (bin >= 0 && bin < n_bins) histogram[bin]++;
+            else if (val <= hist_max) (*last_bin)++;
         }
     }
 }
